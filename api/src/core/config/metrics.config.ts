@@ -1,4 +1,4 @@
-import type { MetricConfig } from '../db/query/types.js';
+import type { MetricConfig } from '../db/clickhouse/query/types.js';
 
 /**
  * ========================================================================

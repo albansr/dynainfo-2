@@ -1,5 +1,6 @@
-import type { FilterCondition } from './filter-builder.js';
 import type { MetricConfig } from './types.js';
+
+export type { FilterCondition } from './filter-builder.js';
 
 /**
  * Dependency Injection interfaces
@@ -16,7 +17,7 @@ export interface IAnalyticsQueryBuilder {
    */
   buildMultiTableYoYQuery(config: {
     metrics: readonly MetricConfig[];
-    currentPeriodFilters: FilterCondition[];
+    currentPeriodFilters: import('./filter-builder.js').FilterCondition[];
   }): Promise<Record<string, number>>;
 
   /**
@@ -24,10 +25,12 @@ export interface IAnalyticsQueryBuilder {
    */
   buildGroupedMultiTableYoYQuery(config: {
     metrics: readonly MetricConfig[];
-    currentPeriodFilters: FilterCondition[];
+    currentPeriodFilters: import('./filter-builder.js').FilterCondition[];
     groupBy: string;
     limit?: number;
     offset?: number;
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
   }): Promise<Array<Record<string, number | string>>>;
 
   /**
@@ -36,6 +39,8 @@ export interface IAnalyticsQueryBuilder {
   buildDistinctValuesQuery(config: {
     table: string;
     column: string;
-    filters: FilterCondition[];
+    filters: import('./filter-builder.js').FilterCondition[];
+    limit?: number;
+    offset?: number;
   }): Promise<string[]>;
 }

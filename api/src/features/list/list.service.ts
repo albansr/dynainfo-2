@@ -54,8 +54,8 @@ export class ListService {
     });
 
     // Extract total count from first row (window function returns same value in all rows)
-    const total = results.length > 0 && '_total_count' in results[0]
-      ? Number(results[0]['_total_count'])
+    const total = results.length > 0 && '_total_count' in results[0]!
+      ? Number(results[0]!['_total_count'])
       : results.length;
 
     // Build array of responses using shared utility
@@ -77,7 +77,7 @@ export class ListService {
         id,
         name,
         ...buildDynamicResponse(numericResult),
-      } as ListItemResponse;
+      } as unknown as ListItemResponse;
     });
 
     // Calculate total pages

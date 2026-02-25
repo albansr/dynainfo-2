@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { UsersService } from './users.service.js';
+import { UsersService, type ListUsersParams } from './users.service.js';
 import { authenticate } from '../../core/middleware/authenticate.js';
 import { requireAdmin, requireSuperadmin } from '../../core/middleware/authorize.js';
 import { NotFoundError } from '../../core/errors/app-error.js';
@@ -58,7 +58,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const result = await service.listUsers(request.query);
+      const result = await service.listUsers(request.query as ListUsersParams);
       return reply.send(result);
     }
   );
@@ -142,7 +142,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
       const body = request.body as {
         email: string;
         name?: string;
-        role?: string;
+        role?: 'user' | 'admin' | 'superadmin';
         isActive?: boolean;
       };
 
@@ -198,7 +198,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const body = request.body as {
         name?: string;
-        role?: string;
+        role?: 'user' | 'admin' | 'superadmin';
         isActive?: boolean;
       };
 

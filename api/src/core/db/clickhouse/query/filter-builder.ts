@@ -122,8 +122,9 @@ export class FilterBuilder {
       date.setFullYear(date.getFullYear() + years);
 
       return {
-        ...filter,
-        value: date.toISOString().split('T')[0],
+        field: filter.field,
+        operator: filter.operator,
+        value: date.toISOString().split('T')[0]!,
       };
     });
   }

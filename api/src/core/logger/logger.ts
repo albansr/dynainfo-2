@@ -19,16 +19,18 @@ export const logger = pino({
 
   // Development: pretty print with colors
   // Production: structured JSON
-  transport: isDevelopment ? {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'HH:MM:ss.l',
-      ignore: 'pid,hostname',
-      singleLine: false,
-      messageFormat: '{levelLabel} - {msg}',
+  ...(isDevelopment ? {
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: 'HH:MM:ss.l',
+        ignore: 'pid,hostname',
+        singleLine: false,
+        messageFormat: '{levelLabel} - {msg}',
+      },
     },
-  } : undefined,
+  } : {}),
 
   // Redact sensitive fields (GDPR compliance)
   redact: {
@@ -58,8 +60,8 @@ export const logger = pino({
   formatters: {
     level: (label) => ({ level: label }),
     bindings: (bindings) => ({
-      pid: bindings.pid,
-      hostname: bindings.hostname,
+      pid: bindings['pid'],
+      hostname: bindings['hostname'],
       node_version: process.version,
     }),
   },

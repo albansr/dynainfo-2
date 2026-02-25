@@ -28,13 +28,11 @@ export const auth = betterAuth({
   // Email OTP plugin
   plugins: [
     emailOTP({
-      async sendVerificationOTP({ email, otp, type }) {
+      async sendVerificationOTP({ email, otp }) {
         await sendOTPEmail(email, otp);
       },
       otpLength: 6,
       expiresIn: 600, // 10 minutes
-      sendOnSignUp: false, // Don't send OTP to new users
-      disableSignUp: true, // Only admins can create users
     }),
   ],
 

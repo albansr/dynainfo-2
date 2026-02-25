@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+
+type HeadersInit = Record<string, string>;
 import { auth } from '../../core/auth/auth.js';
 import {
   SendOTPRequestSchema,
@@ -33,12 +35,11 @@ export async function authRoutes(fastify: FastifyInstance) {
     const host = request.headers.host || 'localhost:3000';
     const url = `${protocol}://${host}${request.url}`;
 
+    const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
     const webRequest = new Request(url, {
       method: request.method,
       headers: request.headers as HeadersInit,
-      body: request.method !== 'GET' && request.method !== 'HEAD'
-        ? JSON.stringify(request.body)
-        : undefined,
+      ...(hasBody && request.body ? { body: JSON.stringify(request.body) } : {}),
     });
 
     const authResponse = await auth.handler(webRequest);

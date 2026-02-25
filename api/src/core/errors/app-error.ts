@@ -79,7 +79,7 @@ export class AppError extends Error {
       detail: this.message,
       instance,
       traceId,
-      ...(this.details && { errors: this.details }),
+      ...(this.details ? { errors: this.details } : {}),
     };
   }
 }

@@ -45,7 +45,7 @@ export class UsersService {
     }
 
     if (role) {
-      conditions.push(eq(users.role, role));
+      conditions.push(eq(users.role, role as 'user' | 'admin' | 'superadmin'));
     }
 
     if (isActive !== undefined) {
@@ -53,10 +53,12 @@ export class UsersService {
     }
 
     // Get total count
-    const [{ count: totalCount }] = await db
-      .select({ count: db.$count() })
+    const countResult = await db
+      .select({ count: db.$count(users.id) })
       .from(users)
       .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+    const totalCount = countResult[0]?.count ?? 0;
 
     // Get paginated results
     const data = await db
@@ -104,11 +106,15 @@ export class UsersService {
       .values({
         email: data.email!,
         name: data.name,
-        role: data.role || 'user',
+        role: (data.role as 'user' | 'admin' | 'superadmin' | undefined) || 'user',
         isActive: data.isActive ?? true,
         emailVerified: false,
       })
       .returning();
+
+    if (!newUser) {
+      throw new Error('Failed to create user');
+    }
 
     return newUser;
   }
@@ -146,7 +152,7 @@ export class UsersService {
    * Permanently delete user (hard delete - superadmin only)
    */
   async permanentlyDeleteUser(id: string): Promise<boolean> {
-    const result = await db.delete(users).where(eq(users.id, id));
-    return result.rowCount > 0;
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
   }
 }

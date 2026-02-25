@@ -299,7 +299,7 @@ setup-prod: ## 🔧 Interactive production environment setup
 		POSTGRES_PASSWORD=$$(openssl rand -hex 16); \
 		echo "$(GREEN)✓ Generated password: $$POSTGRES_PASSWORD$(RESET)"; \
 	fi; \
-	POSTGRES_URL="postgresql://dynainfo:$$POSTGRES_PASSWORD@localhost:5432/dynainfo"; \
+	POSTGRES_URL="postgresql://dynainfo:$$POSTGRES_PASSWORD@postgres:5432/dynainfo"; \
 	echo ""; \
 	echo "$(BOLD)$(MAGENTA)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"; \
 	echo "$(BOLD)$(MAGENTA)  4. ClickHouse Configuration$(RESET)"; \
@@ -509,11 +509,11 @@ deploy-db: ## 💾 Setup production database (run after first deploy)
 	@echo "$(YELLOW)Waiting for PostgreSQL to be ready...$(RESET)"
 	@sleep 8
 	@echo "$(YELLOW)Pushing database schema...$(RESET)"
-	@cd api && npm run db:push
+	@docker compose -f api/docker-compose.production.yml exec -T api npm run db:push
 	@echo "$(GREEN)✓ Schema applied$(RESET)"
 	@echo ""
 	@echo "$(YELLOW)Seeding database with initial data...$(RESET)"
-	@cd api && npm run db:seed
+	@docker compose -f api/docker-compose.production.yml exec -T api npm run db:seed
 	@echo "$(GREEN)✓ Database seeded$(RESET)"
 	@echo ""
 	@echo "$(GREEN)$(BOLD)✅ Database setup complete!$(RESET)"

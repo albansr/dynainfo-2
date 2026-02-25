@@ -85,7 +85,7 @@ export function createErrorResponse(
     detail: isProduction ? sanitizeErrorMessage(message) : message,
     instance: request.url,
     traceId: request.id,
-    ...(errors && { errors }),
+    ...(errors ? { errors } : {}),
   };
 }
 

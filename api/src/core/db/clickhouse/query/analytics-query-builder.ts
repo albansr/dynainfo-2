@@ -209,7 +209,8 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       format: 'JSONEachRow',
     });
 
-    return await resultSet.json<Array<Record<string, number | string>>>();
+    const results = await resultSet.json<Record<string, number | string>>();
+    return Array.isArray(results) ? results : [results];
   }
 
   /**
@@ -530,15 +531,15 @@ ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}${paginationClause}
       const paramName = `filter_${f.field}_${index}`;
 
       switch (f.operator) {
-        case '>=':
+        case 'gte':
           queryParams[paramName] = String(f.value);
           conditions.push(`${f.field} >= {${paramName}:String}`);
           break;
-        case '<=':
+        case 'lte':
           queryParams[paramName] = String(f.value);
           conditions.push(`${f.field} <= {${paramName}:String}`);
           break;
-        case '=':
+        case 'eq':
           queryParams[paramName] = String(f.value);
           conditions.push(`${f.field} = {${paramName}:String}`);
           break;
@@ -546,6 +547,18 @@ ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}${paginationClause}
           const values = Array.isArray(f.value) ? f.value : [f.value];
           queryParams[paramName] = values.map(String);
           conditions.push(`${f.field} IN {${paramName}:Array(String)}`);
+          break;
+        case 'gt':
+          queryParams[paramName] = String(f.value);
+          conditions.push(`${f.field} > {${paramName}:String}`);
+          break;
+        case 'lt':
+          queryParams[paramName] = String(f.value);
+          conditions.push(`${f.field} < {${paramName}:String}`);
+          break;
+        case 'neq':
+          queryParams[paramName] = String(f.value);
+          conditions.push(`${f.field} != {${paramName}:String}`);
           break;
       }
     });
@@ -574,7 +587,7 @@ ${paginationClause}
       query_params: queryParams,
       format: 'JSONEachRow',
       clickhouse_settings: {
-        max_result_rows: 10000, // Allow up to 10k distinct values
+        max_result_rows: '10000', // Allow up to 10k distinct values
         result_overflow_mode: 'throw',
       },
     });

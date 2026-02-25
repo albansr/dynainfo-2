@@ -30,7 +30,7 @@ const ROLE_HIERARCHY: Record<Role, number> = {
  * ```
  */
 export function authorize(requiredRole: Role) {
-  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  return async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
     // User should be attached by authenticate middleware
     const user = request.user;
 

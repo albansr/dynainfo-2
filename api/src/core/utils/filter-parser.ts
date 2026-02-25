@@ -1,4 +1,4 @@
-import type { FilterCondition } from '../db/query/interfaces.js';
+import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
 
 /**
  * Reserved query parameters that should not be treated as filters
@@ -50,7 +50,7 @@ export function parseDynamicFilters(
         filters.push({
           field,
           operator: 'eq',
-          value: values[0]
+          value: values[0]!
         });
       } else {
         // Multiple values: use 'in' operator
@@ -74,7 +74,7 @@ export function parseDynamicFilters(
         filters.push({
           field,
           operator: 'eq',
-          value: stringValues[0]
+          value: stringValues[0]!
         });
       } else {
         filters.push({

@@ -26,7 +26,7 @@ export class LabelsService {
     if (startDate) {
       filters.push({
         field: 'date',
-        operator: '>=',
+        operator: 'gte',
         value: startDate,
       });
     }
@@ -34,7 +34,7 @@ export class LabelsService {
     if (endDate) {
       filters.push({
         field: 'date',
-        operator: '<=',
+        operator: 'lte',
         value: endDate,
       });
     }

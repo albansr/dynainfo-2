@@ -70,5 +70,6 @@ export const ApiInfoResponseSchema = Type.Object({
     health: Type.String(),
     balance: Type.String(),
     list: Type.String(),
+    labels: Type.String(),
   }),
 });

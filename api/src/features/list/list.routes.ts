@@ -68,7 +68,7 @@ export function listRoutes(
         ...(query.page && { page: query.page }),
         ...(query.limit && { limit: query.limit }),
         ...(query.orderBy && { orderBy: sanitizeFieldName(query.orderBy) }),
-        ...(query.orderDirection && { orderDirection: query.orderDirection }),
+        ...(query.orderDirection && { orderDirection: query.orderDirection as 'asc' | 'desc' }),
       };
 
       // Parse date filters from startDate/endDate
@@ -86,7 +86,7 @@ export function listRoutes(
         filters: allFilters,
       });
 
-      return reply.code(200).send(listResponse);
+      return reply.code(200).send(listResponse as any);
     }
   );
 }

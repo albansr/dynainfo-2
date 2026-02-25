@@ -60,20 +60,19 @@ async function buildServer() {
 
   // Initialize Fastify with TypeBox type provider
   const fastify = Fastify({
-    https: httpsOptions, // Will be undefined in development (uses HTTP)
+    ...(httpsOptions && { https: httpsOptions }), // Will be undefined in development (uses HTTP)
     logger: {
       level: config.NODE_ENV === 'production' ? 'info' : 'debug',
-      transport:
-        config.NODE_ENV === 'development'
-          ? {
-              target: 'pino-pretty',
-              options: {
-                colorize: true,
-                translateTime: 'HH:MM:ss Z',
-                ignore: 'pid,hostname',
-              },
-            }
-          : undefined,
+      ...(config.NODE_ENV === 'development' ? {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'HH:MM:ss Z',
+            ignore: 'pid,hostname',
+          },
+        },
+      } : {}),
     },
     requestIdLogLabel: 'reqId',
     disableRequestLogging: false,
@@ -261,7 +260,7 @@ async function buildServer() {
         },
       },
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       return reply.code(200).send({
         name: 'DynaInfo API',
         version: '1.0.0',

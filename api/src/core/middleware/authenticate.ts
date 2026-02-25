@@ -25,7 +25,7 @@ export async function authenticate(
 
     // Verify session with Better Auth
     const session = await auth.api.getSession({
-      headers: { authorization: `Bearer ${token}` },
+      headers: new Headers({ authorization: `Bearer ${token}` }),
     });
 
     if (!session || !session.user) {
@@ -37,7 +37,7 @@ export async function authenticate(
     // Attach user to request for use in route handlers
     (request as any).user = session.user;
   } catch (error) {
-    request.log.error('Authentication failed:', error);
+    request.log.error({ err: error }, 'Authentication failed');
     return reply.status(401).send({
       error: 'Authentication failed',
     });

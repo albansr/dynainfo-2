@@ -41,6 +41,10 @@ async function seed() {
         .where(eq(users.id, existing.id))
         .returning();
 
+      if (!updated) {
+        throw new Error('Failed to update user');
+      }
+
       console.log('✅ User updated successfully!');
       console.log(`   ID: ${updated.id}`);
       console.log(`   Email: ${updated.email}`);
@@ -59,6 +63,10 @@ async function seed() {
           emailVerified: false,
         })
         .returning();
+
+      if (!newUser) {
+        throw new Error('Failed to create user');
+      }
 
       console.log('✅ Superadmin created successfully!');
       console.log(`   ID: ${newUser.id}`);
