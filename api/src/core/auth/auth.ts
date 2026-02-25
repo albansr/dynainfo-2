@@ -59,6 +59,15 @@ export const auth = betterAuth({
     process.env['ORIGIN_URL']!, // Frontend Vercel/production URL
     'http://localhost:4000', // Frontend dev server
   ],
+
+  // Advanced cookie configuration for cross-site iframe support
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: 'none', // Allow cookies in cross-site contexts (iframes)
+      secure: true, // HTTPS only (required with sameSite: "none")
+      partitioned: true, // Modern browser privacy standard (CHIPS)
+    },
+  },
 });
 
 // Export types for use in routes/middleware

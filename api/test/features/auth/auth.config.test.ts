@@ -79,20 +79,24 @@ describe('Auth Configuration', () => {
       expect(trustedOrigins).toContain('http://localhost:4000');
     });
 
-    it('should use secure cookie attributes', () => {
-      // Better Auth sets these by default:
+    it('should use secure cookie attributes for cross-site iframe support', () => {
+      // Better Auth custom configuration for iframe/cross-site support:
       // - HttpOnly: true (prevents XSS)
-      // - Secure: true (HTTPS only in production)
-      // - SameSite: 'lax' (CSRF protection)
+      // - Secure: true (HTTPS only - required with SameSite: 'none')
+      // - SameSite: 'none' (allows cookies in cross-site contexts/iframes)
+      // - Partitioned: true (modern browser privacy standard - CHIPS)
 
       const cookieSettings = {
         httpOnly: true,
-        secure: process.env['NODE_ENV'] === 'production',
-        sameSite: 'lax' as const,
+        secure: true,
+        sameSite: 'none' as const,
+        partitioned: true,
       };
 
       expect(cookieSettings.httpOnly).toBe(true);
-      expect(cookieSettings.sameSite).toBe('lax');
+      expect(cookieSettings.secure).toBe(true);
+      expect(cookieSettings.sameSite).toBe('none');
+      expect(cookieSettings.partitioned).toBe(true);
     });
   });
 
