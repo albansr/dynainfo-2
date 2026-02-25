@@ -4,12 +4,14 @@ import { emailOTP } from 'better-auth/plugins';
 import { db } from '../db/postgres/client.js';
 import { users, session, verification } from '../db/postgres/schema.js';
 import { sendOTPEmail } from './email.service.js';
+import { dynaSSO } from './plugins/sso.plugin.js';
 
 /**
- * Better Auth configuration with Email OTP plugin
+ * Better Auth configuration with Email OTP and SSO plugins
  *
  * Features:
  * - Email OTP authentication (6-digit code, 10-minute expiry)
+ * - SSO integration with Dyna system (JWT token validation)
  * - Session management with JWT
  * - Automatic database schema handling
  * - Resend integration for email delivery
@@ -25,7 +27,7 @@ export const auth = betterAuth({
     },
   }),
 
-  // Email OTP plugin
+  // Email OTP plugin + SSO
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
@@ -34,6 +36,7 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 600, // 10 minutes
     }),
+    dynaSSO(), // Dyna system SSO with JWT validation
   ],
 
   // Session configuration

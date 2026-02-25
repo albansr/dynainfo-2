@@ -3,9 +3,7 @@ import { useBalance } from '@/core/api/hooks/useBalance';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
 import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
 import { MetricCard } from '../components/MetricCard';
-import { DataTable } from '../components/DataTable';
 import { PageHeader } from '@/core/components/PageHeader';
-import { dashboardTableColumns, getDashboardTableRows } from '../config/tableConfig';
 
 export function DashboardPage() {
   const { startDate, endDate } = useDateRange();
@@ -17,8 +15,6 @@ export function DashboardPage() {
 
   // const periodLabel = getPresetLabel(preset);
   const labelText = 'VENTAS (Facturado + comprometido)';
-
-  const tableRows = getDashboardTableRows(balanceData);
 
   return (
     <div>
@@ -117,13 +113,6 @@ export function DashboardPage() {
           />
         </div>
       </div>
-
-      <DataTable
-        columns={dashboardTableColumns}
-        rows={tableRows}
-        isLoading={isLoading}
-        className="mt-8"
-      />
     </div>
   );
 }

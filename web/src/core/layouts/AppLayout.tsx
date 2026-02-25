@@ -34,8 +34,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               {/* Compañía General - sin sección */}
               <ListboxItem
                 key="/dashboard"
-                href="/dashboard"
-                className={`cursor-pointer mb-4 ${location.pathname === '/dashboard' ? 'bg-gray-200/60' : ''}`}
+                href="/mantenimiento"
+                className="cursor-pointer mb-4"
               >
                 Compañía General
               </ListboxItem>
@@ -49,18 +49,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                     heading: "text-xs font-normal text-default-400 px-2 pb-1 uppercase",
                   }}
                 >
-                  {section.items.map((item) => {
-                    const isActive = location.pathname === item.href;
-                    return (
-                      <ListboxItem
-                        key={item.href}
-                        href={item.href}
-                        className={`cursor-pointer ${isActive ? 'bg-gray-200/60' : ''}`}
-                      >
-                        {item.label}
-                      </ListboxItem>
-                    );
-                  })}
+                  {section.items.map((item) => (
+                    <ListboxItem
+                      key={item.href}
+                      href={item.href}
+                      className="cursor-pointer"
+                    >
+                      {item.label}
+                    </ListboxItem>
+                  ))}
                 </ListboxSection>
               ))}
             </>

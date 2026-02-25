@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { CodeVerifyPage } from '@/features/auth/pages/CodeVerifyPage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
+import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
 import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
 import { BrandsPage } from '@/features/brands/pages/BrandsPage';
@@ -83,7 +84,17 @@ function App() {
                 </RouteGuard>
               }
             />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/mantenimiento"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <MaintenancePage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route path="/" element={<Navigate to="/mantenimiento" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

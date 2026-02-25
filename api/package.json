@@ -34,11 +34,13 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "fastify": "^5.2.0",
+    "jsonwebtoken": "^9.0.3",
     "postgres": "^3.4.7",
     "resend": "^6.6.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.3",
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",

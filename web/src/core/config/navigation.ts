@@ -26,17 +26,17 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       {
         key: 'distribucion',
         label: 'Distribución',
-        href: '/canales/distribucion',
+        href: '/mantenimiento',
       },
       {
         key: 'exportaciones',
         label: 'Exportaciones',
-        href: '/canales/exportaciones',
+        href: '/mantenimiento',
       },
       {
         key: 'cadenas',
         label: 'Cadenas',
-        href: '/canales/cadenas',
+        href: '/mantenimiento',
       },
     ],
   },
@@ -46,12 +46,12 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       {
         key: 'marcas-principal',
         label: 'Marcas',
-        href: '/proveedor-comercial/marcas',
+        href: '/mantenimiento',
       },
       {
         key: 'marcas-detalle',
         label: 'Marcas',
-        href: '/proveedor-comercial/marcas-detalle',
+        href: '/mantenimiento',
       },
     ],
   },
@@ -61,12 +61,12 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       {
         key: 'portafolio',
         label: 'Portafolio',
-        href: '/multivariados/portafolio',
+        href: '/mantenimiento',
       },
       {
         key: 'clientes',
         label: 'Clientes',
-        href: '/multivariados/clientes',
+        href: '/mantenimiento',
       },
     ],
   },
@@ -76,7 +76,7 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       {
         key: 'gmroi',
         label: 'GMROI',
-        href: '/inventarios/gmroi',
+        href: '/mantenimiento',
       },
     ],
   },
@@ -86,7 +86,7 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       {
         key: 'vera',
         label: 'Vera',
-        href: '/compania-vinculada/vera',
+        href: '/mantenimiento',
       },
     ],
   },
