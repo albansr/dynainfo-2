@@ -44,16 +44,7 @@ function App() {
                 </RouteGuard>
               }
             />
-            <Route
-              path="/dashboard"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DashboardPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
+            <Route path="/dashboard" element={<Navigate to="/mantenimiento" replace />} />
             <Route
               path="/canales/distribucion"
               element={
