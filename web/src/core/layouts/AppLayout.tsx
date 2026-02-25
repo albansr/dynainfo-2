@@ -30,38 +30,40 @@ export function AppLayout({ children }: AppLayoutProps) {
             className="space-y-6"
             selectionMode="none"
           >
-            {/* Compañía General - sin sección */}
-            <ListboxItem
-              key="/dashboard"
-              href="/dashboard"
-              className={`cursor-pointer mb-4 ${location.pathname === '/dashboard' ? 'bg-gray-200/60' : ''}`}
-            >
-              Compañía General
-            </ListboxItem>
-
-            {/* Resto de secciones */}
-            {NAVIGATION_SECTIONS.filter(section => section.title !== 'General').map((section) => (
-              <ListboxSection
-                key={section.title}
-                title={section.title}
-                classNames={{
-                  heading: "text-xs font-normal text-default-400 px-2 pb-1 uppercase",
-                }}
+            <>
+              {/* Compañía General - sin sección */}
+              <ListboxItem
+                key="/dashboard"
+                href="/dashboard"
+                className={`cursor-pointer mb-4 ${location.pathname === '/dashboard' ? 'bg-gray-200/60' : ''}`}
               >
-                {section.items.map((item) => {
-                  const isActive = location.pathname === item.href;
-                  return (
-                    <ListboxItem
-                      key={item.href}
-                      href={item.href}
-                      className={`cursor-pointer ${isActive ? 'bg-gray-200/60' : ''}`}
-                    >
-                      {item.label}
-                    </ListboxItem>
-                  );
-                })}
-              </ListboxSection>
-            ))}
+                Compañía General
+              </ListboxItem>
+
+              {/* Resto de secciones */}
+              {NAVIGATION_SECTIONS.filter(section => section.title !== 'General').map((section) => (
+                <ListboxSection
+                  key={section.title}
+                  title={section.title}
+                  classNames={{
+                    heading: "text-xs font-normal text-default-400 px-2 pb-1 uppercase",
+                  }}
+                >
+                  {section.items.map((item) => {
+                    const isActive = location.pathname === item.href;
+                    return (
+                      <ListboxItem
+                        key={item.href}
+                        href={item.href}
+                        className={`cursor-pointer ${isActive ? 'bg-gray-200/60' : ''}`}
+                      >
+                        {item.label}
+                      </ListboxItem>
+                    );
+                  })}
+                </ListboxSection>
+              ))}
+            </>
           </Listbox>
         </nav>
 
@@ -117,7 +119,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                   color="danger"
                   className="text-danger cursor-pointer"
                   startContent={<ArrowRightOnRectangleIcon className="h-5 w-5" />}
-                  onPress={logout}
+                  onPress={() => { void logout(); }}
                 >
                   Cerrar Sesión
                 </DropdownItem>

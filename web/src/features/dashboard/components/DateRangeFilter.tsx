@@ -75,24 +75,24 @@ export function DateRangeFilter() {
       >
         <SelectSection title="Períodos" showDivider>
           {presetOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
+            <SelectItem key={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
               {option.label}
             </SelectItem>
           ))}
         </SelectSection>
 
-        {yearOptions.length > 0 && (
+        {yearOptions.length > 0 ? (
           <SelectSection title="Años" showDivider>
             {yearOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
+              <SelectItem key={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
                 {option.label}
               </SelectItem>
             ))}
           </SelectSection>
-        )}
+        ) : null}
 
         <SelectSection>
-          <SelectItem key="custom" value="custom" className="!cursor-pointer" style={{ cursor: 'pointer' }}>
+          <SelectItem key="custom" className="!cursor-pointer" style={{ cursor: 'pointer' }}>
             Rango personalizado...
           </SelectItem>
         </SelectSection>

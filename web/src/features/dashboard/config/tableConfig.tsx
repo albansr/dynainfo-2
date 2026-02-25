@@ -1,7 +1,6 @@
 import type { Column, DataTableRow } from '../types/table';
 import type { BalanceSheetData } from '@/core/api/types';
 import { formatCurrency, formatPercentage } from '@/core/utils/formatters';
-import { GrowthIndicator } from '../components/GrowthIndicator';
 
 // Definición de columnas - fácil de extender
 export const dashboardTableColumns: Column[] = [
@@ -60,7 +59,6 @@ export const getDashboardTableRows = (apiData?: BalanceSheetData): DataTableRow[
 
   const marginPct2025 = apiData.sales !== 0 ? (apiData.gross_margin / apiData.sales) * 100 : 0;
   const marginPct2024 = apiData.sales_last_year !== 0 ? (apiData.gross_margin_last_year / apiData.sales_last_year) * 100 : 0;
-  const variationPct = marginPct2024 !== 0 ? ((marginPct2025 - marginPct2024) / marginPct2024) * 100 : 0;
 
   return [
     {

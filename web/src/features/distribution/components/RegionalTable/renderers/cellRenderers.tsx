@@ -7,7 +7,7 @@ import {
 import type { CellRenderer } from '../config/types';
 
 // Sales cell renderer (variation with arrow)
-export const salesCellRenderer: CellRenderer = (data, config, value) => {
+export const salesCellRenderer: CellRenderer = (_data, config, value) => {
   const { current, previous, variation } = value;
   const thresholds = config.thresholds!;
   const varColor = getVariationColor(variation, thresholds);
@@ -30,7 +30,7 @@ export const salesCellRenderer: CellRenderer = (data, config, value) => {
 };
 
 // Compliance cell renderer (amount + compliance %)
-export const complianceCellRenderer: CellRenderer = (data, config, value) => {
+export const complianceCellRenderer: CellRenderer = (_data, config, value) => {
   const { amount, compliance } = value;
   const thresholds = config.thresholds!;
   const compColor = getComplianceColor(compliance, thresholds);
@@ -49,7 +49,7 @@ export const complianceCellRenderer: CellRenderer = (data, config, value) => {
 };
 
 // Margin cell renderer (current margin + variation %)
-export const marginCellRenderer: CellRenderer = (data, config, value) => {
+export const marginCellRenderer: CellRenderer = (_data, config, value) => {
   const { current, previous, variation } = value;
   const thresholds = config.thresholds!;
   const marginColor = getMarginColor(current, thresholds);
@@ -74,9 +74,8 @@ export const marginCellRenderer: CellRenderer = (data, config, value) => {
 };
 
 // Margin budget cell renderer
-export const marginBudgetCellRenderer: CellRenderer = (data, config, value) => {
+export const marginBudgetCellRenderer: CellRenderer = (_data, config, value) => {
   const { budget, real } = value;
-  const thresholds = config.thresholds!;
   const delta = real - budget;
   // Color based on delta to match background color logic
   let budgetTextColor: string;
@@ -100,7 +99,7 @@ export const marginBudgetCellRenderer: CellRenderer = (data, config, value) => {
 };
 
 // Simple text cell
-export const textCellRenderer: CellRenderer = (data, config, value) => {
+export const textCellRenderer: CellRenderer = (_data, _config, value) => {
   return (
     <div className="px-4 text-left py-2.5">
       <div className="text-[12px] font-medium text-zinc-900">

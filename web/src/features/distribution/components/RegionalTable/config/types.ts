@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { RegionalData, TableConfig } from '../types';
 
 // Cell renderer receives the full row data and config

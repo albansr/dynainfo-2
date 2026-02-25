@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useDateRange } from '@/core/hooks/useDateRange';
-import { useList, type ListItemResponse } from '@/core/api/hooks/useList';
+import { useList, type ListItemResponse, type GroupByDimension } from '@/core/api/hooks/useList';
 import { useBalance } from '@/core/api/hooks/useBalance';
 import { RegionalTable } from '@/features/distribution/components/RegionalTable';
 import { PageHeader } from '@/core/components/PageHeader';
@@ -124,14 +124,14 @@ function calculateTotals(data: RegionalData[]): RegionalData {
 }
 
 export function BrandsPage() {
-  const { startDate, endDate, preset } = useDateRange();
+  const { startDate, endDate } = useDateRange();
 
   // Fetch balance data for metric cards
   const { data: balanceResponse, isLoading: isLoadingBalance } = useBalance(startDate, endDate);
   const balanceData = balanceResponse?.data;
 
   // Fetch list data for table grouped by product_id (marcas)
-  const { data: listData, isLoading: isLoadingList } = useList('product_id', startDate, endDate);
+  const { data: listData, isLoading: isLoadingList } = useList('product' as GroupByDimension, startDate, endDate);
 
   // Map API response to BrandData format
   const mappedData = useMemo(
@@ -147,20 +147,7 @@ export function BrandsPage() {
 
   const isLoading = isLoadingBalance || isLoadingList;
 
-  // Map preset to label
-  const getPresetLabel = (preset: number | string): string => {
-    if (typeof preset === 'number') return '';
-    const presetMap: Record<string, string> = {
-      'current-month': 'Mes actual',
-      'accumulated': 'Acumulado',
-      'last-30-days': 'Últimos 30 días',
-      'last-6-months': 'Últimos 6 meses',
-      'last-12-months': 'Últimos 12 meses',
-    };
-    return presetMap[preset] || preset;
-  };
-
-  const periodLabel = getPresetLabel(preset);
+  // const periodLabel = getPresetLabel(preset);
   const labelText = 'VENTAS (Facturado + comprometido)';
 
   // Calculate margin percentages from balance data
@@ -276,3 +263,4 @@ export function BrandsPage() {
     </div>
   );
 }
+

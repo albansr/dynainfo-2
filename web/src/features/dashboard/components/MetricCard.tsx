@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 interface MetricCardProps {
   label: string;
   value: ReactNode;
-  description: string;
+  description: ReactNode;
   isLoading?: boolean;
   centered?: boolean;
   size?: 'sm' | 'md' | 'lg';

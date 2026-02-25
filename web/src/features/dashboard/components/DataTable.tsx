@@ -46,7 +46,7 @@ export function DataTable({ columns, rows, isLoading, className = '' }: DataTabl
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
+            {rows.map((row, _rowIndex) => (
               <tr
                 key={row.key}
                 className="hover:bg-zinc-100 even:bg-zinc-50/80"

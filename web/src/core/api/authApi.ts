@@ -79,3 +79,13 @@ export const authApi = {
 };
 
 export { AuthApiError };
+
+// Re-export types for convenience
+export type {
+  SendOTPRequest,
+  SendOTPResponse,
+  VerifyOTPRequest,
+  VerifyOTPResponse,
+  GetSessionResponse,
+  ApiError,
+} from './types';

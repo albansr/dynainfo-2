@@ -29,3 +29,58 @@ export interface BalanceQueryParams {
   startDate?: string;
   endDate?: string;
 }
+
+// Auth API types
+export interface SendOTPRequest {
+  email: string;
+  type?: string;
+}
+
+export interface SendOTPResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface VerifyOTPRequest {
+  email: string;
+  code?: string;
+  otp?: string;
+}
+
+export interface VerifyOTPResponse {
+  user: {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+    name: string;
+    image: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  session: {
+    id: string;
+    userId: string;
+    expiresAt: string;
+  };
+}
+
+export interface GetSessionResponse {
+  user: {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+    name: string;
+    image: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  session: {
+    id: string;
+    userId: string;
+    expiresAt: string;
+  };
+}
+
+export interface ApiError {
+  message: string;
+}

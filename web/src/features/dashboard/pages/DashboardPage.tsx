@@ -8,27 +8,14 @@ import { PageHeader } from '@/core/components/PageHeader';
 import { dashboardTableColumns, getDashboardTableRows } from '../config/tableConfig';
 
 export function DashboardPage() {
-  const { startDate, endDate, preset } = useDateRange();
+  const { startDate, endDate } = useDateRange();
   const { data, isLoading } = useBalance(startDate, endDate);
 
   const balanceData = data?.data;
   const currentYear = endDate.getFullYear();
   const previousYear = currentYear - 1;
 
-  // Map preset to label
-  const getPresetLabel = (preset: number | string): string => {
-    if (typeof preset === 'number') return ''; // Don't show year in label
-    const presetMap: Record<string, string> = {
-      'current-month': 'Mes actual',
-      'accumulated': 'Acumulado',
-      'last-30-days': 'Últimos 30 días',
-      'last-6-months': 'Últimos 6 meses',
-      'last-12-months': 'Últimos 12 meses',
-    };
-    return presetMap[preset] || preset;
-  };
-
-  const periodLabel = getPresetLabel(preset);
+  // const periodLabel = getPresetLabel(preset);
   const labelText = 'VENTAS (Facturado + comprometido)';
 
   const tableRows = getDashboardTableRows(balanceData);
@@ -140,3 +127,4 @@ export function DashboardPage() {
     </div>
   );
 }
+

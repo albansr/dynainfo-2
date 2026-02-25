@@ -68,7 +68,7 @@ export function OTPInput({ length = 6, onComplete }: OTPInputProps) {
       {otp.map((digit, index) => (
         <div key={index} className="flex-1 aspect-square">
           <Input
-            ref={(el) => {
+            ref={(el: HTMLInputElement | null) => {
               inputRefs.current[index] = el;
             }}
             type="text"

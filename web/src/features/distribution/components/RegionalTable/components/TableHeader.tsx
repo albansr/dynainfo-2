@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import type { ColumnDefinition, ColumnGroup } from '../config/types';
 import type { TableConfig, SortKey, SortDirection } from '../types';
 
@@ -74,7 +74,7 @@ export const TableHeader = memo(function TableHeader({
 
   // Build first row respecting exact column order
   const firstRowElements = useMemo(() => {
-    const elements: JSX.Element[] = [];
+    const elements: React.ReactElement[] = [];
     const processedGroups = new Set<string>();
 
     columns.forEach((col) => {
@@ -85,7 +85,10 @@ export const TableHeader = memo(function TableHeader({
         // First column of a new group - render group header
         const group = groups.find((g) => g.id === col.group);
         if (group) {
-          elements.push(renderGroupCell(group));
+          const groupCell = renderGroupCell(group);
+          if (groupCell) {
+            elements.push(groupCell);
+          }
           processedGroups.add(col.group);
         }
       }

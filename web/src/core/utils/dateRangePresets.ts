@@ -1,6 +1,5 @@
 import {
   startOfMonth,
-  endOfMonth,
   subDays,
   subMonths,
   startOfYear,
@@ -23,7 +22,6 @@ export const calculatePresetRange = (
   preset: DateRangePreset
 ): { start: Date; end: Date } => {
   const yesterday = getYesterday();
-  const currentYear = getYear(yesterday);
 
   switch (preset) {
     case 'current-month':

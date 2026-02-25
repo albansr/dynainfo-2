@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button, Card, CardBody, CardHeader } from '@heroui/react';
+import { Button, Card, CardBody } from '@heroui/react';
 import { OTPInput } from '../components/OTPInput';
 import { useVerifyOTP } from '../hooks/useVerifyOTP';
 import { useSendOTP } from '../hooks/useSendOTP';

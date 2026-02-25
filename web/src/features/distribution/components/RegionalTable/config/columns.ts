@@ -9,8 +9,8 @@ import {
 import {
   budgetBackgroundColor,
   marginBackgroundColor,
-  marginBudgetBackgroundColor,
-  retainedBackgroundColor
+  marginBudgetBackgroundColor
+  // retainedBackgroundColor - not currently used
 } from './backgroundColors';
 
 // Define all columns

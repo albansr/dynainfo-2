@@ -1,4 +1,4 @@
-import { getComplianceColor, getMarginColor } from '../utils/heatmap';
+import { getComplianceColor } from '../utils/heatmap';
 import type { BackgroundColorFn } from './types';
 
 export const budgetBackgroundColor: BackgroundColorFn = (data, config) => {
@@ -6,7 +6,7 @@ export const budgetBackgroundColor: BackgroundColorFn = (data, config) => {
   return getComplianceColor(data.budget.compliance, thresholds).bg;
 };
 
-export const marginBackgroundColor: BackgroundColorFn = (data, config) => {
+export const marginBackgroundColor: BackgroundColorFn = (data, _config) => {
   const variation = data.margin.variation;
   if (variation > 2) return 'rgba(22,163,74,0.14)'; // Verde fuerte si subió más de 2%
   if (variation > 0) return 'rgba(22,163,74,0.05)'; // Verde suave si subió
@@ -14,7 +14,7 @@ export const marginBackgroundColor: BackgroundColorFn = (data, config) => {
   return 'rgba(220,38,38,0.07)'; // Rojo si bajó más de 2%
 };
 
-export const marginBudgetBackgroundColor: BackgroundColorFn = (data, config) => {
+export const marginBudgetBackgroundColor: BackgroundColorFn = (data, _config) => {
   const delta = data.margin.current - data.margin.budget;
   if (delta >= 2) return 'rgba(22,163,74,0.14)';
   if (delta >= 0.5) return 'rgba(22,163,74,0.05)';

@@ -48,7 +48,7 @@ function calculateTotals(data: RegionalData[]): RegionalData {
       name: 'TOTAL REGIONALES:',
       sales: { current: 0, previous: 0, variation: 0 },
       budget: { amount: 0, compliance: 0 },
-      margin: { current: 0, previous: 0, budget: 0 },
+      margin: { current: 0, previous: 0, variation: 0, budget: 0 },
       retained: { amount: 0, compliance: 0 },
     };
   }
@@ -124,7 +124,7 @@ function calculateTotals(data: RegionalData[]): RegionalData {
 }
 
 export function DistributionPage() {
-  const { startDate, endDate, preset } = useDateRange();
+  const { startDate, endDate } = useDateRange();
 
   // Fetch balance data for metric cards
   const { data: balanceResponse, isLoading: isLoadingBalance } = useBalance(startDate, endDate);
@@ -147,20 +147,7 @@ export function DistributionPage() {
 
   const isLoading = isLoadingBalance || isLoadingList;
 
-  // Map preset to label
-  const getPresetLabel = (preset: number | string): string => {
-    if (typeof preset === 'number') return '';
-    const presetMap: Record<string, string> = {
-      'current-month': 'Mes actual',
-      'accumulated': 'Acumulado',
-      'last-30-days': 'Últimos 30 días',
-      'last-6-months': 'Últimos 6 meses',
-      'last-12-months': 'Últimos 12 meses',
-    };
-    return presetMap[preset] || preset;
-  };
-
-  const periodLabel = getPresetLabel(preset);
+  // const periodLabel = getPresetLabel(preset);
   const labelText = 'VENTAS (Facturado + comprometido)';
 
   // Calculate margin percentages from balance data
@@ -276,3 +263,4 @@ export function DistributionPage() {
     </div>
   );
 }
+
