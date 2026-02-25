@@ -45,12 +45,12 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
     items: [
       {
         key: 'marcas-principal',
-        label: 'Marcas',
+        label: 'Marcas Propias',
         href: '/mantenimiento',
       },
       {
         key: 'marcas-detalle',
-        label: 'Marcas',
+        label: 'Marcas Externas',
         href: '/mantenimiento',
       },
     ],
