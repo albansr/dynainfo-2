@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+
+# Development stage with hot reload
+FROM node:22-alpine AS development
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Start development server with tsx watch
+CMD ["npm", "run", "dev"]

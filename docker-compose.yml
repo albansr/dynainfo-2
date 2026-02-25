@@ -1,0 +1,69 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: dynainfo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dynainfo
+      POSTGRES_PASSWORD: dynainfo_dev
+      POSTGRES_DB: dynainfo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dynainfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dynainfo-network
+
+  # Fastify API
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: dynainfo-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./api/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - dynainfo-network
+
+  # React Frontend (Vite)
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    container_name: dynainfo-web
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    depends_on:
+      - api
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    networks:
+      - dynainfo-network
+
+volumes:
+  postgres_data:
+
+networks:
+  dynainfo-network:
+    driver: bridge
