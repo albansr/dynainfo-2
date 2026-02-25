@@ -49,12 +49,12 @@ export const NAVIGATION_SECTIONS_ORIGINAL: MenuSection[] = [
     items: [
       {
         key: 'marcas-principal',
-        label: 'Marcas',
+        label: 'Marcas Propias',
         href: '/proveedor-comercial/marcas',
       },
       {
         key: 'marcas-detalle',
-        label: 'Marcas',
+        label: 'Marcas Externas',
         href: '/proveedor-comercial/marcas-detalle',
       },
     ],
