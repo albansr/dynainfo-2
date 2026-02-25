@@ -103,12 +103,15 @@ export const NAVIGATION_SECTIONS_ORIGINAL: MenuSection[] = [
 // 1. NAVEGACIÓN (navigation.ts):
 //    Copiar NAVIGATION_SECTIONS_ORIGINAL de este archivo a navigation.ts
 //
-// 2. APP LAYOUT (AppLayout.tsx línea ~37):
-//    a) Cambiar href: href="/mantenimiento" → href="/dashboard"
-//    b) Restaurar estado activo en "Compañía General":
+// 2. APP LAYOUT (AppLayout.tsx):
+//    a) Restaurar import de useLocation (línea ~2):
+//       Agregar: import { useLocation } from 'react-router-dom';
+//       Y en el componente: const location = useLocation();
+//    b) Cambiar href (línea ~37): href="/mantenimiento" → href="/dashboard"
+//    c) Restaurar estado activo en "Compañía General":
 //       Cambiar: className="cursor-pointer mb-4"
 //       A: className={`cursor-pointer mb-4 ${location.pathname === '/dashboard' ? 'bg-gray-200/60' : ''}`}
-//    c) Restaurar estado activo en items del sidebar (línea ~52):
+//    d) Restaurar estado activo en items del sidebar (línea ~52):
 //       Antes del map de items, agregar:
 //       const isActive = location.pathname === item.href;
 //       Y cambiar className de: className="cursor-pointer"

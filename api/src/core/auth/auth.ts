@@ -56,6 +56,7 @@ export const auth = betterAuth({
   // Trust proxy headers for production
   trustedOrigins: [
     process.env['BETTER_AUTH_URL']!,
+    process.env['ORIGIN_URL']!, // Frontend Vercel/production URL
     'http://localhost:4000', // Frontend dev server
   ],
 });

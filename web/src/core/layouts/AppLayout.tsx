@@ -1,5 +1,4 @@
 import { type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 import { NAVIGATION_SECTIONS } from '@/core/config/navigation';
@@ -13,7 +12,6 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const { logout } = useLogout();
-  const location = useLocation();
 
   return (
     <div className="flex h-screen bg-[#f8f8f8]">
