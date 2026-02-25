@@ -3,7 +3,6 @@ import { HeroUIProvider } from '@heroui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { CodeVerifyPage } from '@/features/auth/pages/CodeVerifyPage';
-import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
 import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
