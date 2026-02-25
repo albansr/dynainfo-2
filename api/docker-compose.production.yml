@@ -35,8 +35,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./ssl:/app/ssl:ro
     networks:
       - dynainfo-network-prod
     healthcheck:
