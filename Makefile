@@ -330,7 +330,13 @@ setup-prod: ## 🔧 Interactive production environment setup
 	read -p "$(BOLD)Resend API Key: $(RESET)" RESEND_API_KEY; \
 	echo ""; \
 	echo "$(BOLD)$(MAGENTA)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"; \
-	echo "$(BOLD)$(MAGENTA)  7. Superadmin Account$(RESET)"; \
+	echo "$(BOLD)$(MAGENTA)  7. SSO Configuration (Dyna System)$(RESET)"; \
+	echo "$(BOLD)$(MAGENTA)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"; \
+	echo "$(YELLOW)Enter the SSO secret key provided by the Dyna system$(RESET)"; \
+	read -p "$(BOLD)SSO Secret Key: $(RESET)" SSO_SECRET_KEY; \
+	echo ""; \
+	echo "$(BOLD)$(MAGENTA)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"; \
+	echo "$(BOLD)$(MAGENTA)  8. Superadmin Account$(RESET)"; \
 	echo "$(BOLD)$(MAGENTA)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"; \
 	read -p "$(BOLD)Superadmin Email [admin@dynainfo.com]: $(RESET)" SUPERADMIN_EMAIL; \
 	SUPERADMIN_EMAIL=$${SUPERADMIN_EMAIL:-admin@dynainfo.com}; \
@@ -366,6 +372,9 @@ setup-prod: ## 🔧 Interactive production environment setup
 	echo "" >> api/.env; \
 	echo "# Resend Email Configuration" >> api/.env; \
 	echo "RESEND_API_KEY=$$RESEND_API_KEY" >> api/.env; \
+	echo "" >> api/.env; \
+	echo "# SSO Configuration (Dyna system integration)" >> api/.env; \
+	echo "SSO_SECRET_KEY=$$SSO_SECRET_KEY" >> api/.env; \
 	echo "" >> api/.env; \
 	echo "# Seed Script Configuration" >> api/.env; \
 	echo "SUPERADMIN_EMAIL=$$SUPERADMIN_EMAIL" >> api/.env; \
