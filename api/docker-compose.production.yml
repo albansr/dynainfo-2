@@ -1,0 +1,55 @@
+services:
+  # PostgreSQL Database (Production)
+  postgres:
+    image: postgres:16-alpine
+    container_name: dynainfo-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: dynainfo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: dynainfo
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dynainfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dynainfo-network-prod
+
+  # Fastify API (Production with HTTPS)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: dynainfo-api-prod
+    restart: always
+    ports:
+      - "443:5002"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./ssl:/app/ssl:ro
+    networks:
+      - dynainfo-network-prod
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('https').get({host:'localhost',port:5002,path:'/health',rejectUnauthorized:false},r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data_prod:
+    driver: local
+
+networks:
+  dynainfo-network-prod:
+    driver: bridge

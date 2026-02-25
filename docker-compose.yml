@@ -29,7 +29,7 @@ services:
     container_name: dynainfo-api
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5002:5002"
     env_file:
       - ./api/.env
     depends_on:
@@ -57,7 +57,7 @@ services:
       - ./web:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:3000
+      - VITE_API_URL=http://localhost:5002
     networks:
       - dynainfo-network
 

@@ -81,16 +81,16 @@ make api-dev
 
 ```bash
 # Health check
-curl http://localhost:3000/health
+curl http://localhost:5002/health
 
 # API info
-curl http://localhost:3000/
+curl http://localhost:5002/
 
 # Balance sheet
-curl "http://localhost:3000/api/v1/balance?startDate=2026-01-01&endDate=2026-12-31"
+curl "http://localhost:5002/api/v1/balance?startDate=2026-01-01&endDate=2026-12-31"
 
 # List with grouping
-curl "http://localhost:3000/api/v1/list?groupBy=region,product&limit=10"
+curl "http://localhost:5002/api/v1/list?groupBy=region,product&limit=10"
 ```
 
 ## API Documentation
@@ -127,7 +127,7 @@ Get balance sheet with sales, budget, and orders data.
 
 **Example:**
 ```bash
-curl "http://localhost:3000/api/v1/balance?startDate=2026-01-01&endDate=2026-12-31&region=EU,NA"
+curl "http://localhost:5002/api/v1/balance?startDate=2026-01-01&endDate=2026-12-31&region=EU,NA"
 ```
 
 **Response:**
@@ -168,7 +168,7 @@ Get aggregated list with grouping and filtering.
 
 **Example:**
 ```bash
-curl "http://localhost:3000/api/v1/list?startDate=2026-01-01&groupBy=region,product&limit=20&orderBy=total_amount&orderDirection=DESC"
+curl "http://localhost:5002/api/v1/list?startDate=2026-01-01&groupBy=region,product&limit=20&orderBy=total_amount&orderDirection=DESC"
 ```
 
 **Response:**
@@ -204,7 +204,7 @@ Get unique values for a specific column (useful for filter dropdowns).
 
 **Example:**
 ```bash
-curl "http://localhost:3000/api/v1/labels/region?table=sales"
+curl "http://localhost:5002/api/v1/labels/region?table=sales"
 ```
 
 **Response:**
@@ -299,7 +299,7 @@ make status            # Show status of all services
 Copy `.env.example` to `.env` in the `api/` directory:
 
 ```bash
-PORT=3000
+PORT=5002
 HOST=0.0.0.0
 NODE_ENV=development
 
@@ -372,15 +372,279 @@ api/src/
 4. **Type Safety**: Use TypeScript types for all data structures
 5. **Error Handling**: Always catch and log errors properly
 
+## Production Deployment
+
+### TL;DR - Quick Start
+
+```bash
+# 1. Configure environment
+cp api/.env.example api/.env
+# Edit api/.env with production values
+
+# 2. Ensure SSL certificates are in place
+ls api/ssl/  # Should show: dynainfo.key, dynainfo.crt, ca.crt
+
+# 3. Deploy everything
+make deploy
+
+# Done! ✅
+```
+
+### Prerequisites for Production
+
+1. **SSL Certificates**: Required for HTTPS
+   - Server certificate: `api/ssl/dynainfo.crt`
+   - Private key: `api/ssl/dynainfo.key` (will be auto-fixed to 600 permissions)
+   - CA chain: `api/ssl/ca.crt`
+
+2. **Environment Variables**: Configure in `api/.env`
+   ```bash
+   NODE_ENV=production
+   PORT=5002
+   ORIGIN_URL=https://dynainfo.com.co
+   POSTGRES_PASSWORD=strong_production_password
+   CLICKHOUSE_HOST=your_clickhouse_host
+   CLICKHOUSE_PASSWORD=your_clickhouse_password
+   BETTER_AUTH_SECRET=generate-with-openssl-rand-base64-32
+   RESEND_API_KEY=your_resend_api_key
+   ```
+
+> **Note**: The `make deploy` command automatically validates all these requirements before deploying.
+
+### SSL Certificate Setup
+
+#### Using Existing Certificates
+
+If you already have SSL certificates (from Sectigo, Let's Encrypt, etc.):
+
+```bash
+# Copy certificates to the api/ssl/ directory
+mkdir -p api/ssl
+cp /path/to/your.key api/ssl/dynainfo.key
+cp /path/to/your.crt api/ssl/dynainfo.crt
+cp /path/to/ca-bundle.crt api/ssl/ca.crt
+
+# Set restrictive permissions on private key
+chmod 600 api/ssl/dynainfo.key
+```
+
+#### Certificate Requirements
+
+- **Format**: PEM encoded
+- **Key Type**: RSA 2048-bit or higher
+- **Certificate Chain**: Must include intermediate certificates in ca.crt
+- **Domain**: Must match your API domain (e.g., api.dynainfo.com.co)
+
+#### Certificate Renewal
+
+When your certificates expire, replace them in the `api/ssl/` directory:
+
+```bash
+# Stop the production server
+make prod-down
+
+# Replace certificates
+cp /path/to/new-cert.crt api/ssl/dynainfo.crt
+cp /path/to/new-key.key api/ssl/dynainfo.key
+cp /path/to/new-ca.crt api/ssl/ca.crt
+
+# Set permissions
+chmod 600 api/ssl/dynainfo.key
+
+# Rebuild and restart
+make prod
+```
+
+### Production Commands
+
+```bash
+# Deployment
+make deploy            # 🚀 Full automated deployment (recommended)
+make deploy-check      # ✅ Check production requirements only
+make deploy-db         # 💾 Setup database only
+
+# Container management
+make prod              # Build and start production environment
+make prod-build        # Build production Docker image
+make prod-up           # Start production services
+make prod-down         # Stop production services
+make prod-logs         # View production logs
+make prod-restart      # Restart production services
+```
+
+### Quick Deployment (Recommended)
+
+Use the automated deployment command that does everything:
+
+```bash
+make deploy
+```
+
+This single command will:
+1. ✅ Check all requirements (.env, SSL certificates, Docker, etc.)
+2. 🛑 Stop existing containers
+3. 🔨 Build production image (clean build)
+4. 🚀 Start PostgreSQL + API services
+5. 💾 Setup database (schema + seed)
+6. 🧪 Run health checks
+
+The API will be available at:
+- **HTTPS**: https://localhost (port 443)
+- **Health**: https://localhost/health
+- **API Docs**: https://localhost/docs
+
+### Manual Deployment Steps
+
+If you prefer to run steps individually:
+
+```bash
+make deploy-check      # Check all requirements
+make prod-build        # Build production image
+make prod-up           # Start services
+make deploy-db         # Setup database
+```
+
+### Production Architecture
+
+```
+┌─────────────────┐
+│   HTTPS Client  │
+│  (Port 443)     │
+└────────┬────────┘
+         │
+         │ TLS/SSL
+         ▼
+┌─────────────────┐
+│  Docker Host    │
+│  Port 443:5002  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  Fastify Container      │
+│  - HTTPS Server         │
+│  - Port 5002            │
+│  - SSL Certificates     │
+│  - NODE_ENV=production  │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  PostgreSQL     │
+│  (Auth DB)      │
+└─────────────────┘
+```
+
+### Production vs Development Differences
+
+| Feature | Development | Production |
+|---------|-------------|------------|
+| Protocol | HTTP | HTTPS |
+| Port (Internal) | 5002 | 5002 |
+| Port (External) | 5002 | 443 |
+| SSL Certificates | Not required | Required |
+| CORS Origin | All origins (`*`) | Single origin (ORIGIN_URL) |
+| Rate Limiting | 1000 req/min | 100 req/min |
+| Logging | Debug with colors | Info (JSON) |
+| Hot Reload | Yes (tsx watch) | No (compiled) |
+| Docker Compose | `docker-compose.yml` | `docker-compose.production.yml` |
+
+### Security Considerations
+
+1. **SSL/TLS**: Always use HTTPS in production (enabled by default)
+2. **Certificate Permissions**: Private key must have 600 permissions
+3. **CORS**: Configure ORIGIN_URL to your frontend domain only
+4. **Secrets**: Never commit `.env` file to git
+5. **Database Passwords**: Use strong, unique passwords
+6. **Rate Limiting**: Adjust based on your needs (default: 100 req/min)
+7. **Firewall**: Only expose port 443 (HTTPS)
+
+### Monitoring Production
+
+```bash
+# View logs
+make prod-logs
+
+# Check health endpoint
+curl -k https://localhost/health
+
+# View specific service logs
+docker compose -f api/docker-compose.production.yml logs -f api
+
+# Check running containers
+docker ps | grep dynainfo
+```
+
+### Troubleshooting Production
+
+#### SSL Certificate Errors
+
+```bash
+# Verify certificate files exist
+ls -la api/ssl/
+
+# Check certificate details
+openssl x509 -in api/ssl/dynainfo.crt -text -noout
+
+# Verify certificate chain
+openssl verify -CAfile api/ssl/ca.crt api/ssl/dynainfo.crt
+
+# Test SSL connection
+openssl s_client -connect localhost:443 -servername api.dynainfo.com.co
+```
+
+#### Container Issues
+
+```bash
+# Check container logs
+make prod-logs
+
+# Rebuild from scratch
+make prod-down
+docker system prune -f
+make prod-build
+make prod-up
+
+# Access container shell
+docker exec -it dynainfo-api-prod sh
+```
+
+#### Database Connection Issues
+
+```bash
+# Check PostgreSQL is running
+docker ps | grep postgres
+
+# Test database connection
+docker exec -it dynainfo-postgres-prod psql -U dynainfo -d dynainfo
+
+# Check database logs
+docker compose -f api/docker-compose.production.yml logs postgres
+```
+
+### Backup and Recovery
+
+```bash
+# Backup PostgreSQL database
+docker exec dynainfo-postgres-prod pg_dump -U dynainfo dynainfo > backup.sql
+
+# Restore PostgreSQL database
+cat backup.sql | docker exec -i dynainfo-postgres-prod psql -U dynainfo -d dynainfo
+
+# Backup SSL certificates (recommended)
+tar -czf ssl-backup.tar.gz api/ssl/
+```
+
 ## Roadmap
 
 - [x] Balance sheet endpoint
 - [x] List endpoint with aggregations
 - [x] Column labels endpoint
-- [ ] React frontend with data visualization
+- [x] React frontend with data visualization
+- [x] Authentication & authorization (Better Auth + Email OTP)
+- [x] Production deployment with SSL/HTTPS
 - [ ] WebSocket support for real-time updates
 - [ ] Query result caching (Redis)
-- [ ] Authentication & authorization
 - [ ] Data export (CSV, JSON, Excel)
 
 ## License

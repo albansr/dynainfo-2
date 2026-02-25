@@ -19,6 +19,13 @@ const envSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('development'),
 
+  // CORS configuration
+  ORIGIN_URL: z
+    .string()
+    .url('ORIGIN_URL must be a valid URL')
+    .optional()
+    .describe('Allowed CORS origin in production (e.g., https://dynainfo.com.co)'),
+
   // ClickHouse configuration
   CLICKHOUSE_HOST: z
     .string()

@@ -6,6 +6,9 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { DatabaseClient, type ClickHouseConfig } from './core/db/clickhouse/client.js';
 import { balanceRoutes } from './features/balance/balance.routes.js';
 import { listRoutes } from './features/list/list.routes.js';
@@ -18,6 +21,10 @@ import {
   HealthCheckResponseSchema,
   ApiInfoResponseSchema,
 } from './core/schemas/common.schemas.js';
+
+// ES modules __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Extended Fastify instance with custom decorators
@@ -34,8 +41,26 @@ declare module 'fastify' {
 async function buildServer() {
   const config = getEnvConfig();
 
+  // Prepare HTTPS options for production
+  let httpsOptions;
+  if (config.NODE_ENV === 'production') {
+    const sslDir = path.join(__dirname, '../ssl');
+
+    try {
+      httpsOptions = {
+        key: fs.readFileSync(path.join(sslDir, 'dynainfo.key')),
+        cert: fs.readFileSync(path.join(sslDir, 'dynainfo.crt')),
+        ca: fs.readFileSync(path.join(sslDir, 'ca.crt')),
+      };
+    } catch (error) {
+      console.error('Failed to load SSL certificates:', error);
+      throw new Error('SSL certificates are required in production mode');
+    }
+  }
+
   // Initialize Fastify with TypeBox type provider
   const fastify = Fastify({
+    https: httpsOptions, // Will be undefined in development (uses HTTP)
     logger: {
       level: config.NODE_ENV === 'production' ? 'info' : 'debug',
       transport:
@@ -84,7 +109,9 @@ async function buildServer() {
   });
 
   await fastify.register(cors, {
-    origin: config.NODE_ENV === 'production' ? false : true,
+    origin: config.NODE_ENV === 'production'
+      ? (config.ORIGIN_URL || false)
+      : true,
     credentials: true,
   });
 
@@ -289,10 +316,15 @@ async function start() {
       listenTextResolver: (address) => `Server listening at ${address}`,
     });
 
-    fastify.log.info(`Server running on http://${config.HOST}:${config.PORT}`);
+    const protocol = config.NODE_ENV === 'production' ? 'https' : 'http';
+    fastify.log.info(`Server running on ${protocol}://${config.HOST}:${config.PORT}`);
     fastify.log.info(`Environment: ${config.NODE_ENV}`);
-    fastify.log.info(`API Documentation: http://${config.HOST}:${config.PORT}/docs`);
+    fastify.log.info(`API Documentation: ${protocol}://${config.HOST}:${config.PORT}/docs`);
     fastify.log.info(`ClickHouse: ${config.CLICKHOUSE_HOST}`);
+    if (config.NODE_ENV === 'production') {
+      fastify.log.info(`SSL/TLS: Enabled with certificates from ssl/ directory`);
+      fastify.log.info(`CORS Origin: ${config.ORIGIN_URL || 'Not set'}`);
+    }
   } catch (error) {
     // Use standalone logger since Fastify may not be initialized
     const { logger } = await import('./core/logger/logger.js');

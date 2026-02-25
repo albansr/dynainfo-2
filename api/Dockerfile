@@ -12,8 +12,9 @@ COPY package.json package-lock.json* ./
 RUN npm ci && \
     npm cache clean --force
 
-# Copy source code
-COPY . .
+# Copy TypeScript config and source code
+COPY tsconfig.json ./
+COPY src ./src
 
 # Build TypeScript
 RUN npm run build
@@ -37,15 +38,21 @@ RUN npm ci --only=production && \
 # Copy built application from builder
 COPY --from=builder --chown=fastify:nodejs /app/dist ./dist
 
+# Copy SSL certificates for production
+COPY --chown=fastify:nodejs ssl ./ssl
+
+# Set restrictive permissions on private key
+RUN chmod 600 ssl/dynainfo.key
+
 # Switch to non-root user
 USER fastify
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5002
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:5002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start application
 CMD ["node", "dist/server.js"]
