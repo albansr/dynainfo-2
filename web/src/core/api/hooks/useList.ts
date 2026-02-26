@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 
-export type GroupByDimension = 'seller_id' | 'IdRegional' | 'month' | 'quarter' | 'year';
+export type GroupByDimension = 'seller_id' | 'IdRegional' | 'month' | 'quarter' | 'year' | 'product' | 'brand';
 
 export interface ListItemResponse {
   id: string;
@@ -27,6 +27,8 @@ export interface ListItemResponse {
   order_fulfillment_pct: number;
   gross_margin_pct: number;
   budget_gross_margin_pct: number;
+  gross_margin_pct_last_year: number;
+  gross_margin_pct_vs_last_year: number;
 }
 
 export interface ListResponse {

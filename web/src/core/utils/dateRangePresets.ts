@@ -22,8 +22,15 @@ export const calculatePresetRange = (
   preset: DateRangePreset
 ): { start: Date; end: Date } => {
   const yesterday = getYesterday();
+  const today = new Date();
 
   switch (preset) {
+    case 'today':
+      return {
+        start: today,
+        end: today,
+      };
+
     case 'current-month':
       return {
         start: startOfMonth(yesterday),

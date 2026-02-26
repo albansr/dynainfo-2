@@ -20,6 +20,8 @@ export class MetricCalculator {
    * Reads from CALCULATED_METRICS configuration and generates SQL expressions.
    * Uses ClickHouse's if() function for safe division (already in formulas).
    *
+   * Handles dependencies between calculated metrics by processing in multiple passes.
+   *
    * @param selects - Array to append calculated metric expressions
    * @param metricsByTable - Map of metrics grouped by table (to find CTE names)
    */
@@ -27,44 +29,64 @@ export class MetricCalculator {
     selects: string[],
     metricsByTable: Map<string, MetricConfig[]>
   ): void {
-    // Build map of alias -> CTE name for fast lookup
+    // Build map of alias -> CTE reference for base metrics
     const aliasToCte = this.buildAliasToCteMap(metricsByTable);
 
-    // For each configured calculated metric
-    for (const calculatedMetric of CALCULATED_METRICS) {
-      // Check if all dependencies are available
-      const hasAllDependencies = calculatedMetric.dependencies.every(
-        (dep) => aliasToCte.has(dep)
-      );
+    // Track which calculated metrics have been added
+    const addedMetrics = new Set<string>();
 
-      if (!hasAllDependencies) {
-        // Skip this metric if not all dependencies are present
-        continue;
-      }
+    // Process calculated metrics in multiple passes to handle dependencies
+    let addedInLastPass = true;
+    while (addedInLastPass) {
+      addedInLastPass = false;
 
-      // Replace {alias} placeholders with actual CTE references
-      let formula: string = calculatedMetric.formula;
-      for (const dependency of calculatedMetric.dependencies) {
-        const cte = aliasToCte.get(dependency);
-        if (cte) {
-          // Replace {alias} with cte.alias (e.g., {sales} -> transactions_current.sales)
-          formula = formula.replace(
-            new RegExp(`\\{${dependency}\\}`, 'g'),
-            `${cte}.${dependency}`
-          );
+      for (const calculatedMetric of CALCULATED_METRICS) {
+        // Skip if already added
+        if (addedMetrics.has(calculatedMetric.name)) {
+          continue;
         }
-      }
 
-      // Add to selects with metric name
-      selects.push(`${formula} AS ${calculatedMetric.name}`);
+        // Check if all dependencies are available (either base metrics or already-added calculated metrics)
+        const hasAllDependencies = calculatedMetric.dependencies.every(
+          (dep) => aliasToCte.has(dep) || addedMetrics.has(dep)
+        );
+
+        if (!hasAllDependencies) {
+          // Skip this metric for now, will try again in next pass
+          continue;
+        }
+
+        // Replace {alias} placeholders with actual references
+        let formula: string = calculatedMetric.formula;
+        for (const dependency of calculatedMetric.dependencies) {
+          let reference = aliasToCte.get(dependency);
+
+          // If not in base metrics, check if it's a previously calculated metric
+          if (!reference && addedMetrics.has(dependency)) {
+            reference = dependency; // Just use the metric name directly
+          }
+
+          if (reference) {
+            formula = formula.replace(
+              new RegExp(`\\{${dependency}\\}`, 'g'),
+              reference
+            );
+          }
+        }
+
+        // Add to selects and mark as added
+        selects.push(`${formula} AS ${calculatedMetric.name}`);
+        addedMetrics.add(calculatedMetric.name);
+        addedInLastPass = true;
+      }
     }
   }
 
   /**
-   * Build map from metric alias to its CTE name
+   * Build map from metric alias to its CTE reference
    *
    * @param metricsByTable - Map of metrics grouped by table
-   * @returns Map of alias -> CTE name (e.g., 'sales' -> 'transactions_current')
+   * @returns Map of alias -> full CTE.field reference
    */
   private buildAliasToCteMap(
     metricsByTable: Map<string, MetricConfig[]>
@@ -73,9 +95,16 @@ export class MetricCalculator {
 
     for (const [table, metrics] of metricsByTable) {
       for (const metric of metrics) {
-        // Current period CTE name
-        const cteName = `${table}_current`;
-        map.set(metric.alias, cteName);
+        const alias = metric.alias;
+
+        // Current period: transactions_current.sales
+        map.set(alias, `${table}_current.${alias}`);
+
+        // Last year: transactions_previous.sales_ly
+        map.set(`${alias}_last_year`, `${table}_previous.${alias}_ly`);
+
+        // YoY variance is already calculated at SELECT level, not a CTE field
+        // Don't add it to the map - it's not a dependency
       }
     }
 

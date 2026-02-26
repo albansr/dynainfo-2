@@ -34,7 +34,6 @@ export const COLUMN_DEFINITIONS: ColumnDefinition[] = [
     group: 'billing',
     header: {
       label: 'VENTAS',
-      labelFormatter: (config) => `VENTAS ${config.currentYear}`,
       sortable: true,
       align: 'right',
     },
@@ -112,13 +111,13 @@ export const COLUMN_DEFINITIONS: ColumnDefinition[] = [
 export const COLUMN_GROUPS: ColumnGroup[] = [
   {
     id: 'billing',
-    label: 'FACTURACIÓN VS PRESUPUESTO',
+    label: 'Ventas (Facturación + Comprometido) VS Presupuesto',
     columns: ['sales', 'budget'],
     align: 'center',
   },
   {
     id: 'margin',
-    label: 'MARGEN',
+    label: 'MARGEN VS PRESUPUESTO',
     columns: ['margin', 'marginBudget'],
     align: 'center',
   },

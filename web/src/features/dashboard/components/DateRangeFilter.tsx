@@ -17,7 +17,8 @@ export function DateRangeFilter() {
 
   // Generate preset options
   const presetOptions: PresetOption[] = [
-    { value: 'current-month', label: 'Mes en curso' },
+    { value: 'today', label: 'Hoy' },
+    { value: 'current-month', label: 'Mes actual' },
     { value: 'accumulated', label: 'Acumulado' },
     { value: 'last-30-days', label: 'Últimos 30 días' },
     { value: 'last-6-months', label: 'Últimos 6 meses' },
@@ -49,9 +50,9 @@ export function DateRangeFilter() {
   return (
     <>
       <Select
-        label="Período"
+        label="Temporalidad"
         variant="bordered"
-        placeholder="Selecciona un período"
+        placeholder="Selecciona una temporalidad"
         selectedKeys={selectedKeys}
         onSelectionChange={(keys) => {
           const value = Array.from(keys)[0] as string;
@@ -73,7 +74,7 @@ export function DateRangeFilter() {
         }}
         startContent={<CalendarIcon className="h-4 w-4 text-default-400" />}
       >
-        <SelectSection title="Períodos" showDivider>
+        <SelectSection title="Temporalidades" showDivider>
           {presetOptions.map((option) => (
             <SelectItem key={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
               {option.label}

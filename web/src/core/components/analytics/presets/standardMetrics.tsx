@@ -1,25 +1,27 @@
-import { useDateRange } from '@/core/hooks/useDateRange';
-import { useBalance } from '@/core/api/hooks/useBalance';
+import type { ReactNode } from 'react';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
-import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
-import { MetricCard } from '../components/MetricCard';
-import { PageHeader } from '@/core/components/PageHeader';
+import { PrimaryMetricCard } from '@/features/dashboard/components/PrimaryMetricCard';
+import { MetricCard } from '@/features/dashboard/components/MetricCard';
+import type { BalanceData } from '../types';
 
-export function DashboardPage() {
-  const { startDate, endDate } = useDateRange();
-  const { data, isLoading } = useBalance(startDate, endDate);
+interface StandardMetricsProps {
+  balanceData: BalanceData | undefined;
+  endDate: Date;
+  isLoading: boolean;
+}
 
-  const balanceData = data?.data;
+/**
+ * Standard metrics layout used across analytics pages
+ * Displays sales, growth, and budget compliance metrics in two separate blocks
+ */
+export function StandardMetrics({ balanceData, endDate, isLoading }: StandardMetricsProps): ReactNode {
   const currentYear = endDate.getFullYear();
   const previousYear = currentYear - 1;
-
-  // const periodLabel = getPresetLabel(preset);
   const labelText = 'VENTAS (Facturado + comprometido)';
 
   return (
-    <div>
-      <PageHeader title="Análisis General de la compañía" />
-
+    <>
+      {/* Sales Metrics Block */}
       <div className="border border-gray-200 rounded-lg p-6">
         <div className="grid grid-cols-4 gap-8">
           <PrimaryMetricCard
@@ -52,15 +54,12 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Margin Metrics Block */}
       <div className="mt-8 border border-gray-200 rounded-lg p-6">
         <div className="grid grid-cols-4 gap-8">
           <PrimaryMetricCard
             label="MARGEN BRUTO"
-            mainValue={
-              balanceData && balanceData.sales !== 0
-                ? `${formatPercentage((balanceData.gross_margin / balanceData.sales) * 100)}%`
-                : '0%'
-            }
+            mainValue={`${balanceData ? formatPercentage(balanceData.gross_margin_pct) : '0'}%`}
             secondaryLabel={`Año anterior (${previousYear})`}
             secondaryValue={
               balanceData && balanceData.sales_last_year !== 0
@@ -75,9 +74,13 @@ export function DashboardPage() {
             value={
               balanceData
                 ? (() => {
-                    const marginPct = balanceData.sales !== 0 ? (balanceData.gross_margin / balanceData.sales) * 100 : 0;
-                    const marginPctLastYear = balanceData.sales_last_year !== 0 ? (balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100 : 0;
-                    const variation = marginPctLastYear !== 0 ? ((marginPct - marginPctLastYear) / marginPctLastYear) * 100 : 0;
+                    const marginPct = balanceData.gross_margin_pct;
+                    const marginPctLastYear = balanceData.sales_last_year !== 0
+                      ? (balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100
+                      : 0;
+                    const variation = marginPctLastYear !== 0
+                      ? ((marginPct - marginPctLastYear) / marginPctLastYear) * 100
+                      : 0;
                     return (
                       <span className={variation >= 0 ? 'text-green-600' : 'text-red-600'}>
                         {formatPercentageWithSign(variation)}%
@@ -97,7 +100,7 @@ export function DashboardPage() {
             description={
               balanceData
                 ? (() => {
-                    const realMargin = balanceData.sales !== 0 ? (balanceData.gross_margin / balanceData.sales) * 100 : 0;
+                    const realMargin = balanceData.gross_margin_pct;
                     const budgetMargin = balanceData.budget_gross_margin_pct;
                     const diff = budgetMargin - realMargin;
                     const absDiff = Math.abs(diff);
@@ -119,7 +122,6 @@ export function DashboardPage() {
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }
-

@@ -26,7 +26,7 @@ export function PageHeader({ title, showDateFilter = true }: PageHeaderProps) {
   const periodLabel = getPresetLabel(preset);
 
   return (
-    <div className="sticky -top-4 z-10 bg-white -mx-10 px-10 -mt-4 pt-4 pb-4 mb-4">
+    <div className="sticky -top-4 z-10 bg-white -mx-4 xl:-mx-10 px-4 xl:px-10 -mt-4 pt-4 pb-4 mb-4">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">

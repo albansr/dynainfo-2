@@ -123,6 +123,18 @@ export const CALCULATED_METRICS = [
     dependencies: ['budget', 'budget_cost'],
     formula: 'if({budget} != 0, (({budget} - {budget_cost}) / {budget}) * 100, 0)',
   },
+  {
+    name: 'gross_margin_pct_last_year',
+    description: 'Gross margin percentage from last year',
+    dependencies: ['gross_margin_last_year', 'sales_last_year'],
+    formula: 'if({sales_last_year} != 0, ({gross_margin_last_year} / {sales_last_year}) * 100, 0)',
+  },
+  {
+    name: 'gross_margin_pct_vs_last_year',
+    description: 'YoY variance % for gross margin percentage',
+    dependencies: ['gross_margin_pct', 'gross_margin_pct_last_year'],
+    formula: 'if({gross_margin_pct_last_year} != 0, (({gross_margin_pct} - {gross_margin_pct_last_year}) / {gross_margin_pct_last_year}) * 100, 0)',
+  },
   // Add more calculated metrics here as needed
   // Example:
   // {

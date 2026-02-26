@@ -54,6 +54,14 @@ export const useDateRangeStore = create<DateRangeStore>()(
         preset: state.preset,
         // Dates are recalculated on load to ensure "yesterday" is always current
       }),
+      onRehydrateStorage: () => (state) => {
+        // Recalculate dates from the loaded preset to keep them in sync
+        if (state && state.preset !== 'custom') {
+          const range = calculatePresetRange(state.preset);
+          state.startDate = range.start;
+          state.endDate = range.end;
+        }
+      },
     }
   )
 );

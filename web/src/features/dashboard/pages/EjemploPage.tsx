@@ -28,9 +28,9 @@ export function EjemploPage() {
         <div className="grid grid-cols-4 gap-8">
           <PrimaryMetricCard
             label={labelText}
-            mainValue={`US$ ${balanceData ? formatCurrency(balanceData.sales) : '0'}`}
+            mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales) : '0'}`}
             secondaryLabel={`Año anterior (${previousYear})`}
-            secondaryValue={`US$ ${balanceData ? formatCurrency(balanceData.sales_last_year) : '0'}`}
+            secondaryValue={`$ ${balanceData ? formatCurrency(balanceData.sales_last_year) : '0'}`}
             isLoading={isLoading}
           />
 
@@ -47,9 +47,9 @@ export function EjemploPage() {
           />
 
           <MetricCard
-            label="CUMPLIMIENTO PARCIAL"
+            label="CUMPL. PRESUPUESTO"
             value={`${balanceData ? formatPercentage(balanceData.budget_achievement_pct) : '0'}%`}
-            description={`US$ ${balanceData ? formatCurrency(balanceData.budget) : '0'}`}
+            description={`Ppto: $ ${balanceData ? formatCurrency(balanceData.budget) : '0'}`}
             isLoading={isLoading}
             centered
           />
@@ -104,13 +104,19 @@ export function EjemploPage() {
                     const realMargin = balanceData.sales !== 0 ? (balanceData.gross_margin / balanceData.sales) * 100 : 0;
                     const budgetMargin = balanceData.budget_gross_margin_pct;
                     const diff = budgetMargin - realMargin;
+                    const absDiff = Math.abs(diff);
+                    const text = absDiff < 0.01
+                      ? 'En línea con ppto'
+                      : diff > 0
+                        ? `Real bajo ppto en ${formatPercentage(absDiff)}pp`
+                        : `Real supera ppto en ${formatPercentage(absDiff)}pp`;
                     return (
                       <span className={diff > 0 ? 'text-red-600' : diff < 0 ? 'text-green-600' : 'text-zinc-500'}>
-                        {formatPercentageWithSign(diff)}pp vs real
+                        {text}
                       </span>
                     );
                   })()
-                : '0pp vs real'
+                : 'En línea con ppto'
             }
             isLoading={isLoading}
             centered
