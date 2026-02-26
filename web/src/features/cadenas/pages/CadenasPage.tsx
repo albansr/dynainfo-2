@@ -4,9 +4,9 @@ export function CadenasPage() {
   return (
     <AnalyticsPage
       title="Canales / Cadenas"
-      groupBy="IdRegional"
-      totalsLabel="TOTAL REGIONALES:"
-      filters={{ type: 'chain' }}
+      groupBy="customer_name"
+      totalsLabel="TOTAL CADENAS:"
+      filters={{ channel: 'CADENAS' }}
     />
   );
 }

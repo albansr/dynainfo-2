@@ -4,9 +4,9 @@ export function BrandsExternalPage() {
   return (
     <AnalyticsPage
       title="Proveedor Comercial / Marcas Externas"
-      groupBy="brand"
+      groupBy="ProveedorComercial"
       totalsLabel="TOTAL MARCAS:"
-      filters={{ brand_type: 'external' }}
+      filters={{ }}
     />
   );
 }

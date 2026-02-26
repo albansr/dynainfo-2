@@ -8,9 +8,10 @@ import { AnalyticsPage } from '@/core/components/analytics/AnalyticsPage';
 export function DistributionPage() {
   return (
     <AnalyticsPage
-      title="Canales / Distribución"
+      title="Canales /Distribución"
       groupBy="IdRegional"
       totalsLabel="TOTAL REGIONALES:"
+      filters={{ channel: 'DISTRIBUCION' }}
     />
   );
 }

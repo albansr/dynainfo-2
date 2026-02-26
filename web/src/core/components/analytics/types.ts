@@ -21,11 +21,14 @@ export type BalanceData = BalanceSheetData;
  */
 export type GroupByDimension =
   | 'IdRegional'
-  | 'product'
   | 'seller_id'
+  | 'customer_id'
+  | 'customer_name'
+  | 'customer_country'
+  | 'product_id'
+  | 'ProveedorComercial'
   | 'month'
-  | 'quarter'
-  | 'brand';
+  | 'quarter';
 
 /**
  * Generic row data for analytics table

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
+import { API_URL } from '@/core/config/constants';
 
 export class APIError extends Error {
   status: number;
@@ -20,7 +20,7 @@ export async function apiClient<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${API_URL}${endpoint}`;
 
   const response = await fetch(url, {
     ...options,

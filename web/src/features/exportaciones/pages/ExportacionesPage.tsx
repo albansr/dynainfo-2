@@ -4,9 +4,9 @@ export function ExportacionesPage() {
   return (
     <AnalyticsPage
       title="Canales / Exportaciones"
-      groupBy="IdRegional"
-      totalsLabel="TOTAL REGIONALES:"
-      filters={{ type: 'export' }}
+      groupBy="customer_country"
+      totalsLabel="TOTAL EXPORTACIONES:"
+      filters={{ channel: 'EXPORTACIONES' }}
     />
   );
 }

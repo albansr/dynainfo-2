@@ -4,7 +4,7 @@ export function ClientesPage() {
   return (
     <AnalyticsPage
       title="Multivariados / Clientes"
-      groupBy="seller_id"
+      groupBy="customer_id"
       totalsLabel="TOTAL CLIENTES:"
     />
   );

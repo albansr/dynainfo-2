@@ -6,6 +6,7 @@
  */
 const ID_TO_NAME_MAP: Record<string, string> = {
   customer_id: 'customer_name',
+  customer_country: 'customer_country',
   product_id: 'product_name',
   seller_id: 'seller_name',
   IdRegional: 'Regional',

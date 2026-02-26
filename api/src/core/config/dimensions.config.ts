@@ -10,6 +10,11 @@
 export const ALLOWED_DIMENSIONS = [
   'seller_id',
   'IdRegional',
+  'customer_id',
+  'customer_name',
+  'customer_country',
+  'product_id',
+  'ProveedorComercial',
   'month',
   'quarter',
   'year',

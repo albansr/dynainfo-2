@@ -178,7 +178,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     // Build query components with GROUP BY and table-aware filtering
     const queryParams: Record<string, string | string[]> = {};
     const includeTotalCount = limit !== undefined;
-    const { ctes, finalSelects } = this.buildGroupedQueryComponents(
+    const { ctes, finalSelects, tablesWithDimension, skippedTables } = this.buildGroupedQueryComponents(
       metricsByTable,
       currentPeriodFilters,
       previousYearFilters,
@@ -188,14 +188,14 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       includeTotalCount
     );
 
-    // Add calculated metrics
-    this.metricCalculator.addCalculatedMetrics(finalSelects, metricsByTable);
+    // Add calculated metrics (pass skipped tables so formulas use literal aliases instead of CTE refs)
+    this.metricCalculator.addCalculatedMetrics(finalSelects, metricsByTable, skippedTables);
 
-    // Build and execute final query with JOINs
+    // Build and execute final query with JOINs (only for tables that have the dimension)
     const query = this.buildGroupedFinalQuery(
       ctes,
       finalSelects,
-      metricsByTable,
+      tablesWithDimension,
       groupBy,
       limit,
       offset,
@@ -318,20 +318,23 @@ ${previousWhere}
     columnMap: Map<string, Set<string>>,
     groupBy: string,
     includeTotalCount = false
-  ): { ctes: string[]; finalSelects: string[] } {
+  ): { ctes: string[]; finalSelects: string[]; tablesWithDimension: string[]; skippedTables: Set<string> } {
     const ctes: string[] = [];
     const finalSelects: string[] = [];
 
     // Get field mapping for id and name
     const { idField, nameField } = getFieldPair(groupBy);
 
-    // Add dimension value as first select
-    // Use COALESCE across ALL tables to get the dimension value
-    // Map is already ordered with transactions first from groupMetricsByTable()
+    // Determine which tables have the dimension column
     const tables = Array.from(metricsByTable.keys());
+    const tablesWithDimension = tables.filter((table) => {
+      const tableName = `${this.tablePrefix}${table}`;
+      return columnMap.get(tableName)?.has(idField) ?? false;
+    });
+    const skippedTables = new Set(tables.filter((t) => !tablesWithDimension.includes(t)));
 
-    // Build COALESCE for id field
-    const idCoalesceArgs = tables.flatMap((table) => [
+    // Build COALESCE for id field (only from tables that have the dimension)
+    const idCoalesceArgs = tablesWithDimension.flatMap((table) => [
       `${table}_current.${idField}`,
       `${table}_previous.${idField}`,
     ]);
@@ -340,8 +343,7 @@ ${previousWhere}
     );
 
     // Build COALESCE for name field
-    // Prioritize transactions table for name (it has the _name columns)
-    const nameCoalesceArgs = tables.flatMap((table) => [
+    const nameCoalesceArgs = tablesWithDimension.flatMap((table) => [
       `${table}_current.${nameField}`,
       `${table}_previous.${nameField}`,
     ]);
@@ -358,66 +360,77 @@ ${previousWhere}
       const tableName = `${this.tablePrefix}${table}`;
       const currentCteName = `${table}_current`;
       const previousCteName = `${table}_previous`;
+      const tableColumns = columnMap.get(tableName);
+      const tableHasDimension = tableColumns?.has(idField) ?? false;
 
-      // Build table-aware WHERE clauses
-      const currentWhere = this.filterBuilder.buildWhereClauseForTable(
-        currentPeriodFilters,
-        queryParams,
-        `current_${table}`,
-        tableName,
-        columnMap
-      );
-      const previousWhere = this.filterBuilder.buildWhereClauseForTable(
-        previousYearFilters,
-        queryParams,
-        `previous_${table}`,
-        tableName,
-        columnMap
-      );
+      if (tableHasDimension) {
+        // Build table-aware WHERE clauses
+        const currentWhere = this.filterBuilder.buildWhereClauseForTable(
+          currentPeriodFilters,
+          queryParams,
+          `current_${table}`,
+          tableName,
+          columnMap
+        );
+        const previousWhere = this.filterBuilder.buildWhereClauseForTable(
+          previousYearFilters,
+          queryParams,
+          `previous_${table}`,
+          tableName,
+          columnMap
+        );
 
-      // Current period CTE with GROUP BY
-      const currentMetrics = tableMetrics
-        .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
-        .join(', ');
+        // Current period CTE with GROUP BY
+        const currentMetrics = tableMetrics
+          .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
+          .join(', ');
 
-      // Select both id and name fields
-      // If idField === nameField (e.g., month), only select once
-      const dimensionSelects = idField === nameField
-        ? `trimBoth(${idField}) AS ${idField}`
-        : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
+        // Select both id and name fields
+        // If idField === nameField (e.g., month), only select once
+        const dimensionSelects = idField === nameField
+          ? `trimBoth(${idField}) AS ${idField}`
+          : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
 
-      ctes.push(`${currentCteName} AS (
+        ctes.push(`${currentCteName} AS (
   SELECT ${dimensionSelects}, ${currentMetrics}
   FROM ${tableName}
 ${currentWhere}
   GROUP BY ${idField === nameField ? '1' : '1, 2'}
 )`);
 
-      // Previous year CTE with GROUP BY
-      const previousMetrics = tableMetrics
-        .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}_ly`)
-        .join(', ');
+        // Previous year CTE with GROUP BY
+        const previousMetrics = tableMetrics
+          .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}_ly`)
+          .join(', ');
 
-      ctes.push(`${previousCteName} AS (
+        ctes.push(`${previousCteName} AS (
   SELECT ${dimensionSelects}, ${previousMetrics}
   FROM ${tableName}
 ${previousWhere}
   GROUP BY ${idField === nameField ? '1' : '1, 2'}
 )`);
 
-      // Add selects for each metric
-      for (const metric of tableMetrics) {
-        finalSelects.push(`${currentCteName}.${metric.alias}`);
-        finalSelects.push(`${previousCteName}.${metric.alias}_ly`);
-        finalSelects.push(
-          `if(${previousCteName}.${metric.alias}_ly != 0, ` +
-            `((${currentCteName}.${metric.alias} - ${previousCteName}.${metric.alias}_ly) / ${previousCteName}.${metric.alias}_ly) * 100, ` +
-            `0) AS ${metric.alias}_vs_last_year`
-        );
+        // Add selects for each metric
+        for (const metric of tableMetrics) {
+          finalSelects.push(`${currentCteName}.${metric.alias}`);
+          finalSelects.push(`${previousCteName}.${metric.alias}_ly`);
+          finalSelects.push(
+            `if(${previousCteName}.${metric.alias}_ly != 0, ` +
+              `((${currentCteName}.${metric.alias} - ${previousCteName}.${metric.alias}_ly) / ${previousCteName}.${metric.alias}_ly) * 100, ` +
+              `0) AS ${metric.alias}_vs_last_year`
+          );
+        }
+      } else {
+        // Table doesn't have the dimension column — use 0 for all its metrics
+        for (const metric of tableMetrics) {
+          finalSelects.push(`0 AS ${metric.alias}`);
+          finalSelects.push(`0 AS ${metric.alias}_ly`);
+          finalSelects.push(`0 AS ${metric.alias}_vs_last_year`);
+        }
       }
     }
 
-    return { ctes, finalSelects };
+    return { ctes, finalSelects, tablesWithDimension, skippedTables };
   }
 
   /**
@@ -447,7 +460,7 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
   private buildGroupedFinalQuery(
     ctes: string[],
     finalSelects: string[],
-    metricsByTable: Map<string, MetricConfig[]>,
+    tablesWithDimension: string[],
     groupBy: string,
     limit?: number,
     offset?: number,
@@ -457,22 +470,20 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
     // Validate ordering parameters
     this.validateOrderByField(orderBy);
     const validatedDirection = this.validateOrderDirection(orderDirection);
-    const tables = Array.from(metricsByTable.keys());
-    const firstTable = tables[0]; // Always 'transactions' due to groupMetricsByTable sorting
+    const firstTable = tablesWithDimension[0]; // Always 'transactions' due to groupMetricsByTable sorting
     const fromClause = `${firstTable}_current`;
     const joinClauses: string[] = [];
 
     // Get field mapping to know which field to use for JOINs
     const { idField } = getFieldPair(groupBy);
 
-    // First LEFT JOIN the previous year of transactions
+    // First LEFT JOIN the previous year of the first table
     joinClauses.push(
       `LEFT JOIN ${firstTable}_previous ON ${firstTable}_current.${idField} = ${firstTable}_previous.${idField}`
     );
 
-    // Then LEFT JOIN other current and previous tables
-    // All JOINs reference transactions_current to ensure only current sales are included
-    for (const table of tables.slice(1)) {
+    // Then LEFT JOIN other tables that have the dimension column
+    for (const table of tablesWithDimension.slice(1)) {
       joinClauses.push(
         `LEFT JOIN ${table}_current ON ${firstTable}_current.${idField} = ${table}_current.${idField}`
       );

@@ -4,7 +4,7 @@ export function PortafolioPage() {
   return (
     <AnalyticsPage
       title="Multivariados / Portafolio"
-      groupBy="product"
+      groupBy="product_id"
       totalsLabel="TOTAL PORTAFOLIO:"
     />
   );

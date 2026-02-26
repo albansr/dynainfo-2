@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 
-export type GroupByDimension = 'seller_id' | 'IdRegional' | 'month' | 'quarter' | 'year' | 'product' | 'brand';
+export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'month' | 'quarter' | 'year';
 
 export interface ListItemResponse {
   id: string;

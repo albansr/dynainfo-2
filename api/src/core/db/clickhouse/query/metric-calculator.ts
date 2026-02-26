@@ -27,10 +27,11 @@ export class MetricCalculator {
    */
   addCalculatedMetrics(
     selects: string[],
-    metricsByTable: Map<string, MetricConfig[]>
+    metricsByTable: Map<string, MetricConfig[]>,
+    skippedTables?: Set<string>
   ): void {
     // Build map of alias -> CTE reference for base metrics
-    const aliasToCte = this.buildAliasToCteMap(metricsByTable);
+    const aliasToCte = this.buildAliasToCteMap(metricsByTable, skippedTables);
 
     // Track which calculated metrics have been added
     const addedMetrics = new Set<string>();
@@ -89,7 +90,8 @@ export class MetricCalculator {
    * @returns Map of alias -> full CTE.field reference
    */
   private buildAliasToCteMap(
-    metricsByTable: Map<string, MetricConfig[]>
+    metricsByTable: Map<string, MetricConfig[]>,
+    skippedTables?: Set<string>
   ): Map<string, string> {
     const map = new Map<string, string>();
 
@@ -97,14 +99,17 @@ export class MetricCalculator {
       for (const metric of metrics) {
         const alias = metric.alias;
 
-        // Current period: transactions_current.sales
-        map.set(alias, `${table}_current.${alias}`);
+        if (skippedTables?.has(table)) {
+          // Table was skipped (no dimension column) — metrics are literal 0 in SELECT
+          map.set(alias, alias);
+          map.set(`${alias}_last_year`, `${alias}_ly`);
+        } else {
+          // Current period: transactions_current.sales
+          map.set(alias, `${table}_current.${alias}`);
 
-        // Last year: transactions_previous.sales_ly
-        map.set(`${alias}_last_year`, `${table}_previous.${alias}_ly`);
-
-        // YoY variance is already calculated at SELECT level, not a CTE field
-        // Don't add it to the map - it's not a dependency
+          // Last year: transactions_previous.sales_ly
+          map.set(`${alias}_last_year`, `${table}_previous.${alias}_ly`);
+        }
       }
     }
 
