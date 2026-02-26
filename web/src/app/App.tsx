@@ -7,7 +7,14 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
 import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
+import { ExportacionesPage } from '@/features/exportaciones/pages/ExportacionesPage';
+import { CadenasPage } from '@/features/cadenas/pages/CadenasPage';
 import { BrandsPage } from '@/features/brands/pages/BrandsPage';
+import { BrandsExternalPage } from '@/features/brands/pages/BrandsExternalPage';
+import { PortafolioPage } from '@/features/portafolio/pages/PortafolioPage';
+import { ClientesPage } from '@/features/clientes/pages/ClientesPage';
+import { GmroiPage } from '@/features/gmroi/pages/GmroiPage';
+import { VeraPage } from '@/features/vera/pages/VeraPage';
 import { AppLayout } from '@/core/layouts/AppLayout';
 import { RouteGuard } from '@/core/router/RouteGuard';
 import { AuthProvider } from '@/core/router/AuthProvider';
@@ -65,11 +72,61 @@ function App() {
               }
             />
             <Route
+              path="/canales/exportaciones"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <ExportacionesPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/canales/cadenas"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <CadenasPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
               path="/proveedor-comercial/marcas"
               element={
                 <RouteGuard requireAuth={true}>
                   <AppLayout>
                     <BrandsPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/proveedor-comercial/marcas-detalle"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <BrandsExternalPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/multivariados/portafolio"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <PortafolioPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/multivariados/clientes"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <ClientesPage />
                   </AppLayout>
                 </RouteGuard>
               }
@@ -90,6 +147,26 @@ function App() {
                 <RouteGuard requireAuth={true}>
                   <AppLayout>
                     <MaintenancePage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/inventarios/gmroi"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <GmroiPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/compania-vinculada/vera"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <VeraPage />
                   </AppLayout>
                 </RouteGuard>
               }
