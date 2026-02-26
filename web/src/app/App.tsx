@@ -3,6 +3,7 @@ import { HeroUIProvider } from '@heroui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { CodeVerifyPage } from '@/features/auth/pages/CodeVerifyPage';
+import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
 import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
@@ -43,7 +44,16 @@ function App() {
                 </RouteGuard>
               }
             />
-            <Route path="/dashboard" element={<Navigate to="/mantenimiento" replace />} />
+            <Route
+              path="/dashboard"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DashboardPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
             <Route
               path="/canales/distribucion"
               element={
@@ -84,7 +94,7 @@ function App() {
                 </RouteGuard>
               }
             />
-            <Route path="/" element={<Navigate to="/mantenimiento" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

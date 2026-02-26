@@ -135,11 +135,11 @@ export const dynaSSO = (): BetterAuthPlugin => {
               },
             });
 
-            // 5. Redirect to maintenance page
+            // 5. Redirect to dashboard
             const redirectUrl =
               process.env['NODE_ENV'] === 'production'
-                ? `${process.env['ORIGIN_URL']}/mantenimiento`
-                : 'http://localhost:4000/mantenimiento';
+                ? `${process.env['ORIGIN_URL']}/dashboard`
+                : 'http://localhost:4000/dashboard';
 
             return new Response(null, {
               status: 302,

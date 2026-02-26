@@ -24,7 +24,7 @@ export function CodeVerifyPage() {
     try {
       await verifyOTP(code);
       // If we get here, verification was successful
-      const from = (location.state as { from?: string })?.from || '/mantenimiento';
+      const from = (location.state as { from?: string })?.from || '/dashboard';
       navigate(from, { replace: true });
     } catch (error) {
       // Error is already set in state by useApiMutation, just catch to prevent unhandled rejection

@@ -32,7 +32,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               {/* Compañía General - sin sección */}
               <ListboxItem
                 key="/dashboard"
-                href="/mantenimiento"
+                href="/dashboard"
                 className="cursor-pointer mb-4"
               >
                 Compañía General
