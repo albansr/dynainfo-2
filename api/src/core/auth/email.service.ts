@@ -21,7 +21,7 @@ export async function sendOTPEmail(
 ): Promise<void> {
   try {
     await resend.emails.send({
-      from: 'DynaInfo <onboarding@resend.dev>',
+      from: 'DynaInfo <no-reply@aionsales.app>',
       to: email,
       subject: `Your verification code: ${code}`,
       html: getOTPEmailTemplate(code),
@@ -50,7 +50,7 @@ function getOTPEmailTemplate(code: string): string {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <div style="background: #333; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
           <h1 style="color: white; margin: 0; font-size: 28px;">DynaInfo</h1>
         </div>
 
@@ -58,8 +58,8 @@ function getOTPEmailTemplate(code: string): string {
           <h2 style="color: #1f2937; margin-top: 0;">Your verification code</h2>
           <p style="color: #6b7280; font-size: 16px;">Enter this code to complete your sign-in:</p>
 
-          <div style="background: white; padding: 20px; text-align: center; border-radius: 8px; margin: 30px 0; border: 2px solid #667eea;">
-            <div style="font-size: 48px; font-weight: bold; letter-spacing: 8px; color: #667eea; font-family: 'Courier New', monospace;">
+          <div style="background: white; padding: 20px; text-align: center; border-radius: 8px; margin: 30px 0; border: 2px solid #333;">
+            <div style="font-size: 48px; font-weight: bold; letter-spacing: 8px; color: #333; font-family: 'Courier New', monospace;">
               ${code}
             </div>
           </div>
