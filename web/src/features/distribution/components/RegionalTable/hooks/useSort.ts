@@ -3,8 +3,8 @@ import type { RegionalData, SortKey, SortDirection } from '../types';
 import type { ColumnDefinition } from '../config/types';
 
 export function useSort(data: RegionalData[], columns: ColumnDefinition[]) {
-  const [sortKey, setSortKey] = useState<SortKey | null>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortKey, setSortKey] = useState<SortKey | null>('sales');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const handleSort = useCallback((key: SortKey) => {
     setSortKey((prevKey) => {
