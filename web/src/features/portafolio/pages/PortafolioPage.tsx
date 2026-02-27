@@ -4,8 +4,9 @@ export function PortafolioPage() {
   return (
     <AnalyticsPage
       title="Multivariados / Portafolio"
-      groupBy="product_id"
+      groupBy="SegmentacionProducto"
       totalsLabel="TOTAL PORTAFOLIO:"
+      hideBudgetColumns={true}
     />
   );
 }

@@ -28,7 +28,9 @@ export type GroupByDimension =
   | 'product_id'
   | 'ProveedorComercial'
   | 'month'
-  | 'quarter';
+  | 'quarter'
+  | 'SegmentacionCliente'
+  | 'SegmentacionProducto';
 
 /**
  * Generic row data for analytics table
@@ -88,4 +90,12 @@ export interface AnalyticsPageConfig {
    * Custom column groups for the table (overrides default)
    */
   tableColumnGroups?: ColumnGroup[];
+
+  /**
+   * Hide budget-related columns from the table
+   * When true, hides "Presupuesto" and "Margen Presupuesto" columns
+   * and changes "Margen Real" label to just "Margen"
+   * @default false
+   */
+  hideBudgetColumns?: boolean;
 }

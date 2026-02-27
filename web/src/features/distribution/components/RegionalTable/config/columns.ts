@@ -122,3 +122,45 @@ export const COLUMN_GROUPS: ColumnGroup[] = [
     align: 'center',
   },
 ];
+
+/**
+ * Get columns without budget-related columns
+ * Filters out 'budget' and 'marginBudget' columns
+ * All remaining columns get rowSpan: 2 since there are no column groups
+ */
+export function getColumnsWithoutBudget(): ColumnDefinition[] {
+  return COLUMN_DEFINITIONS
+    .filter(col => col.id !== 'budget' && col.id !== 'marginBudget')
+    .map(col => {
+      // Remove group association and ensure all headers span 2 rows
+      if (col.id === 'margin') {
+        return {
+          ...col,
+          group: undefined,
+          header: {
+            ...col.header,
+            label: 'MARGEN',
+            rowSpan: 2,
+          },
+        };
+      }
+
+      // All other columns also need rowSpan: 2 when groups are hidden
+      return {
+        ...col,
+        group: undefined,
+        header: {
+          ...col.header,
+          rowSpan: 2,
+        },
+      };
+    });
+}
+
+/**
+ * Get column groups without budget-related groups
+ * Returns empty array to hide all column group headers
+ */
+export function getColumnGroupsWithoutBudget(): ColumnGroup[] {
+  return [];
+}

@@ -4,8 +4,9 @@ export function ClientesPage() {
   return (
     <AnalyticsPage
       title="Multivariados / Clientes"
-      groupBy="customer_id"
+      groupBy="SegmentacionCliente"
       totalsLabel="TOTAL CLIENTES:"
+      hideBudgetColumns={true}
     />
   );
 }

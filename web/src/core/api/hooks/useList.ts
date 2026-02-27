@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 
-export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'month' | 'quarter' | 'year';
+export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'month' | 'quarter' | 'year';
 
 export interface ListItemResponse {
   id: string;
@@ -22,6 +22,9 @@ export interface ListItemResponse {
   orders: number;
   orders_last_year: number;
   orders_vs_last_year: number;
+  cartera: number;
+  cartera_last_year: number;
+  cartera_vs_last_year: number;
   sales_vs_budget: number;
   budget_achievement_pct: number;
   order_fulfillment_pct: number;
@@ -29,6 +32,7 @@ export interface ListItemResponse {
   budget_gross_margin_pct: number;
   gross_margin_pct_last_year: number;
   gross_margin_pct_vs_last_year: number;
+  cartera_compliance_pct: number;
 }
 
 export interface ListResponse {
@@ -81,7 +85,12 @@ async function fetchList(params: ListQueryParams): Promise<ListResponse> {
   // Add dynamic filters
   for (const [key, value] of Object.entries(params)) {
     if (!['groupBy', 'startDate', 'endDate', 'page', 'limit', 'orderBy', 'orderDirection'].includes(key)) {
-      queryParams.append(key, value);
+      if (Array.isArray(value)) {
+        // For arrays, append each value separately
+        value.forEach(v => queryParams.append(key, String(v)));
+      } else {
+        queryParams.append(key, String(value));
+      }
     }
   }
 

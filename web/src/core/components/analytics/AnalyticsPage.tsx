@@ -4,6 +4,12 @@ import { useAnalyticsData } from './hooks/useAnalyticsData';
 import { StandardMetrics } from './presets/standardMetrics';
 import { PageHeader } from '@/core/components/PageHeader';
 import { RegionalTable, type RegionalData } from '@/features/distribution/components/RegionalTable';
+import {
+  getColumnsWithoutBudget,
+  getColumnGroupsWithoutBudget,
+  COLUMN_DEFINITIONS,
+  COLUMN_GROUPS,
+} from '@/features/distribution/components/RegionalTable/config/columns';
 import type { AnalyticsPageConfig } from './types';
 import type { ListItemResponse } from '@/core/api/hooks/useList';
 
@@ -30,8 +36,8 @@ function mapApiToRegionalData(item: ListItemResponse): RegionalData {
       budget: item.budget_gross_margin_pct,
     },
     retained: {
-      amount: 0, // TODO: Should come from API
-      compliance: 0, // TODO: Should come from API
+      amount: item.cartera,
+      compliance: item.cartera_compliance_pct,
     },
   };
 }
@@ -142,6 +148,9 @@ export function AnalyticsPage({
   totalsLabel = 'TOTAL:',
   filters,
   metricsPreset = 'standard',
+  tableColumns,
+  tableColumnGroups,
+  hideBudgetColumns = false,
 }: AnalyticsPageConfig) {
   const { startDate, endDate } = useDateRange();
 
@@ -164,6 +173,17 @@ export function AnalyticsPage({
     () => calculateTotals(mappedData, totalsLabel),
     [mappedData, totalsLabel]
   );
+
+  // Compute columns and groups based on configuration
+  const columns = useMemo(() => {
+    if (tableColumns) return tableColumns;
+    return hideBudgetColumns ? getColumnsWithoutBudget() : COLUMN_DEFINITIONS;
+  }, [tableColumns, hideBudgetColumns]);
+
+  const columnGroups = useMemo(() => {
+    if (tableColumnGroups) return tableColumnGroups;
+    return hideBudgetColumns ? getColumnGroupsWithoutBudget() : COLUMN_GROUPS;
+  }, [tableColumnGroups, hideBudgetColumns]);
 
   const currentYear = endDate.getFullYear();
 
@@ -195,6 +215,8 @@ export function AnalyticsPage({
       <RegionalTable
         data={mappedData}
         totals={totals}
+        columns={columns}
+        columnGroups={columnGroups}
         config={{
           currency: '$',
           locale: 'es-CO',

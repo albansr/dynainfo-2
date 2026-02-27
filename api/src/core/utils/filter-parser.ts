@@ -22,6 +22,14 @@ const RESERVED_PARAMS = ['startDate', 'endDate', 'groupBy', 'page', 'limit'];
  * // Comma-separated values
  * parseDynamicFilters({ country: 'españa,portugal' })
  * // Returns: [{ field: 'country', operator: 'in', value: ['españa', 'portugal'] }]
+ *
+ * @example
+ * // Exclusion filter (neq operator)
+ * parseDynamicFilters({ 'ProveedorComercial[neq][]': ['VERA', 'FORTE'] })
+ * // Returns: [
+ * //   { field: 'ProveedorComercial', operator: 'neq', value: 'VERA' },
+ * //   { field: 'ProveedorComercial', operator: 'neq', value: 'FORTE' }
+ * // ]
  */
 export function parseDynamicFilters(
   query: Record<string, unknown>
@@ -39,6 +47,84 @@ export function parseDynamicFilters(
       continue;
     }
 
+    // Check for operator syntax: field[operator][] or field[operator]
+    const operatorMatch = field.match(/^(.+)\[(\w+)\](\[\])?$/);
+
+    if (operatorMatch) {
+      const fieldName = operatorMatch[1]!;
+      const operator = operatorMatch[2]! as 'eq' | 'neq' | 'in';
+
+      // Handle array values (e.g., field[neq][]=value1&field[neq][]=value2)
+      if (Array.isArray(value)) {
+        const stringValues = value
+          .filter(v => typeof v === 'string')
+          .map(v => v.trim())
+          .filter(v => v !== '');
+
+        if (stringValues.length === 0) continue;
+
+        // For 'neq' operator, create separate filter condition for each value
+        if (operator === 'neq') {
+          stringValues.forEach(v => {
+            filters.push({
+              field: fieldName,
+              operator: 'neq',
+              value: v
+            });
+          });
+        } else {
+          // For other operators, use normal logic
+          if (stringValues.length === 1) {
+            filters.push({
+              field: fieldName,
+              operator,
+              value: stringValues[0]!
+            });
+          } else {
+            filters.push({
+              field: fieldName,
+              operator: operator === 'eq' ? 'in' : operator,
+              value: stringValues
+            });
+          }
+        }
+      }
+      // Handle string values
+      else if (typeof value === 'string') {
+        const values = value.split(',').map(v => v.trim()).filter(v => v !== '');
+
+        if (values.length === 0) continue;
+
+        // For 'neq' operator, create separate filter condition for each value
+        if (operator === 'neq') {
+          values.forEach(v => {
+            filters.push({
+              field: fieldName,
+              operator: 'neq',
+              value: v
+            });
+          });
+        } else {
+          if (values.length === 1) {
+            filters.push({
+              field: fieldName,
+              operator,
+              value: values[0]!
+            });
+          } else {
+            filters.push({
+              field: fieldName,
+              operator: operator === 'eq' ? 'in' : operator,
+              value: values
+            });
+          }
+        }
+      }
+
+      continue;
+    }
+
+    // Standard field handling (no operator specified)
     // Handle string values (may be comma-separated)
     if (typeof value === 'string') {
       const values = value.split(',').map(v => v.trim()).filter(v => v !== '');

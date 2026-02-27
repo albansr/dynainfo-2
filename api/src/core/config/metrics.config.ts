@@ -53,6 +53,12 @@ export const BALANCE_METRICS = [
     aggregation: 'sum',
     alias: 'orders',
   },
+  {
+    table: 'cartera',
+    field: 'sales_price',
+    aggregation: 'sum',
+    alias: 'cartera',
+  },
   // Add more metrics here as needed
   // Example:
   // {
@@ -134,6 +140,12 @@ export const CALCULATED_METRICS = [
     description: 'YoY variance % for gross margin percentage',
     dependencies: ['gross_margin_pct', 'gross_margin_pct_last_year'],
     formula: 'if({gross_margin_pct_last_year} != 0, (({gross_margin_pct} - {gross_margin_pct_last_year}) / {gross_margin_pct_last_year}) * 100, 0)',
+  },
+  {
+    name: 'cartera_compliance_pct',
+    description: 'Cartera compliance % ((sales + orders + cartera) / budget * 100)',
+    dependencies: ['sales', 'orders', 'cartera', 'budget'],
+    formula: 'if({budget} != 0, (({sales} + {orders} + {cartera}) / {budget}) * 100, 0)',
   },
   // Add more calculated metrics here as needed
   // Example:

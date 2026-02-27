@@ -6,7 +6,7 @@ export function BrandsExternalPage() {
       title="Proveedor Comercial / Marcas Externas"
       groupBy="ProveedorComercial"
       totalsLabel="TOTAL MARCAS:"
-      filters={{ }}
+      filters={{ 'ProveedorComercial[neq][]': ['VERA', 'FORTE'] }}
     />
   );
 }

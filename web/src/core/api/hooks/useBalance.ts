@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { apiClient } from '../client';
 import type { BalanceSheetResponse, BalanceQueryParams } from '../types';
 
-async function fetchBalance(params: BalanceQueryParams, filters?: Record<string, string>): Promise<BalanceSheetResponse> {
+async function fetchBalance(params: BalanceQueryParams, filters?: Record<string, any>): Promise<BalanceSheetResponse> {
   const queryParams = new URLSearchParams();
 
   if (params.startDate) {
@@ -17,7 +17,12 @@ async function fetchBalance(params: BalanceQueryParams, filters?: Record<string,
   // Add additional filters
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
-      queryParams.append(key, value);
+      if (Array.isArray(value)) {
+        // For arrays, append each value separately
+        value.forEach(v => queryParams.append(key, String(v)));
+      } else {
+        queryParams.append(key, String(value));
+      }
     });
   }
 
@@ -25,7 +30,7 @@ async function fetchBalance(params: BalanceQueryParams, filters?: Record<string,
   return apiClient<BalanceSheetResponse>(endpoint);
 }
 
-export function useBalance(startDate: Date, endDate: Date, filters?: Record<string, string>) {
+export function useBalance(startDate: Date, endDate: Date, filters?: Record<string, any>) {
   const params: BalanceQueryParams = {
     startDate: format(startDate, 'yyyy-MM-dd'),
     endDate: format(endDate, 'yyyy-MM-dd'),

@@ -188,6 +188,11 @@ export class FilterBuilder {
         throw new Error(`Invalid field name format: ${f.field}`);
       }
 
+      // Special case: exclude 'channel' filter from dyna_budget table
+      if (f.field === 'channel' && tableName.endsWith('budget')) {
+        return false;
+      }
+
       // Check if column exists in this table
       return tableColumns.has(f.field);
     });
