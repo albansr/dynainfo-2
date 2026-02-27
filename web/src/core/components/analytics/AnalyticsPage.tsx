@@ -6,8 +6,8 @@ import { PageHeader } from '@/core/components/PageHeader';
 import { RegionalTable, type RegionalData } from '@/features/distribution/components/RegionalTable';
 import {
   getColumnsWithoutBudget,
+  getColumnsWithDynamicLabel,
   getColumnGroupsWithoutBudget,
-  COLUMN_DEFINITIONS,
   COLUMN_GROUPS,
 } from '@/features/distribution/components/RegionalTable/config/columns';
 import type { AnalyticsPageConfig } from './types';
@@ -177,8 +177,10 @@ export function AnalyticsPage({
   // Compute columns and groups based on configuration
   const columns = useMemo(() => {
     if (tableColumns) return tableColumns;
-    return hideBudgetColumns ? getColumnsWithoutBudget() : COLUMN_DEFINITIONS;
-  }, [tableColumns, hideBudgetColumns]);
+    return hideBudgetColumns
+      ? getColumnsWithoutBudget(groupBy)
+      : getColumnsWithDynamicLabel(groupBy);
+  }, [tableColumns, hideBudgetColumns, groupBy]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;

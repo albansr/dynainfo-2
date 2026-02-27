@@ -1,4 +1,5 @@
 import type { ColumnDefinition, ColumnGroup } from './types';
+import type { GroupByDimension } from '@/core/api/hooks/useList';
 import {
   salesCellRenderer,
   complianceCellRenderer,
@@ -12,6 +13,7 @@ import {
   marginBudgetBackgroundColor
   // retainedBackgroundColor - not currently used
 } from './backgroundColors';
+import { getDimensionLabel } from '@/core/utils/dimensionLabels';
 
 // Define all columns
 export const COLUMN_DEFINITIONS: ColumnDefinition[] = [
@@ -124,14 +126,49 @@ export const COLUMN_GROUPS: ColumnGroup[] = [
 ];
 
 /**
+ * Get columns with dynamic first column label based on groupBy dimension
+ * @param groupBy - The dimension used for grouping data
+ * @returns Column definitions with semantic first column label
+ */
+export function getColumnsWithDynamicLabel(groupBy: GroupByDimension): ColumnDefinition[] {
+  return COLUMN_DEFINITIONS.map(col => {
+    // Update the first column label based on groupBy
+    if (col.id === 'regional') {
+      return {
+        ...col,
+        header: {
+          ...col.header,
+          label: getDimensionLabel(groupBy),
+        },
+      };
+    }
+    return col;
+  });
+}
+
+/**
  * Get columns without budget-related columns
  * Filters out 'budget' and 'marginBudget' columns
  * All remaining columns get rowSpan: 2 since there are no column groups
+ * @param groupBy - The dimension used for grouping data (for dynamic first column label)
  */
-export function getColumnsWithoutBudget(): ColumnDefinition[] {
+export function getColumnsWithoutBudget(groupBy: GroupByDimension): ColumnDefinition[] {
   return COLUMN_DEFINITIONS
     .filter(col => col.id !== 'budget' && col.id !== 'marginBudget')
     .map(col => {
+      // Update the first column label based on groupBy
+      if (col.id === 'regional') {
+        return {
+          ...col,
+          group: undefined,
+          header: {
+            ...col.header,
+            label: getDimensionLabel(groupBy),
+            rowSpan: 2,
+          },
+        };
+      }
+
       // Remove group association and ensure all headers span 2 rows
       if (col.id === 'margin') {
         return {
