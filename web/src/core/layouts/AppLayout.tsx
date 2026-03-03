@@ -16,6 +16,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const isEmbedded = useMemo(() => {
+    try { return window.self !== window.top; } catch { return true; }
+  }, []);
+
   const selectedKeys = useMemo(() => {
     return [location.pathname];
   }, [location.pathname]);
@@ -32,7 +36,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Mobile overlay */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 xl:hidden"
+          className={`fixed inset-0 bg-black/50 z-40 ${isEmbedded ? '' : 'xl:hidden'}`}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -40,9 +44,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Sidebar */}
       <aside className={`
         w-56 bg-[#f8f8f8] flex flex-col
-        fixed xl:relative h-full z-50
+        fixed ${isEmbedded ? '' : 'xl:relative'} h-full z-50
         transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
+        ${isSidebarOpen ? 'translate-x-0' : `-translate-x-full ${isEmbedded ? '' : 'xl:translate-x-0'}`}
       `}>
         <div className="p-6">
           <img src="/brand.png" alt="DynaInfo" className="w-[95px] h-auto" />
@@ -166,7 +170,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden xl:ml-0">
         {/* Mobile/Tablet Header with Hamburger */}
-        <header className="xl:hidden flex items-center gap-3 p-4 bg-[#f8f8f8]">
+        <header className={`${isEmbedded ? '' : 'xl:hidden'} flex items-center gap-3 p-4 bg-[#f8f8f8]`}>
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-2 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
@@ -181,7 +185,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <img src="/brand.png" alt="DynaInfo" className="h-8" />
         </header>
 
-        <main className="flex-1 overflow-y-auto py-4 px-4 xl:px-10 m-2 bg-white shadow rounded-xl">
+        <main className={`flex-1 overflow-y-auto py-4 px-4 ${isEmbedded ? '' : 'xl:px-10'} m-2 bg-white shadow rounded-xl`}>
           {children}
         </main>
       </div>
