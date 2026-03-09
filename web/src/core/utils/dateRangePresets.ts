@@ -1,5 +1,6 @@
 import {
   startOfMonth,
+  endOfMonth,
   subDays,
   subMonths,
   startOfYear,
@@ -35,6 +36,12 @@ export const calculatePresetRange = (
       return {
         start: startOfMonth(yesterday),
         end: yesterday,
+      };
+
+    case 'previous-month':
+      return {
+        start: startOfMonth(subMonths(today, 1)),
+        end: endOfMonth(subMonths(today, 1)),
       };
 
     case 'accumulated':

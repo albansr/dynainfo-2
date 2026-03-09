@@ -52,11 +52,18 @@ export const useDateRangeStore = create<DateRangeStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         preset: state.preset,
-        // Dates are recalculated on load to ensure "yesterday" is always current
+        ...(state.preset === 'custom' && {
+          startDate: state.startDate.toISOString(),
+          endDate: state.endDate.toISOString(),
+        }),
       }),
       onRehydrateStorage: () => (state) => {
-        // Recalculate dates from the loaded preset to keep them in sync
-        if (state && state.preset !== 'custom') {
+        if (!state) return;
+        if (state.preset === 'custom') {
+          // Restore persisted custom dates (stored as ISO strings by partialize)
+          state.startDate = new Date(state.startDate);
+          state.endDate = new Date(state.endDate);
+        } else {
           const range = calculatePresetRange(state.preset);
           state.startDate = range.start;
           state.endDate = range.end;

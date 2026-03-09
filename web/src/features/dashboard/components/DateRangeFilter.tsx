@@ -4,6 +4,7 @@ import { CalendarIcon } from '@heroicons/react/24/outline';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { getAvailableYears } from '@/core/utils/dateRangePresets';
 import type { DateRangePreset } from '@/core/config/dateRangeConfig';
+import { PRESET_LABELS } from '@/core/config/dateRangeConfig';
 import { CustomDateRangePicker } from './CustomDateRangePicker';
 
 interface PresetOption {
@@ -15,14 +16,17 @@ export function DateRangeFilter() {
   const { preset, setPreset } = useDateRange();
   const [isCustomPickerOpen, setIsCustomPickerOpen] = useState(false);
 
-  // Generate preset options
-  const presetOptions: PresetOption[] = [
-    { value: 'today', label: 'Hoy' },
-    { value: 'current-month', label: 'Mes actual' },
-    { value: 'accumulated', label: 'Acumulado' },
-    { value: 'last-30-days', label: 'Últimos 30 días' },
-    { value: 'last-6-months', label: 'Últimos 6 meses' },
-    { value: 'last-12-months', label: 'Últimos 12 meses' },
+  const mainPresets: PresetOption[] = [
+    { value: 'previous-month', label: PRESET_LABELS['previous-month'] },
+    { value: 'accumulated', label: PRESET_LABELS['accumulated'] },
+    { value: 'current-month', label: PRESET_LABELS['current-month'] },
+    { value: 'today', label: PRESET_LABELS['today'] },
+  ];
+
+  const periodPresets: PresetOption[] = [
+    { value: 'last-30-days', label: PRESET_LABELS['last-30-days'] },
+    { value: 'last-6-months', label: PRESET_LABELS['last-6-months'] },
+    { value: 'last-12-months', label: PRESET_LABELS['last-12-months'] },
   ];
 
   // Add available years (only closed complete years)
@@ -75,7 +79,7 @@ export function DateRangeFilter() {
         startContent={<CalendarIcon className="h-4 w-4 text-default-400" />}
       >
         <SelectSection title="Temporalidades" showDivider>
-          {presetOptions.map((option) => (
+          {mainPresets.map((option) => (
             <SelectItem key={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
               {option.label}
             </SelectItem>
@@ -91,6 +95,14 @@ export function DateRangeFilter() {
             ))}
           </SelectSection>
         ) : null}
+
+        <SelectSection title="Períodos" showDivider>
+          {periodPresets.map((option) => (
+            <SelectItem key={option.value} className="!cursor-pointer" style={{ cursor: 'pointer' }}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectSection>
 
         <SelectSection>
           <SelectItem key="custom" className="!cursor-pointer" style={{ cursor: 'pointer' }}>
