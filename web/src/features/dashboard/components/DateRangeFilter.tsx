@@ -57,9 +57,15 @@ export function DateRangeFilter() {
         label="Temporalidad"
         variant="bordered"
         placeholder="Selecciona una temporalidad"
+        disallowEmptySelection={false}
         selectedKeys={selectedKeys}
         onSelectionChange={(keys) => {
-          const value = Array.from(keys)[0] as string;
+          const selected = Array.from(keys);
+          if (selected.length === 0 && preset === 'custom') {
+            setIsCustomPickerOpen(true);
+            return;
+          }
+          const value = selected[0] as string;
           if (value) handleSelectionChange(value);
         }}
         className="w-full"

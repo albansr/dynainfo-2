@@ -26,7 +26,7 @@ const parseDateInput = (value: string): Date | null => {
 };
 
 export function CustomDateRangePicker({ isOpen, onClose }: CustomDateRangePickerProps) {
-  const { startDate, setCustomRange } = useDateRange();
+  const { startDate, endDate, preset, setCustomRange } = useDateRange();
 
   const [tempStart, setTempStart] = useState('');
   const [tempEnd, setTempEnd] = useState('');
@@ -35,10 +35,10 @@ export function CustomDateRangePicker({ isOpen, onClose }: CustomDateRangePicker
   useEffect(() => {
     if (isOpen) {
       setTempStart(format(startDate, 'dd-MM-yyyy'));
-      setTempEnd(format(new Date(), 'dd-MM-yyyy'));
+      setTempEnd(format(preset === 'custom' ? endDate : new Date(), 'dd-MM-yyyy'));
       setError(null);
     }
-  }, [isOpen, startDate]);
+  }, [isOpen, startDate, endDate, preset]);
 
   const handleApply = () => {
     const startDateObj = parseDateInput(tempStart);
