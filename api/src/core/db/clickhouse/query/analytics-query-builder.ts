@@ -254,43 +254,57 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       const currentCteName = `${table}_current`;
       const previousCteName = `${table}_previous`;
 
-      // Build table-aware WHERE clauses
-      const currentWhere = this.filterBuilder.buildWhereClauseForTable(
-        currentPeriodFilters,
-        queryParams,
-        `current_${table}`,
-        tableName,
-        columnMap
-      );
-      const previousWhere = this.filterBuilder.buildWhereClauseForTable(
-        previousYearFilters,
-        queryParams,
-        `previous_${table}`,
-        tableName,
-        columnMap
-      );
+      if (table === 'budget') {
+        // Budget: expand date filter to start of month + prorate by business days
+        ctes.push(this.buildBudgetCteSql({
+          cteName: currentCteName, tableMetrics,
+          filters: currentPeriodFilters, queryParams,
+          paramPrefix: `current_${table}`, tableName, columnMap, aliasSuffix: '',
+        }));
+        ctes.push(this.buildBudgetCteSql({
+          cteName: previousCteName, tableMetrics,
+          filters: previousYearFilters, queryParams,
+          paramPrefix: `previous_${table}`, tableName, columnMap, aliasSuffix: '_ly',
+        }));
+      } else {
+        // Build table-aware WHERE clauses
+        const currentWhere = this.filterBuilder.buildWhereClauseForTable(
+          currentPeriodFilters,
+          queryParams,
+          `current_${table}`,
+          tableName,
+          columnMap
+        );
+        const previousWhere = this.filterBuilder.buildWhereClauseForTable(
+          previousYearFilters,
+          queryParams,
+          `previous_${table}`,
+          tableName,
+          columnMap
+        );
 
-      // Current period CTE
-      const currentMetrics = tableMetrics
-        .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
-        .join(', ');
+        // Current period CTE
+        const currentMetrics = tableMetrics
+          .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
+          .join(', ');
 
-      ctes.push(`${currentCteName} AS (
+        ctes.push(`${currentCteName} AS (
   SELECT ${currentMetrics}
   FROM ${tableName}
 ${currentWhere}
 )`);
 
-      // Previous year CTE
-      const previousMetrics = tableMetrics
-        .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}_ly`)
-        .join(', ');
+        // Previous year CTE
+        const previousMetrics = tableMetrics
+          .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}_ly`)
+          .join(', ');
 
-      ctes.push(`${previousCteName} AS (
+        ctes.push(`${previousCteName} AS (
   SELECT ${previousMetrics}
   FROM ${tableName}
 ${previousWhere}
 )`);
+      }
 
       // Add selects for final query
       for (const metric of tableMetrics) {
@@ -364,51 +378,67 @@ ${previousWhere}
       const tableHasDimension = tableColumns?.has(idField) ?? false;
 
       if (tableHasDimension) {
-        // Build table-aware WHERE clauses
-        const currentWhere = this.filterBuilder.buildWhereClauseForTable(
-          currentPeriodFilters,
-          queryParams,
-          `current_${table}`,
-          tableName,
-          columnMap
-        );
-        const previousWhere = this.filterBuilder.buildWhereClauseForTable(
-          previousYearFilters,
-          queryParams,
-          `previous_${table}`,
-          tableName,
-          columnMap
-        );
+        if (table === 'budget') {
+          // Budget: expand date filter to start of month + prorate by business days
+          ctes.push(this.buildBudgetCteSql({
+            cteName: currentCteName, tableMetrics,
+            filters: currentPeriodFilters, queryParams,
+            paramPrefix: `current_${table}`, tableName, columnMap, aliasSuffix: '',
+            groupByConfig: { idField, nameField },
+          }));
+          ctes.push(this.buildBudgetCteSql({
+            cteName: previousCteName, tableMetrics,
+            filters: previousYearFilters, queryParams,
+            paramPrefix: `previous_${table}`, tableName, columnMap, aliasSuffix: '_ly',
+            groupByConfig: { idField, nameField },
+          }));
+        } else {
+          // Build table-aware WHERE clauses
+          const currentWhere = this.filterBuilder.buildWhereClauseForTable(
+            currentPeriodFilters,
+            queryParams,
+            `current_${table}`,
+            tableName,
+            columnMap
+          );
+          const previousWhere = this.filterBuilder.buildWhereClauseForTable(
+            previousYearFilters,
+            queryParams,
+            `previous_${table}`,
+            tableName,
+            columnMap
+          );
 
-        // Current period CTE with GROUP BY
-        const currentMetrics = tableMetrics
-          .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
-          .join(', ');
+          // Current period CTE with GROUP BY
+          const currentMetrics = tableMetrics
+            .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
+            .join(', ');
 
-        // Select both id and name fields
-        // If idField === nameField (e.g., month), only select once
-        const dimensionSelects = idField === nameField
-          ? `trimBoth(${idField}) AS ${idField}`
-          : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
+          // Select both id and name fields
+          // If idField === nameField (e.g., month), only select once
+          const dimensionSelects = idField === nameField
+            ? `trimBoth(${idField}) AS ${idField}`
+            : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
 
-        ctes.push(`${currentCteName} AS (
+          ctes.push(`${currentCteName} AS (
   SELECT ${dimensionSelects}, ${currentMetrics}
   FROM ${tableName}
 ${currentWhere}
   GROUP BY ${idField === nameField ? '1' : '1, 2'}
 )`);
 
-        // Previous year CTE with GROUP BY
-        const previousMetrics = tableMetrics
-          .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}_ly`)
-          .join(', ');
+          // Previous year CTE with GROUP BY
+          const previousMetrics = tableMetrics
+            .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}_ly`)
+            .join(', ');
 
-        ctes.push(`${previousCteName} AS (
+          ctes.push(`${previousCteName} AS (
   SELECT ${dimensionSelects}, ${previousMetrics}
   FROM ${tableName}
 ${previousWhere}
   GROUP BY ${idField === nameField ? '1' : '1, 2'}
 )`);
+        }
 
         // Add selects for each metric
         for (const metric of tableMetrics) {
@@ -431,6 +461,95 @@ ${previousWhere}
     }
 
     return { ctes, finalSelects, tablesWithDimension, skippedTables };
+  }
+
+  /**
+   * Build a budget CTE with date expansion to start of month and proration by business days.
+   * Budget rows are stored on the 1st of each month. This expands the start date filter
+   * to the beginning of the month and JOINs with dyna_fnc_dias_ppto to prorate by
+   * business days (dias_habiles / dias_transcurridos).
+   */
+  private buildBudgetCteSql(config: {
+    cteName: string;
+    tableMetrics: MetricConfig[];
+    filters: FilterCondition[];
+    queryParams: Record<string, string | string[]>;
+    paramPrefix: string;
+    tableName: string;
+    columnMap: Map<string, Set<string>>;
+    aliasSuffix: string;
+    groupByConfig?: { idField: string; nameField: string };
+  }): string {
+    const {
+      cteName, tableMetrics, filters, queryParams, paramPrefix,
+      tableName, columnMap, aliasSuffix, groupByConfig,
+    } = config;
+
+    const diasTable = `${this.tablePrefix}fnc_dias_ppto`;
+    const prorationFactor = 'coalesce(d.Dias_transcurridos / nullIf(d.Dias_habiles, 0), 1)';
+    const tableColumns = columnMap.get(tableName) ?? new Set<string>();
+
+    // Build WHERE conditions with date expansion for budget
+    const conditions: string[] = [];
+
+    for (let index = 0; index < filters.length; index++) {
+      const f = filters[index]!;
+
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.field)) {
+        throw new Error(`Invalid field name format: ${f.field}`);
+      }
+
+      // Exclude 'channel' filter from budget table
+      if (f.field === 'channel') continue;
+
+      // Skip columns that don't exist in this table
+      if (!tableColumns.has(f.field)) continue;
+
+      const paramName = `${paramPrefix}_${f.field}_${index}`;
+
+      if (f.field === 'date' && f.operator === 'gte') {
+        // Expand start date to beginning of month to capture budget rows on the 1st
+        queryParams[paramName] = String(f.value);
+        conditions.push(`date >= toString(toStartOfMonth(toDate({${paramName}:String})))`);
+      } else if (f.operator === 'in') {
+        const values = Array.isArray(f.value) ? f.value : [f.value];
+        queryParams[paramName] = values.map(String);
+        conditions.push(`${f.field} IN {${paramName}:Array(String)}`);
+      } else {
+        queryParams[paramName] = String(f.value);
+        const opMap: Record<string, string> = {
+          gte: '>=', lte: '<=', eq: '=', gt: '>', lt: '<', neq: '!=',
+        };
+        const op = opMap[f.operator] ?? '=';
+        conditions.push(`${f.field} ${op} {${paramName}:String}`);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Build metric expressions with proration
+    const metricExprs = tableMetrics
+      .map((m) => `${m.aggregation}(${m.field} * ${prorationFactor}) AS ${m.alias}${aliasSuffix}`)
+      .join(', ');
+
+    // Build dimension selects and GROUP BY for grouped queries
+    let dimensionSelectsPart = '';
+    let groupByClause = '';
+    if (groupByConfig) {
+      const { idField, nameField } = groupByConfig;
+      const dimensionSelects = idField === nameField
+        ? `trimBoth(${idField}) AS ${idField}`
+        : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
+      dimensionSelectsPart = `${dimensionSelects}, `;
+      groupByClause = `\n  GROUP BY ${idField === nameField ? '1' : '1, 2'}`;
+    }
+
+    return `${cteName} AS (
+  SELECT ${dimensionSelectsPart}${metricExprs}
+  FROM ${tableName}
+  LEFT JOIN ${diasTable} d ON toMonth(toDate(date)) = d.Mes AND toYear(toDate(date)) = d.Ano
+${whereClause}${groupByClause}
+)`;
   }
 
   /**
