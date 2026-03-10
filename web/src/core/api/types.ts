@@ -19,6 +19,8 @@ export interface BalanceSheetData {
   sales_vs_budget: number;
   budget_achievement_pct: number;
   order_fulfillment_pct: number;
+  cartera: number;
+  cartera_compliance_pct: number;
 }
 
 export interface BalanceSheetResponse {
