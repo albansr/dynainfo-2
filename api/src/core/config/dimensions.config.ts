@@ -18,6 +18,7 @@ export const ALLOWED_DIMENSIONS = [
   'Marca',
   'SegmentacionCliente',
   'SegmentacionProducto',
+  'CentroOperaciones',
   'month',
   'quarter',
   'year',

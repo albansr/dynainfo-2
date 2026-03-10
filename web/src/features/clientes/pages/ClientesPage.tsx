@@ -7,6 +7,7 @@ export function ClientesPage() {
       groupBy="SegmentacionCliente"
       totalsLabel="TOTAL CLIENTES:"
       hideBudgetColumns={true}
+      hideRetainedColumn={true}
     />
   );
 }

@@ -32,7 +32,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8f8f8] relative">
+    <div className="flex h-screen bg-[#f3f3f3] relative">
       {/* Mobile overlay */}
       {isSidebarOpen && (
         <div
@@ -43,14 +43,16 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Sidebar */}
       <aside className={`
-        w-56 bg-[#f8f8f8] flex flex-col
+        w-56 bg-[#f3f3f3] flex flex-col
         fixed ${isEmbedded ? '' : 'xl:relative'} h-full z-50
         transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : `-translate-x-full ${isEmbedded ? '' : 'xl:translate-x-0'}`}
       `}>
-        <div className="p-6">
-          <img src="/brand.png" alt="DynaInfo" className="w-[95px] h-auto" />
-        </div>
+        {!isEmbedded && (
+          <div className="p-6">
+            <img src="/brand.png" alt="DynaInfo" className="w-[95px] h-auto" />
+          </div>
+        )}
 
         <nav className="px-4 flex-1 overflow-y-auto py-4 border-t border-gray-200">
           <Listbox
@@ -170,7 +172,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden xl:ml-0">
         {/* Mobile/Tablet Header with Hamburger */}
-        <header className={`${isEmbedded ? '' : 'xl:hidden'} flex items-center gap-3 p-4 bg-[#f8f8f8]`}>
+        <header className={`${isEmbedded ? '' : 'xl:hidden'} flex items-center gap-3 p-4 bg-[#f3f3f3]`}>
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-2 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
@@ -182,7 +184,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <Bars3Icon className="h-6 w-6" />
             )}
           </button>
-          <img src="/brand.png" alt="DynaInfo" className="h-8" />
+          {!isEmbedded && <img src="/brand.png" alt="DynaInfo" className="h-8" />}
         </header>
 
         <main className={`flex-1 overflow-y-auto py-4 px-4 ${isEmbedded ? '' : 'xl:px-10'} m-2 bg-white shadow rounded-xl`}>

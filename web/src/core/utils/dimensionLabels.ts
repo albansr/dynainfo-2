@@ -9,6 +9,7 @@ export const DIMENSION_LABELS: Record<GroupByDimension, string> = {
   customer_country: 'PAÍS',
   customer_name: 'CLIENTE',
   SegmentacionProducto: 'Segmentación Producto',
+  CentroOperaciones: 'CENTRO OP.',
   SegmentacionCliente: 'SEGMENTO CLIENTE',
   Marca: 'MARCA',
   ProveedorComercial: 'PROVEEDOR',

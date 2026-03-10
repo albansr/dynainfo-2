@@ -9,6 +9,7 @@ import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
 import { ExportacionesPage } from '@/features/exportaciones/pages/ExportacionesPage';
 import { CadenasPage } from '@/features/cadenas/pages/CadenasPage';
+import { RetailPage } from '@/features/retail/pages/RetailPage';
 import { BrandsPage } from '@/features/brands/pages/BrandsPage';
 import { BrandsExternalPage } from '@/features/brands/pages/BrandsExternalPage';
 import { PortafolioPage } from '@/features/portafolio/pages/PortafolioPage';
@@ -87,6 +88,16 @@ function App() {
                 <RouteGuard requireAuth={true}>
                   <AppLayout>
                     <CadenasPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/canales/retail"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <RetailPage />
                   </AppLayout>
                 </RouteGuard>
               }

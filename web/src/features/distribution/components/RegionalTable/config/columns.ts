@@ -152,9 +152,9 @@ export function getColumnsWithDynamicLabel(groupBy: GroupByDimension): ColumnDef
  * All remaining columns get rowSpan: 2 since there are no column groups
  * @param groupBy - The dimension used for grouping data (for dynamic first column label)
  */
-export function getColumnsWithoutBudget(groupBy: GroupByDimension): ColumnDefinition[] {
+export function getColumnsWithoutBudget(groupBy: GroupByDimension, hideRetained = false): ColumnDefinition[] {
   return COLUMN_DEFINITIONS
-    .filter(col => col.id !== 'budget' && col.id !== 'marginBudget')
+    .filter(col => col.id !== 'budget' && col.id !== 'marginBudget' && (!hideRetained || col.id !== 'retained'))
     .map(col => {
       // Update the first column label based on groupBy
       if (col.id === 'regional') {

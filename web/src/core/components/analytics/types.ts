@@ -30,7 +30,8 @@ export type GroupByDimension =
   | 'month'
   | 'quarter'
   | 'SegmentacionCliente'
-  | 'SegmentacionProducto';
+  | 'SegmentacionProducto'
+  | 'CentroOperaciones';
 
 /**
  * Generic row data for analytics table
@@ -98,4 +99,17 @@ export interface AnalyticsPageConfig {
    * @default false
    */
   hideBudgetColumns?: boolean;
+
+  /**
+   * Hide the "Retenido en Cartera" column from the table
+   * @default false
+   */
+  hideRetainedColumn?: boolean;
+
+  /**
+   * Override display names for specific row IDs
+   * Maps the raw ID/name from the API to a custom display label
+   * @example { 'COD': 'Ventas C.O.D', '006': 'Ventas del centro de operación 006' }
+   */
+  nameOverrides?: Record<string, string>;
 }

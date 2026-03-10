@@ -151,6 +151,8 @@ export function AnalyticsPage({
   tableColumns,
   tableColumnGroups,
   hideBudgetColumns = false,
+  hideRetainedColumn = false,
+  nameOverrides,
 }: AnalyticsPageConfig) {
   const { startDate, endDate } = useDateRange();
 
@@ -164,8 +166,14 @@ export function AnalyticsPage({
 
   // Map API response to RegionalData format
   const mappedData = useMemo(
-    () => (listData || []).map(mapApiToRegionalData),
-    [listData]
+    () => (listData || []).map(item => {
+      const data = mapApiToRegionalData(item);
+      if (nameOverrides && data.name in nameOverrides) {
+        return { ...data, name: nameOverrides[data.name] };
+      }
+      return data;
+    }),
+    [listData, nameOverrides]
   );
 
   // Calculate totals for table footer
@@ -177,10 +185,14 @@ export function AnalyticsPage({
   // Compute columns and groups based on configuration
   const columns = useMemo(() => {
     if (tableColumns) return tableColumns;
-    return hideBudgetColumns
-      ? getColumnsWithoutBudget(groupBy)
+    const cols = hideBudgetColumns
+      ? getColumnsWithoutBudget(groupBy, hideRetainedColumn)
       : getColumnsWithDynamicLabel(groupBy);
-  }, [tableColumns, hideBudgetColumns, groupBy]);
+    if (hideRetainedColumn && !hideBudgetColumns) {
+      return cols.filter(col => col.id !== 'retained');
+    }
+    return cols;
+  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;

@@ -7,6 +7,7 @@ export function PortafolioPage() {
       groupBy="SegmentacionProducto"
       totalsLabel="TOTAL PORTAFOLIO:"
       hideBudgetColumns={true}
+      hideRetainedColumn={true}
     />
   );
 }

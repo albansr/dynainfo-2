@@ -104,7 +104,7 @@ export const TableHeader = memo(function TableHeader({
   );
 
   return (
-    <thead style={{ backgroundColor: '#f8f8f8' }}>
+    <thead style={{ backgroundColor: '#f3f3f3' }}>
       {/* Group row */}
       <tr>
         {firstRowElements}

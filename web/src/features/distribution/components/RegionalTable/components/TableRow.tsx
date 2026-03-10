@@ -21,7 +21,7 @@ export const TableRow = memo(function TableRow({
     ? 'border-t-2 border-zinc-300 font-bold'
     : 'hover:bg-zinc-100 even:bg-zinc-50/80';
 
-  const totalStyle = isTotal ? { backgroundColor: '#f8f8f8' } : undefined;
+  const totalStyle = isTotal ? { backgroundColor: '#f3f3f3' } : undefined;
 
   return (
     <tr

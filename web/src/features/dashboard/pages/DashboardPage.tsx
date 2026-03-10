@@ -119,6 +119,17 @@ export function DashboardPage() {
           />
         </div>
       </div>
+
+      <div className="mt-8 border border-gray-200 rounded-lg p-6">
+        <div className="grid grid-cols-2 gap-8">
+          <MetricCard
+            label="CARTERA"
+            value={`$ ${balanceData ? formatCurrency(balanceData.cartera) : '0'}`}
+            description={`Cumpl. ppto con cartera: ${balanceData ? formatPercentage(balanceData.cartera_compliance_pct) : '0'}%`}
+            isLoading={isLoading}
+          />
+        </div>
+      </div>
     </div>
   );
 }

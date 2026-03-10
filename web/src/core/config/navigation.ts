@@ -38,6 +38,11 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
         label: 'Cadenas',
         href: '/canales/cadenas',
       },
+      {
+        key: 'retail',
+        label: 'Retail',
+        href: '/canales/retail',
+      },
     ],
   },
   {

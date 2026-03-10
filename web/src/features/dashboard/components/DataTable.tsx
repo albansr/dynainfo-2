@@ -20,7 +20,7 @@ export function DataTable({ columns, rows, isLoading, className = '' }: DataTabl
     <div className={className}>
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full border-collapse" style={{ minWidth: '1400px' }}>
-          <thead style={{ backgroundColor: '#f8f8f8' }}>
+          <thead style={{ backgroundColor: '#f3f3f3' }}>
             <tr>
               {columns.map((column, index) => {
                 const isLast = index === columns.length - 1;
