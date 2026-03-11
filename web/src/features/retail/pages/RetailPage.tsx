@@ -13,6 +13,9 @@ export function RetailPage() {
         'Punto de venta Centro 2': 'Ventas del centro de operación 006',
         'Punto de venta Itagui': 'Ventas del centro de operación 007',
         'Punto de venta Rionegro': 'Ventas del centro de operación 008',
+        '006': 'Punto de venta Centro 2',
+        '007': 'Punto de venta Itagui',
+        '008': 'Punto de venta Rionegro',
         'COD': 'Ventas C.O.D',
       }}
     />

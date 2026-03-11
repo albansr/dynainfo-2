@@ -148,7 +148,7 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
               onMouseMove={(e) => handleMouseMove(e, item, rawPct)}
               onMouseLeave={handleMouseLeave}
             >
-              {rawPct > 7 && (
+              {rawPct >= 3 && (
                 <span className="truncate px-1 text-[11px]">
                   {item.short} {rawPct.toFixed(1)}%
                 </span>
