@@ -173,7 +173,7 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
               >
                 {rawPct > 8 && (
                   <span className="text-[10px] text-gray-500">
-                    mg: {marginPct.toFixed(1)}%
+                    MB: {marginPct.toFixed(1)}%
                   </span>
                 )}
               </div>
