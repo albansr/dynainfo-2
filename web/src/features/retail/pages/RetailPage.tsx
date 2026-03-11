@@ -3,7 +3,7 @@ import { AnalyticsPage } from '@/core/components/analytics/AnalyticsPage';
 export function RetailPage() {
   return (
     <AnalyticsPage
-      title="Canales / Retail"
+      title="Canales / Dynamica Retail"
       groupBy="CentroOperaciones"
       totalsLabel="TOTAL RETAIL:"
       filters={{ IdRegional: 'RTL' }}

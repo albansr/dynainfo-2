@@ -40,7 +40,7 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       },
       {
         key: 'retail',
-        label: 'Retail',
+        label: 'Dynamica Retail',
         href: '/canales/retail',
       },
     ],
@@ -55,7 +55,7 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
       },
       {
         key: 'marcas-detalle',
-        label: 'Marcas Externas',
+        label: 'Marcas Aliadas',
         href: '/proveedor-comercial/marcas-detalle',
       },
     ],
