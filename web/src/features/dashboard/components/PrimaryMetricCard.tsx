@@ -17,7 +17,7 @@ export function PrimaryMetricCard({
   isLoading = false,
 }: PrimaryMetricCardProps) {
   return (
-    <div className="col-span-2 flex flex-col justify-center border-r border-gray-200 pr-8">
+    <div className="col-span-1 lg:col-span-2 flex flex-col justify-center sm:border-r border-gray-200 sm:pr-8">
       <p className="text-xs font-semibold text-gray-600 tracking-wider mb-4">
         {label}
       </p>

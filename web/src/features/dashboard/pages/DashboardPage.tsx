@@ -21,8 +21,8 @@ export function DashboardPage() {
     <div>
       <PageHeader title="Análisis General de la compañía" />
 
-      <div className="border border-gray-200 rounded-lg p-6">
-        <div className="grid grid-cols-4 gap-8">
+      <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
             label={labelText}
             mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales) : '0'}`}
@@ -53,8 +53,8 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 border border-gray-200 rounded-lg p-6">
-        <div className="grid grid-cols-4 gap-8">
+      <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
             label="MARGEN BRUTO"
             mainValue={
@@ -121,8 +121,8 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 border border-gray-200 rounded-lg p-6">
-        <div className="grid grid-cols-2 gap-8">
+      <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
           <MetricCard
             label="CARTERA"
             value={`$ ${balanceData ? formatCurrency(balanceData.cartera) : '0'}`}
@@ -132,7 +132,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 border border-gray-200 rounded-lg p-6">
+      <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
         <SegmentDistributionChart />
       </div>
 

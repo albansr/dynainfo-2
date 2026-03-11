@@ -31,12 +31,12 @@ export function MetricCard({
   size = 'md',
 }: MetricCardProps) {
   return (
-    <div className={`flex flex-col justify-center ${centered ? 'text-center' : ''}`}>
+    <div className={`flex flex-col justify-center pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-200 ${centered ? 'sm:text-center' : ''}`}>
       <p className="text-xs font-semibold text-gray-600 tracking-wider mb-3">
         {label}
       </p>
       {isLoading ? (
-        <Skeleton className={`${skeletonSizes[size]} w-32 rounded-lg mb-2 ${centered ? 'mx-auto' : ''}`} />
+        <Skeleton className={`${skeletonSizes[size]} w-32 rounded-lg mb-2 ${centered ? 'sm:mx-auto' : ''}`} />
       ) : (
         <h3 className={`${sizeClasses[size]} font-bold mb-2`}>
           {value}

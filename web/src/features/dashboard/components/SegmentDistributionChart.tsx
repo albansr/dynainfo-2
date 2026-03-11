@@ -221,9 +221,9 @@ export function SegmentDistributionChart() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <h3 className="text-sm font-semibold text-gray-700">Análisis IA Qube6</h3>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <Select
             size="sm"
             variant="bordered"
@@ -233,7 +233,7 @@ export function SegmentDistributionChart() {
               const selected = Array.from(keys)[0] as AnalysisType;
               if (selected) setAnalysisType(selected);
             }}
-            className="w-52"
+            className="w-full sm:w-52"
             classNames={{
               trigger: 'cursor-pointer !border',
             }}
