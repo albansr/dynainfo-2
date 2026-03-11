@@ -78,13 +78,12 @@ interface StackedBarProps {
   label: string;
   items: SegmentDistributionItem[];
   total: number;
-  totalSales: number;
   metric: 'count' | 'sales';
   analysisType: AnalysisType;
   showMarginBadge?: boolean;
 }
 
-function StackedBar({ label, items, total, totalSales, metric, analysisType, showMarginBadge }: StackedBarProps) {
+function StackedBar({ label, items, total, metric, analysisType, showMarginBadge }: StackedBarProps) {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [animated, setAnimated] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
@@ -280,7 +279,7 @@ export function SegmentDistributionChart() {
             label={ENTITY_OPTIONS.find((o) => o.key === entityType)?.label ?? 'Entidades'}
             items={items}
             total={totalCount}
-            totalSales={totalSales}
+
             metric="count"
             analysisType={analysisType}
           />
@@ -288,7 +287,7 @@ export function SegmentDistributionChart() {
             label="Ventas"
             items={items}
             total={totalSales}
-            totalSales={totalSales}
+
             metric="sales"
             analysisType={analysisType}
             showMarginBadge
