@@ -13,6 +13,7 @@ import { DatabaseClient, type ClickHouseConfig } from './core/db/clickhouse/clie
 import { balanceRoutes } from './features/balance/balance.routes.js';
 import { listRoutes } from './features/list/list.routes.js';
 import { labelsRoutes } from './features/labels/labels.routes.js';
+import { qube6Routes } from './features/qube6/qube6.routes.js';
 import { authRoutes } from './features/auth/auth.routes.js';
 import { usersRoutes } from './features/users/users.routes.js';
 import { getEnvConfig } from './core/config/env.js';
@@ -282,6 +283,7 @@ async function buildServer() {
       balanceRoutes(instance, dbClient);
       listRoutes(instance, dbClient);
       labelsRoutes(instance, dbClient);
+      qube6Routes(instance, dbClient);
       await usersRoutes(instance);
     },
     { prefix: '/api' }
