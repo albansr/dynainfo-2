@@ -2,32 +2,27 @@ import { ALLOWED_DIMENSIONS } from '../../core/config/dimensions.config.js';
 import { FilterBuilder, type FilterCondition } from '../../core/db/clickhouse/query/filter-builder.js';
 import { sanitizeFieldName } from '../../core/utils/sanitization.js';
 
-interface Qube6QueryParams {
+interface Qube6BaseParams {
   groupBy: string;
-  id: string;
   currentFilters: FilterCondition[];
   previousFilters: FilterCondition[];
 }
 
+interface Qube6QueryParams extends Qube6BaseParams {
+  id: string;
+}
+
 /**
- * Build the qube6 segment analysis query.
- *
- * Dedicated query builder — cannot use AnalyticsQueryBuilder because the logic
- * is fundamentally different (entity vs company comparison, rankings, composite indices).
- *
- * CTEs:
- * - company_data_last_year: COUNT DISTINCT entities from previous period
- * - company_data: Company-wide aggregates (sales, cost, customers, indices, averages)
- * - customers_data_last_year: Previous period sales & position per entity
- * - customers_data: Current period metrics per entity
- *
- * Final SELECT computes comparison indices and 4 analyses (Value, Sales, Profit, Quality).
+ * Shared CTE builder for qube6 queries.
+ * Returns the WITH block, query params, sanitized groupBy, and table name.
  */
-export function buildQube6Query(params: Qube6QueryParams): {
-  query: string;
+function buildQube6CTEs(params: Qube6BaseParams): {
+  ctes: string;
   queryParams: Record<string, string | string[]>;
+  sanitizedGroupBy: string;
+  table: string;
 } {
-  const { groupBy, id, currentFilters, previousFilters } = params;
+  const { groupBy, currentFilters, previousFilters } = params;
 
   const sanitizedGroupBy = sanitizeFieldName(groupBy);
   if (!ALLOWED_DIMENSIONS.includes(sanitizedGroupBy as typeof ALLOWED_DIMENSIONS[number])) {
@@ -40,12 +35,10 @@ export function buildQube6Query(params: Qube6QueryParams): {
   const currentWhere = filterBuilder.buildWhereClause(currentFilters, queryParams, 'cur');
   const previousWhere = filterBuilder.buildWhereClause(previousFilters, queryParams, 'prev');
 
-  queryParams['entity_id'] = id;
-
   const tablePrefix = process.env['TABLE_PREFIX'] ?? '';
   const table = `${tablePrefix}transactions`;
 
-  const query = `
+  const ctes = `
     WITH
       company_data_last_year AS (
         SELECT
@@ -143,8 +136,16 @@ export function buildQube6Query(params: Qube6QueryParams): {
         ${currentWhere}
         GROUP BY ${sanitizedGroupBy}
       )
+  `;
 
-    SELECT
+  return { ctes, queryParams, sanitizedGroupBy, table };
+}
+
+/**
+ * SQL fragment for computed indices and the 4 analysis classifications.
+ */
+function buildAnalysisSelect(sanitizedGroupBy: string): string {
+  return `
       customer.sales_price / company.sales_price_avg AS sales_price_con_idx,
       customer.gross_margin / company.gross_margin_avg AS gross_margin_con_idx,
 
@@ -335,6 +336,26 @@ export function buildQube6Query(params: Qube6QueryParams): {
         WHEN quality_fine_y = 'D' AND quality_fine_x = 'D' THEN 1
         ELSE 0
       END AS quality_fine_id
+  `;
+}
+
+/**
+ * Build the qube6 segment analysis query for a single entity.
+ */
+export function buildQube6Query(params: Qube6QueryParams): {
+  query: string;
+  queryParams: Record<string, string | string[]>;
+} {
+  const { id } = params;
+  const { ctes, queryParams, sanitizedGroupBy } = buildQube6CTEs(params);
+
+  queryParams['entity_id'] = id;
+
+  const query = `
+    ${ctes}
+
+    SELECT
+    ${buildAnalysisSelect(sanitizedGroupBy)}
 
     FROM customers_data AS customer
     LEFT JOIN customers_data_last_year AS customer_last_year
@@ -342,6 +363,44 @@ export function buildQube6Query(params: Qube6QueryParams): {
     CROSS JOIN company_data AS company
     CROSS JOIN company_data_last_year AS company_last_year
     WHERE customer.${sanitizedGroupBy} = {entity_id:String}
+  `;
+
+  return { query, queryParams };
+}
+
+/**
+ * Build the qube6 distribution query — aggregated segment counts across all entities.
+ */
+export function buildQube6DistributionQuery(params: Qube6BaseParams): {
+  query: string;
+  queryParams: Record<string, string | string[]>;
+} {
+  const { ctes, queryParams, sanitizedGroupBy } = buildQube6CTEs(params);
+
+  const query = `
+    ${ctes}
+
+    SELECT
+      value_short,
+      sales_short,
+      profit_short,
+      quality_short,
+      COUNT(*) AS entity_count,
+      SUM(customer.sales_price) AS total_sales,
+      SUM(customer.sales_price - customer.cost_price) AS total_gross_margin
+    FROM (
+      SELECT
+        customer.sales_price,
+        customer.cost_price,
+      ${buildAnalysisSelect(sanitizedGroupBy)}
+
+      FROM customers_data AS customer
+      LEFT JOIN customers_data_last_year AS customer_last_year
+        ON customer.${sanitizedGroupBy} = customer_last_year.${sanitizedGroupBy}_last_year
+      CROSS JOIN company_data AS company
+      CROSS JOIN company_data_last_year AS company_last_year
+    ) AS classified
+    GROUP BY value_short, sales_short, profit_short, quality_short
   `;
 
   return { query, queryParams };

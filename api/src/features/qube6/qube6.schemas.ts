@@ -9,7 +9,7 @@ import type { FilterCondition } from '../../core/db/clickhouse/query/filter-buil
 export const Qube6QueryStringSchema = Type.Object(
   {
     groupBy: Type.String({ description: 'Dimension to group by (e.g., customer_id, seller_id, product_id)' }),
-    id: Type.String({ description: 'Entity ID to analyze' }),
+    id: Type.Optional(Type.String({ description: 'Entity ID to analyze. Omit for distribution aggregation.' })),
     startDate: Type.Optional(DateStringSchema),
     endDate: Type.Optional(DateStringSchema),
   },
@@ -42,6 +42,30 @@ export const Qube6ResponseSchema = Type.Object({
 });
 
 export type Qube6Response = Static<typeof Qube6ResponseSchema>;
+
+/**
+ * Single segment in the distribution response
+ */
+const SegmentDistributionItemSchema = Type.Object({
+  short: Type.String({ description: 'Segment label (e.g., Estrella, Top, Alta, Óptima)' }),
+  count: Type.Number({ description: 'Number of entities in this segment' }),
+  sales: Type.Number({ description: 'Total sales for entities in this segment' }),
+  gross_margin: Type.Number({ description: 'Total gross margin for entities in this segment' }),
+});
+
+export type SegmentDistributionItem = Static<typeof SegmentDistributionItemSchema>;
+
+/**
+ * Distribution response: aggregated segment counts per analysis type
+ */
+export const Qube6DistributionResponseSchema = Type.Object({
+  value: Type.Array(SegmentDistributionItemSchema),
+  sales: Type.Array(SegmentDistributionItemSchema),
+  profit: Type.Array(SegmentDistributionItemSchema),
+  quality: Type.Array(SegmentDistributionItemSchema),
+});
+
+export type Qube6DistributionResponse = Static<typeof Qube6DistributionResponseSchema>;
 
 /**
  * Parse date query params into filter conditions

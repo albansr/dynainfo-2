@@ -4,6 +4,7 @@ import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/co
 import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '@/core/components/PageHeader';
+import { SegmentDistributionChart } from '../components/SegmentDistributionChart';
 
 export function DashboardPage() {
   const { startDate, endDate } = useDateRange();
@@ -130,6 +131,12 @@ export function DashboardPage() {
           />
         </div>
       </div>
+
+      <div className="mt-8 border border-gray-200 rounded-lg p-6">
+        <SegmentDistributionChart />
+      </div>
+
+      <div className="pb-64" />
     </div>
   );
 }

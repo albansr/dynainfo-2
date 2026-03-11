@@ -86,3 +86,16 @@ export interface GetSessionResponse {
 export interface ApiError {
   message: string;
 }
+
+export type AnalysisType = 'value' | 'sales' | 'profit' | 'quality';
+
+export interface SegmentDistributionItem {
+  short: string;
+  count: number;
+  sales: number;
+  gross_margin: number;
+}
+
+export interface Qube6DistributionResponse {
+  data: Record<AnalysisType, SegmentDistributionItem[]>;
+}
