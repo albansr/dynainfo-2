@@ -21,9 +21,9 @@ function mapApiToRegionalData(item: ListItemResponse): RegionalData {
     id: item.id,
     name: item.name,
     sales: {
-      current: item.sales,
-      previous: item.sales_last_year,
-      variation: item.sales_vs_last_year,
+      current: item.sales_total,
+      previous: item.sales_total_last_year,
+      variation: item.sales_total_vs_last_year,
     },
     budget: {
       amount: item.budget,

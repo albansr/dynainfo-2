@@ -22,6 +22,9 @@ export interface ListItemResponse {
   orders: number;
   orders_last_year: number;
   orders_vs_last_year: number;
+  sales_total: number;
+  sales_total_last_year: number;
+  sales_total_vs_last_year: number;
   cartera: number;
   cartera_last_year: number;
   cartera_vs_last_year: number;
@@ -112,7 +115,7 @@ export function useList(
     ...(endDate && { endDate: format(endDate, 'yyyy-MM-dd') }),
     page,
     limit,
-    orderBy: 'sales',
+    orderBy: 'sales_total',
     orderDirection: 'desc',
     ...filters,
   };

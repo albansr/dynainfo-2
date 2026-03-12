@@ -16,6 +16,9 @@ export interface BalanceSheetData {
   orders: number;
   orders_last_year: number;
   orders_vs_last_year: number;
+  sales_total: number;
+  sales_total_last_year: number;
+  sales_total_vs_last_year: number;
   sales_vs_budget: number;
   budget_achievement_pct: number;
   order_fulfillment_pct: number;

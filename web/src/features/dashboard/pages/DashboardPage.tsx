@@ -25,17 +25,17 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
             label={labelText}
-            mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales) : '0'}`}
+            mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total) : '0'}`}
             secondaryLabel={`Año anterior (${previousYear})`}
-            secondaryValue={`$ ${balanceData ? formatCurrency(balanceData.sales_last_year) : '0'}`}
+            secondaryValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total_last_year) : '0'}`}
             isLoading={isLoading}
           />
 
           <MetricCard
             label="CRECIMIENTO DE VENTAS"
             value={
-              <span className={balanceData && balanceData.sales_vs_last_year >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {balanceData ? formatPercentageWithSign(balanceData.sales_vs_last_year) : '0'}%
+              <span className={balanceData && balanceData.sales_total_vs_last_year >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {balanceData ? formatPercentageWithSign(balanceData.sales_total_vs_last_year) : '0'}%
               </span>
             }
             description="vs año anterior"

@@ -102,14 +102,14 @@ export const CALCULATED_METRICS = [
   {
     name: 'sales_vs_budget',
     description: 'Sales vs budget variance %',
-    dependencies: ['sales', 'budget'],
-    formula: 'if({budget} != 0, (({sales} - {budget}) / {budget}) * 100, 0)',
+    dependencies: ['sales', 'orders', 'budget'],
+    formula: 'if({budget} != 0, ((({sales} + {orders}) - {budget}) / {budget}) * 100, 0)',
   },
   {
     name: 'budget_achievement_pct',
     description: 'Budget achievement %',
-    dependencies: ['sales', 'budget'],
-    formula: 'if({budget} != 0, ({sales} / {budget}) * 100, 0)',
+    dependencies: ['sales', 'orders', 'budget'],
+    formula: 'if({budget} != 0, (({sales} + {orders}) / {budget}) * 100, 0)',
   },
   {
     name: 'order_fulfillment_pct',
@@ -146,6 +146,24 @@ export const CALCULATED_METRICS = [
     description: 'Cartera compliance % ((sales + orders + cartera) / budget * 100)',
     dependencies: ['sales', 'orders', 'cartera', 'budget'],
     formula: 'if({budget} != 0, (({sales} + {orders} + {cartera}) / {budget}) * 100, 0)',
+  },
+  {
+    name: 'sales_total',
+    description: 'Total ventas (facturado + comprometido)',
+    dependencies: ['sales', 'orders'],
+    formula: '{sales} + {orders}',
+  },
+  {
+    name: 'sales_total_last_year',
+    description: 'Total ventas año anterior',
+    dependencies: ['sales_last_year', 'orders_last_year'],
+    formula: '{sales_last_year} + {orders_last_year}',
+  },
+  {
+    name: 'sales_total_vs_last_year',
+    description: 'YoY variance % for total ventas',
+    dependencies: ['sales_total', 'sales_total_last_year'],
+    formula: 'if({sales_total_last_year} != 0, (({sales_total} - {sales_total_last_year}) / {sales_total_last_year}) * 100, 0)',
   },
   // Add more calculated metrics here as needed
   // Example:

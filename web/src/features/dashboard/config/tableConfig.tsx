@@ -57,18 +57,18 @@ export const getDashboardTableRows = (apiData?: BalanceSheetData): DataTableRow[
     return [];
   }
 
-  const marginPct2025 = apiData.sales !== 0 ? (apiData.gross_margin / apiData.sales) * 100 : 0;
-  const marginPct2024 = apiData.sales_last_year !== 0 ? (apiData.gross_margin_last_year / apiData.sales_last_year) * 100 : 0;
+  const marginPct2025 = apiData.sales_total !== 0 ? (apiData.gross_margin / apiData.sales_total) * 100 : 0;
+  const marginPct2024 = apiData.sales_total_last_year !== 0 ? (apiData.gross_margin_last_year / apiData.sales_total_last_year) * 100 : 0;
 
   return [
     {
       key: 'ventas',
       label: 'Total ventas mes',
-      ventas_2024: `$ ${formatCurrency(apiData.sales_last_year)}`,
+      ventas_2024: `$ ${formatCurrency(apiData.sales_total_last_year)}`,
       margen_2024: `${formatPercentage(marginPct2024)} %`,
-      facturado_2025: `$ ${formatCurrency(apiData.sales)}`,
+      facturado_2025: `$ ${formatCurrency(apiData.sales_total)}`,
       margen_2025: `${formatPercentage(marginPct2025)} %`,
-      variacion: `${formatPercentage(apiData.sales_vs_last_year)} %`,
+      variacion: `${formatPercentage(apiData.sales_total_vs_last_year)} %`,
       presupuesto: `$ ${formatCurrency(apiData.budget)}`,
       margen_presupuesto: `${formatPercentage(apiData.budget_gross_margin_pct)} %`,
       cumplimiento: `${formatPercentage(apiData.budget_achievement_pct)} %`,

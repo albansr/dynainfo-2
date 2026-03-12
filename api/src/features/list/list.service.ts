@@ -35,7 +35,7 @@ export class ListService {
       groupBy,
       page = 1,
       limit = 50,
-      orderBy = 'sales',
+      orderBy = 'sales_total',
       orderDirection = 'desc',
     } = params;
 

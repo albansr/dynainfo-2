@@ -253,8 +253,23 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       const tableName = `${this.tablePrefix}${table}`;
       const currentCteName = `${table}_current`;
       const previousCteName = `${table}_previous`;
+      const tableColumns = columnMap.get(tableName) ?? new Set<string>();
 
-      if (table === 'budget') {
+      // Fields intentionally excluded from a table's filter (skip the "missing column" check)
+      const intentionallyExcluded = table === 'budget' ? new Set(['channel']) : new Set<string>();
+
+      // If any non-date filter field is absent from this table, it can't be scoped to
+      // the requested dimension → treat all its metrics as 0 (consistent with grouped query)
+      const hasUnfilterableColumn = currentPeriodFilters
+        .filter(f => f.field !== 'date' && !intentionallyExcluded.has(f.field))
+        .some(f => !tableColumns.has(f.field));
+
+      if (hasUnfilterableColumn) {
+        const zeroCurrentMetrics = tableMetrics.map(m => `0 AS ${m.alias}`).join(', ');
+        const zeroPreviousMetrics = tableMetrics.map(m => `0 AS ${m.alias}_ly`).join(', ');
+        ctes.push(`${currentCteName} AS (SELECT ${zeroCurrentMetrics})`);
+        ctes.push(`${previousCteName} AS (SELECT ${zeroPreviousMetrics})`);
+      } else if (table === 'budget') {
         // Budget: expand date filter to start of month + prorate by business days
         ctes.push(this.buildBudgetCteSql({
           cteName: currentCteName, tableMetrics,
@@ -486,7 +501,13 @@ ${previousWhere}
     } = config;
 
     const diasTable = `${this.tablePrefix}fnc_dias_ppto`;
-    const prorationFactor = 'coalesce(d.Dias_transcurridos / nullIf(d.Dias_habiles, 0), 1)';
+    const startDateFilter = filters.find(f => f.field === 'date' && f.operator === 'gte')?.value;
+    const endDateFilter = filters.find(f => f.field === 'date' && f.operator === 'lte')?.value;
+    const isDailyView = startDateFilter && endDateFilter && startDateFilter === endDateFilter;
+
+    const prorationFactor = isDailyView
+      ? 'coalesce(1 / nullIf(d.Dias_habiles, 0), 1)'
+      : 'coalesce(d.Dias_transcurridos / nullIf(d.Dias_habiles, 0), 1)';
     const tableColumns = columnMap.get(tableName) ?? new Set<string>();
 
     // Build WHERE conditions with date expansion for budget
