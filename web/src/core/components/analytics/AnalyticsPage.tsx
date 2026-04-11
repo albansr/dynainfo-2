@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useAnalyticsData } from './hooks/useAnalyticsData';
 import { StandardMetrics } from './presets/standardMetrics';
@@ -10,37 +10,9 @@ import {
   getColumnGroupsWithoutBudget,
   COLUMN_GROUPS,
 } from '@/features/distribution/components/RegionalTable/config/columns';
+import { getSalesMetric } from '@/core/utils/salesMetric';
 import type { AnalyticsPageConfig } from './types';
 import type { ListItemResponse } from '@/core/api/hooks/useList';
-
-/**
- * Map API response to RegionalData format
- */
-function mapApiToRegionalData(item: ListItemResponse): RegionalData {
-  return {
-    id: item.id,
-    name: item.name,
-    sales: {
-      current: item.sales_total,
-      previous: item.sales_total_last_year,
-      variation: item.sales_total_vs_last_year,
-    },
-    budget: {
-      amount: item.budget,
-      compliance: item.budget_achievement_pct,
-    },
-    margin: {
-      current: item.gross_margin_pct,
-      previous: item.gross_margin_pct_last_year,
-      variation: item.gross_margin_pct_vs_last_year,
-      budget: item.budget_gross_margin_pct,
-    },
-    retained: {
-      amount: item.cartera,
-      compliance: item.cartera_compliance_pct,
-    },
-  };
-}
 
 /**
  * Calculate totals row from mapped data
@@ -154,17 +126,48 @@ export function AnalyticsPage({
   hideRetainedColumn = false,
   nameOverrides,
 }: AnalyticsPageConfig) {
-  const { startDate, endDate } = useDateRange();
+  const { startDate, endDate, preset } = useDateRange();
 
   // Fetch balance data for metrics and list data for table
   const { balanceData, listData, isLoading } = useAnalyticsData(
     groupBy,
     startDate,
     endDate,
+    preset,
     filters
   );
 
-  // Map API response to RegionalData format
+  // Map API response to RegionalData format (preset-aware sales metric)
+  const mapApiToRegionalData = useCallback(
+    (item: ListItemResponse): RegionalData => {
+      const sales = getSalesMetric(item, preset);
+      return {
+        id: item.id,
+        name: item.name,
+        sales: {
+          current: sales.current,
+          previous: sales.lastYear,
+          variation: sales.vsLastYear,
+        },
+        budget: {
+          amount: item.budget,
+          compliance: item.budget_achievement_pct,
+        },
+        margin: {
+          current: item.gross_margin_pct,
+          previous: item.gross_margin_pct_last_year,
+          variation: item.gross_margin_pct_vs_last_year,
+          budget: item.budget_gross_margin_pct,
+        },
+        retained: {
+          amount: item.cartera,
+          compliance: item.cartera_compliance_pct,
+        },
+      };
+    },
+    [preset]
+  );
+
   const mappedData = useMemo(
     () => (listData || []).map(item => {
       const data = mapApiToRegionalData(item);
@@ -173,7 +176,7 @@ export function AnalyticsPage({
       }
       return data;
     }),
-    [listData, nameOverrides]
+    [listData, nameOverrides, mapApiToRegionalData]
   );
 
   // Calculate totals for table footer
@@ -221,6 +224,7 @@ export function AnalyticsPage({
         <StandardMetrics
           balanceData={balanceData}
           endDate={endDate}
+          preset={preset}
           isLoading={isLoading}
         />
       )}

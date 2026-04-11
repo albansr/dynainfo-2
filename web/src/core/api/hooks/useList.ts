@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
+import { getSalesOrderByField, type SalesMetricPreset } from '@/core/utils/salesMetric';
 
 export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'month' | 'quarter' | 'year';
 
@@ -103,8 +104,9 @@ async function fetchList(params: ListQueryParams): Promise<ListResponse> {
 
 export function useList(
   groupBy: GroupByDimension,
-  startDate?: Date,
-  endDate?: Date,
+  startDate: Date | undefined,
+  endDate: Date | undefined,
+  preset: SalesMetricPreset,
   filters?: Record<string, any>,
   page: number = 1,
   limit: number = 50
@@ -115,13 +117,13 @@ export function useList(
     ...(endDate && { endDate: format(endDate, 'yyyy-MM-dd') }),
     page,
     limit,
-    orderBy: 'sales_total',
+    orderBy: getSalesOrderByField(preset),
     orderDirection: 'desc',
     ...filters,
   };
 
   return useQuery({
-    queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, filters],
+    queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, filters, preset],
     queryFn: () => fetchList(params),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,

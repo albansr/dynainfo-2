@@ -1,24 +1,24 @@
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useBalance } from '@/core/api/hooks/useBalance';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
+import { getSalesMetric } from '@/core/utils/salesMetric';
 import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
 import { MetricCard } from '../components/MetricCard';
 import { DataTable } from '../components/DataTable';
 import { PageHeader } from '@/core/components/PageHeader';
-import { dashboardTableColumns, getDashboardTableRows } from '../config/tableConfig';
+import { getDashboardTableColumns, getDashboardTableRows } from '../config/tableConfig';
 
 export function EjemploPage() {
-  const { startDate, endDate } = useDateRange();
+  const { startDate, endDate, preset } = useDateRange();
   const { data, isLoading } = useBalance(startDate, endDate);
 
   const balanceData = data?.data;
   const currentYear = endDate.getFullYear();
   const previousYear = currentYear - 1;
+  const salesMetric = getSalesMetric(balanceData, preset);
 
-  // const periodLabel = getPresetLabel(preset);
-  const labelText = 'VENTAS (Facturado + comprometido)';
-
-  const tableRows = getDashboardTableRows(balanceData);
+  const tableRows = getDashboardTableRows(balanceData, preset);
+  const tableColumns = getDashboardTableColumns(preset);
 
   return (
     <div>
@@ -27,18 +27,18 @@ export function EjemploPage() {
       <div className="border border-gray-200 rounded-lg p-6">
         <div className="grid grid-cols-4 gap-8">
           <PrimaryMetricCard
-            label={labelText}
-            mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total) : '0'}`}
+            label={salesMetric.label}
+            mainValue={`$ ${balanceData ? formatCurrency(salesMetric.current) : '0'}`}
             secondaryLabel={`Año anterior (${previousYear})`}
-            secondaryValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total_last_year) : '0'}`}
+            secondaryValue={`$ ${balanceData ? formatCurrency(salesMetric.lastYear) : '0'}`}
             isLoading={isLoading}
           />
 
           <MetricCard
             label="CRECIMIENTO DE VENTAS"
             value={
-              <span className={balanceData && balanceData.sales_total_vs_last_year >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {balanceData ? formatPercentageWithSign(balanceData.sales_total_vs_last_year) : '0'}%
+              <span className={balanceData && salesMetric.vsLastYear >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {balanceData ? formatPercentageWithSign(salesMetric.vsLastYear) : '0'}%
               </span>
             }
             description="vs año anterior"
@@ -125,7 +125,7 @@ export function EjemploPage() {
       </div>
 
       <DataTable
-        columns={dashboardTableColumns}
+        columns={tableColumns}
         rows={tableRows}
         isLoading={isLoading}
         className="mt-8"

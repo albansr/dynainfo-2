@@ -1,21 +1,20 @@
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useBalance } from '@/core/api/hooks/useBalance';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
+import { getSalesMetric } from '@/core/utils/salesMetric';
 import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '@/core/components/PageHeader';
 import { SegmentDistributionChart } from '../components/SegmentDistributionChart';
 
 export function DashboardPage() {
-  const { startDate, endDate } = useDateRange();
+  const { startDate, endDate, preset } = useDateRange();
   const { data, isLoading } = useBalance(startDate, endDate);
 
   const balanceData = data?.data;
   const currentYear = endDate.getFullYear();
   const previousYear = currentYear - 1;
-
-  // const periodLabel = getPresetLabel(preset);
-  const labelText = 'VENTAS (Facturado + comprometido)';
+  const salesMetric = getSalesMetric(balanceData, preset);
 
   return (
     <div>
@@ -24,18 +23,18 @@ export function DashboardPage() {
       <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
-            label={labelText}
-            mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total) : '0'}`}
+            label={salesMetric.label}
+            mainValue={`$ ${balanceData ? formatCurrency(salesMetric.current) : '0'}`}
             secondaryLabel={`Año anterior (${previousYear})`}
-            secondaryValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total_last_year) : '0'}`}
+            secondaryValue={`$ ${balanceData ? formatCurrency(salesMetric.lastYear) : '0'}`}
             isLoading={isLoading}
           />
 
           <MetricCard
             label="CRECIMIENTO DE VENTAS"
             value={
-              <span className={balanceData && balanceData.sales_total_vs_last_year >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {balanceData ? formatPercentageWithSign(balanceData.sales_total_vs_last_year) : '0'}%
+              <span className={balanceData && salesMetric.vsLastYear >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {balanceData ? formatPercentageWithSign(salesMetric.vsLastYear) : '0'}%
               </span>
             }
             description="vs año anterior"

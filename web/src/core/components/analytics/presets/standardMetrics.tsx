@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
+import { getSalesMetric, type SalesMetricPreset } from '@/core/utils/salesMetric';
 import { PrimaryMetricCard } from '@/features/dashboard/components/PrimaryMetricCard';
 import { MetricCard } from '@/features/dashboard/components/MetricCard';
 import type { BalanceData } from '../types';
@@ -7,6 +8,7 @@ import type { BalanceData } from '../types';
 interface StandardMetricsProps {
   balanceData: BalanceData | undefined;
   endDate: Date;
+  preset: SalesMetricPreset;
   isLoading: boolean;
 }
 
@@ -14,10 +16,10 @@ interface StandardMetricsProps {
  * Standard metrics layout used across analytics pages
  * Displays sales, growth, and budget compliance metrics in two separate blocks
  */
-export function StandardMetrics({ balanceData, endDate, isLoading }: StandardMetricsProps): ReactNode {
+export function StandardMetrics({ balanceData, endDate, preset, isLoading }: StandardMetricsProps): ReactNode {
   const currentYear = endDate.getFullYear();
   const previousYear = currentYear - 1;
-  const labelText = 'VENTAS (Facturado + comprometido)';
+  const salesMetric = getSalesMetric(balanceData, preset);
 
   return (
     <>
@@ -25,18 +27,18 @@ export function StandardMetrics({ balanceData, endDate, isLoading }: StandardMet
       <div className="border border-gray-200 rounded-lg p-6">
         <div className="grid grid-cols-4 gap-8">
           <PrimaryMetricCard
-            label={labelText}
-            mainValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total) : '0'}`}
+            label={salesMetric.label}
+            mainValue={`$ ${balanceData ? formatCurrency(salesMetric.current) : '0'}`}
             secondaryLabel={`Año anterior (${previousYear})`}
-            secondaryValue={`$ ${balanceData ? formatCurrency(balanceData.sales_total_last_year) : '0'}`}
+            secondaryValue={`$ ${balanceData ? formatCurrency(salesMetric.lastYear) : '0'}`}
             isLoading={isLoading}
           />
 
           <MetricCard
             label="CRECIMIENTO DE VENTAS"
             value={
-              <span className={balanceData && balanceData.sales_total_vs_last_year >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {balanceData ? formatPercentageWithSign(balanceData.sales_total_vs_last_year) : '0'}%
+              <span className={balanceData && salesMetric.vsLastYear >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {balanceData ? formatPercentageWithSign(salesMetric.vsLastYear) : '0'}%
               </span>
             }
             description="vs año anterior"

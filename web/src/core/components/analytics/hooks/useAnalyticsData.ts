@@ -1,5 +1,6 @@
 import { useBalance } from '@/core/api/hooks/useBalance';
 import { useList } from '@/core/api/hooks/useList';
+import type { SalesMetricPreset } from '@/core/utils/salesMetric';
 import type { GroupByDimension } from '../types';
 
 /**
@@ -9,6 +10,7 @@ import type { GroupByDimension } from '../types';
  * @param groupBy - Dimension to group data by
  * @param startDate - Start date for data range
  * @param endDate - End date for data range
+ * @param preset - Active date range preset (controls list ordering field)
  * @param filters - Optional global filters applied to both metrics and table
  * @returns Combined data from useBalance and useList hooks
  *
@@ -17,6 +19,7 @@ import type { GroupByDimension } from '../types';
  *   'IdRegional',
  *   startDate,
  *   endDate,
+ *   preset,
  *   { type: 'export' }
  * );
  */
@@ -24,6 +27,7 @@ export function useAnalyticsData(
   groupBy: GroupByDimension,
   startDate: Date,
   endDate: Date,
+  preset: SalesMetricPreset,
   filters?: Record<string, any>
 ) {
   const {
@@ -36,7 +40,7 @@ export function useAnalyticsData(
     data: listData,
     isLoading: isLoadingList,
     error: listError,
-  } = useList(groupBy, startDate, endDate, filters);
+  } = useList(groupBy, startDate, endDate, preset, filters);
 
   return {
     balanceData: balanceData?.data,
