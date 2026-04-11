@@ -34,8 +34,8 @@ export const calculatePresetRange = (
 
     case 'current-month':
       return {
-        start: startOfMonth(yesterday),
-        end: yesterday,
+        start: startOfMonth(today),
+        end: today,
       };
 
     case 'previous-month':
@@ -52,20 +52,20 @@ export const calculatePresetRange = (
 
     case 'last-30-days':
       return {
-        start: subDays(yesterday, 29),
-        end: yesterday,
+        start: subDays(today, 29),
+        end: today,
       };
 
     case 'last-6-months':
       return {
-        start: subMonths(yesterday, 6),
-        end: yesterday,
+        start: subMonths(today, 6),
+        end: today,
       };
 
     case 'last-12-months':
       return {
-        start: subMonths(yesterday, 12),
-        end: yesterday,
+        start: subMonths(today, 12),
+        end: today,
       };
 
     default:
