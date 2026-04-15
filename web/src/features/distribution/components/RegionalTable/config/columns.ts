@@ -1,5 +1,6 @@
 import type { ColumnDefinition, ColumnGroup } from './types';
 import type { GroupByDimension } from '@/core/api/hooks/useList';
+import { usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
 import {
   salesCellRenderer,
   complianceCellRenderer,
@@ -124,6 +125,21 @@ export const COLUMN_GROUPS: ColumnGroup[] = [
     align: 'center',
   },
 ];
+
+/**
+ * Get column groups with preset-aware billing label.
+ * For closed periods (previous-month, accumulated) shows "Ventas (Facturación)"
+ * instead of "Ventas (Facturación + Comprometido)".
+ */
+export function getColumnGroups(preset: SalesMetricPreset): ColumnGroup[] {
+  const billingLabel = usesFacturadoOnly(preset)
+    ? 'Ventas (Facturación) VS Presupuesto'
+    : 'Ventas (Facturación + Comprometido) VS Presupuesto';
+
+  return COLUMN_GROUPS.map(group =>
+    group.id === 'billing' ? { ...group, label: billingLabel } : group
+  );
+}
 
 /**
  * Get columns with dynamic first column label based on groupBy dimension

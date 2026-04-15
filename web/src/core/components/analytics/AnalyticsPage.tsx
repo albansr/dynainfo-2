@@ -8,7 +8,7 @@ import {
   getColumnsWithoutBudget,
   getColumnsWithDynamicLabel,
   getColumnGroupsWithoutBudget,
-  COLUMN_GROUPS,
+  getColumnGroups,
 } from '@/features/distribution/components/RegionalTable/config/columns';
 import { getSalesMetric } from '@/core/utils/salesMetric';
 import type { AnalyticsPageConfig } from './types';
@@ -199,8 +199,8 @@ export function AnalyticsPage({
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
-    return hideBudgetColumns ? getColumnGroupsWithoutBudget() : COLUMN_GROUPS;
-  }, [tableColumnGroups, hideBudgetColumns]);
+    return hideBudgetColumns ? getColumnGroupsWithoutBudget() : getColumnGroups(preset);
+  }, [tableColumnGroups, hideBudgetColumns, preset]);
 
   const currentYear = endDate.getFullYear();
 

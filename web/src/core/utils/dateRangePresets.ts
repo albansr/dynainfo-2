@@ -47,7 +47,7 @@ export const calculatePresetRange = (
     case 'accumulated':
       return {
         start: startOfYear(today),
-        end: today,
+        end: endOfMonth(subMonths(today, 1)),
       };
 
     case 'last-30-days':

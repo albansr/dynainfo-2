@@ -17,7 +17,7 @@ export type DateRangePreset =
   | 'today'            // Hoy (solo el día actual)
   | 'current-month'    // Mes actual (hasta el día de hoy incluido)
   | 'previous-month'   // Mes anterior completo (cerrado)
-  | 'accumulated'      // Año en curso (hasta el día de hoy incluido)
+  | 'accumulated'      // Año en curso (hasta último día del mes cerrado)
   | 'last-30-days'     // Últimos 30 días (hasta el día de hoy incluido)
   | 'last-6-months'    // Últimos 6 meses (hasta el día de hoy incluido)
   | 'last-12-months'   // Últimos 12 meses (hasta el día de hoy incluido)

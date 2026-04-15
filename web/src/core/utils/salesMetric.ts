@@ -26,7 +26,7 @@ const FACTURADO_COMPROMETIDO_LABEL = 'VENTAS (Facturado + comprometido)';
  * where pedidos comprometidos are no longer meaningful.
  */
 export function usesFacturadoOnly(preset: SalesMetricPreset): boolean {
-  return preset === 'previous-month';
+  return preset === 'previous-month' || preset === 'accumulated';
 }
 
 /**
