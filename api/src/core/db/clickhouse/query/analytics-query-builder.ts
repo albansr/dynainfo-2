@@ -255,13 +255,10 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       const previousCteName = `${table}_previous`;
       const tableColumns = columnMap.get(tableName) ?? new Set<string>();
 
-      // Fields intentionally excluded from a table's filter (skip the "missing column" check)
-      const intentionallyExcluded = table === 'budget' ? new Set(['channel']) : new Set<string>();
-
       // If any non-date filter field is absent from this table, it can't be scoped to
       // the requested dimension → treat all its metrics as 0 (consistent with grouped query)
       const hasUnfilterableColumn = currentPeriodFilters
-        .filter(f => f.field !== 'date' && !intentionallyExcluded.has(f.field))
+        .filter(f => f.field !== 'date')
         .some(f => !tableColumns.has(f.field));
 
       if (hasUnfilterableColumn) {
@@ -519,9 +516,6 @@ ${previousWhere}
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.field)) {
         throw new Error(`Invalid field name format: ${f.field}`);
       }
-
-      // Exclude 'channel' filter from budget table
-      if (f.field === 'channel') continue;
 
       // Skip columns that don't exist in this table
       if (!tableColumns.has(f.field)) continue;
