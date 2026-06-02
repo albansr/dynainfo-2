@@ -3,7 +3,7 @@ import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
 /**
  * Reserved query parameters that should not be treated as filters
  */
-const RESERVED_PARAMS = ['startDate', 'endDate', 'groupBy', 'page', 'limit'];
+const RESERVED_PARAMS = ['startDate', 'endDate', 'groupBy', 'page', 'limit', 'granularity'];
 
 /**
  * Parse dynamic filters from query parameters

@@ -35,6 +35,16 @@ export interface BalanceQueryParams {
   endDate?: string;
 }
 
+export interface BalanceSeriesItem {
+  period: string;
+  sales: number;
+  budget: number;
+}
+
+export interface BalanceSeriesResponse {
+  data: BalanceSeriesItem[];
+}
+
 // Auth API types
 export interface SendOTPRequest {
   email: string;

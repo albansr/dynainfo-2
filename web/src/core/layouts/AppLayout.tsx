@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
-import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { NAVIGATION_SECTIONS } from '@/core/config/navigation';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLogout } from '@/features/auth/hooks/useLogout';
@@ -14,6 +14,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const { logout } = useLogout();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const isEmbedded = useMemo(() => {
@@ -152,6 +153,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                   className="p-0 cursor-default opacity-100 hover:bg-transparent"
                 >
                   <div className="border-t border-divider" />
+                </DropdownItem>
+                <DropdownItem
+                  key="settings"
+                  textValue="Configuración"
+                  className="cursor-pointer"
+                  startContent={<Cog6ToothIcon className="h-5 w-5" />}
+                  onPress={() => navigate('/configuracion')}
+                >
+                  Configuración
                 </DropdownItem>
                 <DropdownItem
                   key="logout"

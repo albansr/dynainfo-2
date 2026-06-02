@@ -43,4 +43,12 @@ export interface IAnalyticsQueryBuilder {
     limit?: number;
     offset?: number;
   }): Promise<string[]>;
+
+  /**
+   * Build time-series query grouped by day or month
+   */
+  buildTimeSeriesQuery(config: {
+    filters: import('./filter-builder.js').FilterCondition[];
+    granularity: 'day' | 'month';
+  }): Promise<Array<{ period: string; sales: number; budget: number }>>;
 }

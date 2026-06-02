@@ -643,6 +643,134 @@ ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}${paginationClause}
   }
 
   /**
+   * Build time-series query returning sales grouped by day or month
+   *
+   * @param config - Filters and granularity ('day' | 'month')
+   * @returns Array of { period, sales } rows sorted by period ASC
+   */
+  async buildTimeSeriesQuery(config: {
+    filters: FilterCondition[];
+    granularity: 'day' | 'month';
+  }): Promise<Array<{ period: string; sales: number; budget: number }>> {
+    const { filters, granularity } = config;
+    const transactionsTable = `${this.tablePrefix}transactions`;
+    const budgetTable = `${this.tablePrefix}budget`;
+    const diasTable = `${this.tablePrefix}fnc_dias_ppto`;
+    const queryParams: Record<string, string | string[]> = {};
+
+    // Sales conditions: all filters applied normally
+    const salesConditions: string[] = [];
+    // Budget conditions: only date filters, with start date expanded to start of month
+    const budgetConditions: string[] = [];
+
+    for (let index = 0; index < filters.length; index++) {
+      const f = filters[index]!;
+
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.field)) {
+        throw new Error(`Invalid field name format: ${f.field}`);
+      }
+
+      const paramName = `series_${f.field}_${index}`;
+
+      if (f.field === 'date') {
+        queryParams[paramName] = String(f.value);
+        const opMap: Record<string, string> = { gte: '>=', lte: '<=', eq: '=', gt: '>', lt: '<', neq: '!=' };
+        const op = opMap[f.operator] ?? '=';
+        salesConditions.push(`date ${op} {${paramName}:String}`);
+        // Budget: expand start date to beginning of month (budget rows are on the 1st)
+        if (f.operator === 'gte') {
+          budgetConditions.push(`date >= toString(toStartOfMonth(toDate({${paramName}:String})))`);
+        } else {
+          budgetConditions.push(`date ${op} {${paramName}:String}`);
+        }
+      } else if (f.operator === 'in') {
+        const values = Array.isArray(f.value) ? f.value : [f.value];
+        queryParams[paramName] = values.map(String);
+        salesConditions.push(`${f.field} IN {${paramName}:Array(String)}`);
+        // Dimension filters not applied to budget (column may not exist)
+      } else {
+        queryParams[paramName] = String(f.value);
+        const opMap: Record<string, string> = { gte: '>=', lte: '<=', eq: '=', gt: '>', lt: '<', neq: '!=' };
+        const op = opMap[f.operator] ?? '=';
+        salesConditions.push(`${f.field} ${op} {${paramName}:String}`);
+        // Dimension filters not applied to budget (column may not exist)
+      }
+    }
+
+    const salesWhere = salesConditions.length > 0 ? `WHERE ${salesConditions.join(' AND ')}` : '';
+    const budgetWhere = budgetConditions.length > 0 ? `WHERE ${budgetConditions.join(' AND ')}` : '';
+
+    let query: string;
+
+    if (granularity === 'month') {
+      // Monthly: full monthly budget per month
+      query = `
+WITH
+sales_series AS (
+  SELECT
+    toString(toStartOfMonth(toDate(date))) AS period,
+    sum(sales_price) AS sales
+  FROM ${transactionsTable}
+  ${salesWhere}
+  GROUP BY period
+),
+budget_series AS (
+  SELECT
+    toString(toStartOfMonth(toDate(date))) AS period,
+    sum(sales_price) AS budget
+  FROM ${budgetTable}
+  ${budgetWhere}
+  GROUP BY period
+)
+SELECT
+  s.period,
+  s.sales,
+  coalesce(b.budget, 0) AS budget
+FROM sales_series s
+LEFT JOIN budget_series b ON s.period = b.period
+ORDER BY s.period ASC
+`;
+    } else {
+      // Daily: budget per day = monthly_budget / Dias_habiles (same as isDailyView proration)
+      query = `
+WITH
+sales_series AS (
+  SELECT
+    toString(toDate(date)) AS period,
+    sum(sales_price) AS sales
+  FROM ${transactionsTable}
+  ${salesWhere}
+  GROUP BY period
+),
+budget_monthly AS (
+  SELECT
+    toString(toStartOfMonth(toDate(date))) AS month_str,
+    sum(sales_price) / nullIf(max(d.Dias_habiles), 0) AS budget_per_day
+  FROM ${budgetTable}
+  LEFT JOIN ${diasTable} d ON toMonth(toDate(date)) = d.Mes AND toYear(toDate(date)) = d.Ano
+  ${budgetWhere}
+  GROUP BY month_str
+)
+SELECT
+  s.period,
+  s.sales,
+  coalesce(b.budget_per_day, 0) AS budget
+FROM sales_series s
+LEFT JOIN budget_monthly b ON toString(toStartOfMonth(toDate(s.period))) = b.month_str
+ORDER BY s.period ASC
+`;
+    }
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    return resultSet.json<{ period: string; sales: number; budget: number }>();
+  }
+
+  /**
    * Build query to get distinct values from a column
    * Returns array of unique string values sorted alphabetically A-Z
    *

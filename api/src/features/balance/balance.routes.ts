@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
 import { BalanceService } from './balance.service.js';
 import { AnalyticsQueryBuilder } from '../../core/db/clickhouse/query/analytics-query-builder.js';
 import type { DatabaseClient } from '../../core/db/clickhouse/client.js';
@@ -9,7 +10,7 @@ import {
   BalanceSheetResponseSchema,
   parseQueryParamsToFilters,
 } from './balance.schemas.js';
-import { SuccessResponseSchema } from '../../core/schemas/common.schemas.js';
+import { SuccessResponseSchema, DateStringSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
 
 /**
@@ -74,6 +75,60 @@ export function balanceRoutes(
       return reply.code(200).send({
         data: balance,
       });
+    }
+  );
+
+  /**
+   * GET /balance/series
+   * Get time-series sales data grouped by day or month
+   *
+   * Query params:
+   * - startDate: ISO date string (optional)
+   * - endDate: ISO date string (optional)
+   * - granularity: 'day' | 'month' (default: 'day')
+   * - Any other params: Dynamic filters (comma-separated for multiple values)
+   */
+  server.get(
+    '/balance/series',
+    {
+      schema: {
+        description: 'Get time-series sales data grouped by day or month.',
+        tags: ['balance'],
+        querystring: Type.Object(
+          {
+            startDate: Type.Optional(DateStringSchema),
+            endDate: Type.Optional(DateStringSchema),
+            granularity: Type.Optional(Type.Union([Type.Literal('day'), Type.Literal('month')])),
+          },
+          { additionalProperties: true }
+        ),
+        response: {
+          200: SuccessResponseSchema(
+            Type.Array(
+              Type.Object({
+                period: Type.String(),
+                sales: Type.Number(),
+                budget: Type.Number(),
+              })
+            )
+          ),
+        },
+      },
+    },
+    async (request, reply) => {
+      const query = request.query as Record<string, unknown>;
+      const granularity = (query['granularity'] as 'day' | 'month') ?? 'day';
+
+      const params: BalanceQueryParams = {};
+      if (query['startDate']) params.startDate = String(query['startDate']);
+      if (query['endDate']) params.endDate = String(query['endDate']);
+      const dateFilters = parseQueryParamsToFilters(params);
+      const dynamicFilters = parseDynamicFilters(query);
+      const allFilters = combineFilters(dynamicFilters, dateFilters);
+
+      const series = await service.getBalanceSeries({ filters: allFilters, granularity });
+
+      return reply.code(200).send({ data: series });
     }
   );
 }

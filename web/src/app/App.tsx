@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HeroUIProvider } from '@heroui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { CodeVerifyPage } from '@/features/auth/pages/CodeVerifyPage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
@@ -16,6 +17,7 @@ import { PortafolioPage } from '@/features/portafolio/pages/PortafolioPage';
 import { ClientesPage } from '@/features/clientes/pages/ClientesPage';
 import { GmroiPage } from '@/features/gmroi/pages/GmroiPage';
 import { VeraPage } from '@/features/vera/pages/VeraPage';
+import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { AppLayout } from '@/core/layouts/AppLayout';
 import { RouteGuard } from '@/core/router/RouteGuard';
 import { AuthProvider } from '@/core/router/AuthProvider';
@@ -182,10 +184,21 @@ function App() {
                 </RouteGuard>
               }
             />
+            <Route
+              path="/configuracion"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <SettingsPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
+      <Toaster position="top-right" theme="dark" />
       </QueryClientProvider>
     </HeroUIProvider>
   );

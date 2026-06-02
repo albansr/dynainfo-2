@@ -1,11 +1,26 @@
+import { subDays, startOfMonth, subMonths } from 'date-fns';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useBalance } from '@/core/api/hooks/useBalance';
+import { useBalanceSeries } from '@/core/api/hooks/useBalanceSeries';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
 import { getSalesMetric } from '@/core/utils/salesMetric';
 import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '@/core/components/PageHeader';
 import { SegmentDistributionChart } from '../components/SegmentDistributionChart';
+import { SalesBarChart } from '../components/SalesBarChart';
+
+const DAY_PRESETS = ['today'] as const;
+
+function getChartConfig(preset: ReturnType<typeof useDateRange>['preset'], endDate: Date) {
+  const isDay = typeof preset === 'string' && (DAY_PRESETS as readonly string[]).includes(preset);
+  const granularity: 'day' | 'month' = isDay ? 'day' : 'month';
+  const chartEnd = endDate;
+  const chartStart = granularity === 'day'
+    ? subDays(endDate, 11)
+    : startOfMonth(subMonths(endDate, 11));
+  return { granularity, chartStart, chartEnd };
+}
 
 export function DashboardPage() {
   const { startDate, endDate, preset } = useDateRange();
@@ -16,10 +31,14 @@ export function DashboardPage() {
   const previousYear = currentYear - 1;
   const salesMetric = getSalesMetric(balanceData, preset);
 
+  const { granularity, chartStart, chartEnd } = getChartConfig(preset, endDate);
+  const { data: seriesData, isLoading: seriesLoading } = useBalanceSeries(chartStart, chartEnd, granularity);
+
   return (
     <div>
       <PageHeader title="Análisis General de la compañía" />
 
+      {/* Ventas */}
       <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
@@ -52,6 +71,7 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Márgenes */}
       <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
@@ -120,6 +140,7 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Cartera */}
       <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
           <MetricCard
@@ -131,6 +152,17 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Gráfico tendencia */}
+      <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
+        <SalesBarChart
+          series={seriesData?.data ?? []}
+          granularity={granularity}
+          title={`Tendencia de ventas — últimos 12 ${granularity === 'day' ? 'días' : 'meses'}`}
+          isLoading={seriesLoading}
+        />
+      </div>
+
+      {/* Análisis IA */}
       <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
         <SegmentDistributionChart />
       </div>
@@ -139,4 +171,3 @@ export function DashboardPage() {
     </div>
   );
 }
-

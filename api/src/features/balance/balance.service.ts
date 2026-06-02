@@ -20,6 +20,16 @@ export class BalanceService {
   constructor(private analyticsBuilder: IAnalyticsQueryBuilder) {}
 
   /**
+   * Get time-series sales data grouped by day or month
+   */
+  async getBalanceSeries(params: {
+    filters: FilterCondition[];
+    granularity: 'day' | 'month';
+  }): Promise<Array<{ period: string; sales: number; budget: number }>> {
+    return this.analyticsBuilder.buildTimeSeriesQuery(params);
+  }
+
+  /**
    * Get complete balance sheet (single raw object)
    * Single optimized query - all calculations in ClickHouse
    * Response is dynamically built from metrics configuration

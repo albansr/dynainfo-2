@@ -50,7 +50,7 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
     items: [
       {
         key: 'marcas-principal',
-        label: 'Marcas Propias',
+        label: 'Marcas Exclusivas',
         href: '/proveedor-comercial/marcas',
       },
       {

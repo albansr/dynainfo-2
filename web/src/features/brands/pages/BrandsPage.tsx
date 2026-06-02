@@ -8,7 +8,7 @@ import { AnalyticsPage } from '@/core/components/analytics/AnalyticsPage';
 export function BrandsPage() {
   return (
     <AnalyticsPage
-      title="Proveedor Comercial / Marcas Propias"
+      title="Proveedor Comercial / Marcas Exclusivas"
       groupBy="ProveedorComercial"
       totalsLabel="TOTAL MARCAS:"
       filters={{ ProveedorComercial: ['VERA', 'FORTE'] }}
