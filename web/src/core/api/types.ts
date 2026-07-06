@@ -69,6 +69,7 @@ export interface VerifyOTPResponse {
     emailVerified: boolean;
     name: string;
     image: string | null;
+    dynaRole: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -86,6 +87,7 @@ export interface GetSessionResponse {
     emailVerified: boolean;
     name: string;
     image: string | null;
+    dynaRole: string | null;
     createdAt: string;
     updatedAt: string;
   };

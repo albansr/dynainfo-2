@@ -7,6 +7,7 @@ export interface User {
   emailVerified: boolean;
   name: string;
   image: string | null;
+  dynaRole: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

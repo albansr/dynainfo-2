@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
+import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Chip } from '@heroui/react';
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { NAVIGATION_SECTIONS } from '@/core/config/navigation';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -8,6 +8,19 @@ import { useLogout } from '@/features/auth/hooks/useLogout';
 
 interface AppLayoutProps {
   children: ReactNode;
+}
+
+// Human-readable labels for Dyna profile roles; empty/'MANAGER' and unknown values show nothing
+const DYNA_ROLE_LABELS: Record<string, string> = {
+  MANAGER_DISTRIBUTION: 'Distribución',
+  MANAGER_CADENAS: 'Cadenas',
+  MANAGER_EXPORTATION: 'Exportación',
+  MANAGER_RETAIL: 'Retail',
+};
+
+function getDynaRoleLabel(dynaRole: string | null | undefined): string | null {
+  if (!dynaRole) return null;
+  return DYNA_ROLE_LABELS[dynaRole] ?? null;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -24,6 +37,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const selectedKeys = useMemo(() => {
     return [location.pathname];
   }, [location.pathname]);
+
+  const dynaRoleLabel = getDynaRoleLabel(user?.dynaRole);
 
   const handleLinkClick = () => {
     // Close sidebar on mobile when clicking a link
@@ -114,7 +129,23 @@ export function AppLayout({ children }: AppLayoutProps) {
               <DropdownTrigger>
                 <div className="cursor-pointer">
                   <User
-                    name={user.name || 'Usuario'}
+                    name={
+                      <span className="flex flex-col items-start gap-0.5">
+                        {dynaRoleLabel && (
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            classNames={{
+                              base: 'h-3.5 px-1',
+                              content: 'text-[8px] font-medium px-0 leading-none',
+                            }}
+                          >
+                            {dynaRoleLabel}
+                          </Chip>
+                        )}
+                        {user.name || 'Usuario'}
+                      </span>
+                    }
                     description={user.email}
                     avatarProps={{
                       size: 'sm',
@@ -141,7 +172,19 @@ export function AppLayout({ children }: AppLayoutProps) {
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white font-semibold text-sm">
                       {(user.name || 'Usuario').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                     </div>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-0.5">
+                      {dynaRoleLabel && (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          classNames={{
+                            base: 'h-3.5 px-1',
+                            content: 'text-[8px] font-medium px-0 leading-none',
+                          }}
+                        >
+                          {dynaRoleLabel}
+                        </Chip>
+                      )}
                       <span className="font-semibold text-sm">{user.name || 'Usuario'}</span>
                       <span className="text-xs text-default-500">{user.email}</span>
                     </div>

@@ -18,6 +18,8 @@ export const users = pgTable('user', {
     .notNull()
     .default('user'),
   isActive: boolean('is_active').notNull().default(true),
+  // Profile role coming from Dyna SSO (e.g. MANAGER, MANAGER_DISTRIBUTION...), unrelated to the authorization `role` above
+  dynaRole: text('dyna_role'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

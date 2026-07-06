@@ -12,8 +12,16 @@ interface DynaJWTPayload {
   uid: string;
   email: string;
   nombre: string;
+  role?: string;
   iat: number;
   exp: number;
+}
+
+/**
+ * Dyna sends an empty role for plain managers; normalize it to 'MANAGER'
+ */
+function normalizeDynaRole(role: string | undefined): string {
+  return role?.trim() || 'MANAGER';
 }
 
 /**
@@ -77,6 +85,8 @@ export const dynaSSO = (): BetterAuthPlugin => {
               .limit(1)
               .then((rows) => rows[0]);
 
+            const dynaRole = normalizeDynaRole(decoded.role);
+
             if (!user) {
               // Create new user with SSO data
               ctx.context.logger?.info('Creating new SSO user for ' + decoded.email);
@@ -88,19 +98,18 @@ export const dynaSSO = (): BetterAuthPlugin => {
                   emailVerified: true, // SSO users are pre-verified
                   role: 'user',
                   isActive: true,
+                  dynaRole,
                 })
                 .returning();
               user = newUser!;
-            } else {
-              // Update user name if it changed
-              if (user.name !== decoded.nombre) {
-                const [updated] = await db
-                  .update(users)
-                  .set({ name: decoded.nombre })
-                  .where(eq(users.id, user.id))
-                  .returning();
-                user = updated!;
-              }
+            } else if (user.name !== decoded.nombre || user.dynaRole !== dynaRole) {
+              // Keep name and Dyna profile role in sync on every login
+              const [updated] = await db
+                .update(users)
+                .set({ name: decoded.nombre, dynaRole })
+                .where(eq(users.id, user.id))
+                .returning();
+              user = updated!;
             }
 
             // 3. Create session using Drizzle

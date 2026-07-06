@@ -27,6 +27,16 @@ export const auth = betterAuth({
     },
   }),
 
+  user: {
+    additionalFields: {
+      dynaRole: {
+        type: 'string',
+        required: false,
+        input: false, // set by the Dyna SSO plugin only, not client-settable
+      },
+    },
+  },
+
   // Email OTP plugin + SSO
   plugins: [
     emailOTP({
@@ -55,10 +65,10 @@ export const auth = betterAuth({
 
   // Trust proxy headers for production
   trustedOrigins: [
-    process.env['BETTER_AUTH_URL']!,
-    process.env['ORIGIN_URL']!, // Frontend Vercel/production URL
+    process.env['BETTER_AUTH_URL'],
+    process.env['ORIGIN_URL'], // Frontend Vercel/production URL
     'http://localhost:4000', // Frontend dev server
-  ],
+  ].filter((origin): origin is string => Boolean(origin)),
 
   // Advanced cookie configuration for cross-site iframe support
   advanced: {
