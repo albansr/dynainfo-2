@@ -11,6 +11,7 @@ import {
   getColumnGroups,
 } from '@/features/distribution/components/RegionalTable/config/columns';
 import { getSalesMetric } from '@/core/utils/salesMetric';
+import { ExportToExcelButton } from './ExportToExcelButton';
 import type { AnalyticsPageConfig } from './types';
 import type { ListItemResponse } from '@/core/api/hooks/useList';
 
@@ -229,6 +230,22 @@ export function AnalyticsPage({
         />
       )}
 
+      {/* Export */}
+      <div className="mt-8 flex justify-end">
+        <ExportToExcelButton
+          groupBy={groupBy}
+          startDate={startDate}
+          endDate={endDate}
+          preset={preset}
+          filters={filters}
+          totalsLabel={totalsLabel}
+          hideBudgetColumns={hideBudgetColumns}
+          hideRetainedColumn={hideRetainedColumn}
+          nameOverrides={nameOverrides}
+          reportTitle={title}
+        />
+      </div>
+
       {/* Table */}
       <RegionalTable
         data={mappedData}
@@ -241,7 +258,7 @@ export function AnalyticsPage({
           currentYear,
           previousYear: currentYear - 1,
         }}
-        className="mt-8"
+        className="mt-3"
       />
     </div>
   );

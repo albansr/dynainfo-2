@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { DatabaseClient, type ClickHouseConfig } from './core/db/clickhouse/client.js';
 import { balanceRoutes } from './features/balance/balance.routes.js';
 import { listRoutes } from './features/list/list.routes.js';
+import { listExportRoutes } from './features/list/list.export.routes.js';
 import { labelsRoutes } from './features/labels/labels.routes.js';
 import { qube6Routes } from './features/qube6/qube6.routes.js';
 import { authRoutes } from './features/auth/auth.routes.js';
@@ -282,6 +283,7 @@ async function buildServer() {
     async (instance) => {
       balanceRoutes(instance, dbClient);
       listRoutes(instance, dbClient);
+      listExportRoutes(instance, dbClient);
       labelsRoutes(instance, dbClient);
       qube6Routes(instance, dbClient);
       await usersRoutes(instance);
