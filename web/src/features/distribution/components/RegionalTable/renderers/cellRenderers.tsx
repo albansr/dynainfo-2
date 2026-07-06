@@ -9,16 +9,17 @@ import type { CellRenderer } from '../config/types';
 export const salesCellRenderer: CellRenderer = (_data, config, value) => {
   const { current, previous, variation } = value;
   const thresholds = config.thresholds!;
-  const varColor = getVariationColor(variation, thresholds);
-  const arrow = variation > 0 ? '↑' : variation < 0 ? '↓' : '';
+  const varFinite = Number.isFinite(variation);
+  const varColor = varFinite ? getVariationColor(variation, thresholds) : null;
+  const arrow = varFinite ? (variation > 0 ? '↑' : variation < 0 ? '↓' : '') : '';
 
   return (
     <div className="px-4 text-right py-2.5">
       <div className="text-[13px] text-zinc-900">
         <span className="text-[11px] text-zinc-500">{config.currency}</span>{' '}
         <span className="font-semibold">{formatNumber(current, config.locale)}</span>{' '}
-        <span className="text-[11px] font-semibold" style={{ color: varColor.text }}>
-          {arrow} {formatPercent(Math.abs(variation), config.locale, 2)}%
+        <span className="text-[11px] font-semibold" style={{ color: varFinite ? varColor!.text : '#64748b' }}>
+          {varFinite ? `${arrow} ${formatPercent(Math.abs(variation), config.locale, 2)}%` : 'N/A'}
         </span>
       </div>
       <div className="text-[11px] text-zinc-400 mt-1">
@@ -60,10 +61,12 @@ export const complianceCellRenderer: CellRenderer = (_data, config, value) => {
 // Margin cell renderer (current margin + variation %)
 export const marginCellRenderer: CellRenderer = (_data, config, value) => {
   const { current, previous, variation } = value;
+  const varFinite = Number.isFinite(variation);
 
   // Color based on variation, matching background color logic
   let marginColor: string;
-  if (variation > 2) marginColor = '#15803d'; // Strong green if up >2%
+  if (!varFinite) marginColor = '#64748b'; // Neutral when no comparable base
+  else if (variation > 2) marginColor = '#15803d'; // Strong green if up >2%
   else if (variation > 0) marginColor = '#16a34a'; // Soft green if up
   else if (variation >= -2) marginColor = '#64748b'; // Neutral if small variation
   else marginColor = '#dc2626'; // Red if down >2%
@@ -77,12 +80,12 @@ export const marginCellRenderer: CellRenderer = (_data, config, value) => {
         <span className="font-semibold" style={{ color: marginColor }}>
           {formatPercent(current, config.locale, 2)}%
         </span>{' '}
-        <span className="text-[10px] font-semibold" style={{ color: deltaColor }}>
-          {arrow}{formatPercent(Math.abs(variation), config.locale, 2)}%
+        <span className="text-[10px] font-semibold" style={{ color: varFinite ? deltaColor : '#64748b' }}>
+          {varFinite ? `${arrow}${formatPercent(Math.abs(variation), config.locale, 2)}%` : 'N/A'}
         </span>
       </div>
       <div className="text-[11px] text-zinc-400 mt-1">
-        {config.previousYear}: {formatPercent(previous, config.locale, 2)}%
+        {config.previousYear}: {Number.isFinite(previous) ? `${formatPercent(previous, config.locale, 2)}%` : 'N/A'}
       </div>
     </div>
   );

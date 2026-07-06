@@ -52,9 +52,15 @@ export function DashboardPage() {
           <MetricCard
             label="CRECIMIENTO DE VENTAS"
             value={
-              <span className={balanceData && salesMetric.vsLastYear >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {balanceData ? formatPercentageWithSign(salesMetric.vsLastYear) : '0'}%
-              </span>
+              !balanceData ? (
+                <span>0%</span>
+              ) : !Number.isFinite(salesMetric.vsLastYear) ? (
+                <span className="text-gray-500">N/A</span>
+              ) : (
+                <span className={salesMetric.vsLastYear >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {formatPercentageWithSign(salesMetric.vsLastYear)}%
+                </span>
+              )
             }
             description="vs año anterior"
             isLoading={isLoading}
@@ -83,9 +89,9 @@ export function DashboardPage() {
             }
             secondaryLabel={`Año anterior (${previousYear})`}
             secondaryValue={
-              balanceData && balanceData.sales_last_year !== 0
+              balanceData && balanceData.sales_last_year > 0
                 ? `${formatPercentage((balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100)}%`
-                : '0%'
+                : 'N/A'
             }
             isLoading={isLoading}
           />
@@ -95,9 +101,15 @@ export function DashboardPage() {
             value={
               balanceData
                 ? (() => {
+                    if (balanceData.sales_last_year <= 0) {
+                      return <span className="text-gray-500">N/A</span>;
+                    }
                     const marginPct = balanceData.sales !== 0 ? (balanceData.gross_margin / balanceData.sales) * 100 : 0;
-                    const marginPctLastYear = balanceData.sales_last_year !== 0 ? (balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100 : 0;
-                    const variation = marginPctLastYear !== 0 ? ((marginPct - marginPctLastYear) / marginPctLastYear) * 100 : 0;
+                    const marginPctLastYear = (balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100;
+                    if (marginPctLastYear <= 0) {
+                      return <span className="text-gray-500">N/A</span>;
+                    }
+                    const variation = ((marginPct - marginPctLastYear) / marginPctLastYear) * 100;
                     return (
                       <span className={variation >= 0 ? 'text-green-600' : 'text-red-600'}>
                         {formatPercentageWithSign(variation)}%

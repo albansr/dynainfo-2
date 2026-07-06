@@ -14,9 +14,9 @@ import type { BalanceSheetResponse } from '../../features/balance/balance.schema
  * This keeps the response structure consistent across all endpoints
  */
 export function buildDynamicResponse(
-  result: Record<string, number>
+  result: Record<string, number | null>
 ): BalanceSheetResponse {
-  const response: Record<string, number> = {};
+  const response: Record<string, number | null> = {};
 
   // Add all base metrics (current, last_year, vs_last_year)
   for (const metric of BALANCE_METRICS) {
@@ -29,12 +29,13 @@ export function buildDynamicResponse(
     response[`${alias}_last_year`] = result[`${alias}_ly`] ?? 0;
 
     // Year-over-year variance
-    response[`${alias}_vs_last_year`] = result[`${alias}_vs_last_year`] ?? 0;
+    response[`${alias}_vs_last_year`] = result[`${alias}_vs_last_year`] ?? null;
   }
 
-  // Add all calculated metrics
+  // Add all calculated metrics (growth metrics keep null when base <= 0 → 'N/A')
   for (const calculatedMetricName of getAllCalculatedMetricNames()) {
-    response[calculatedMetricName] = result[calculatedMetricName] ?? 0;
+    const fallback = (calculatedMetricName.endsWith('_vs_last_year') || calculatedMetricName === 'gross_margin_pct_last_year') ? null : 0;
+    response[calculatedMetricName] = result[calculatedMetricName] ?? fallback;
   }
 
   return response as BalanceSheetResponse;
@@ -45,7 +46,7 @@ export function buildDynamicResponse(
  * Used by list endpoint to return multiple items with same structure
  */
 export function buildDynamicResponseArray(
-  results: Array<Record<string, number>>
+  results: Array<Record<string, number | null>>
 ): BalanceSheetResponse[] {
   return results.map((result) => buildDynamicResponse(result));
 }

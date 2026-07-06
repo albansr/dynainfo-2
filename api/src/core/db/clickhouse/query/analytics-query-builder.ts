@@ -323,9 +323,9 @@ ${previousWhere}
         finalSelects.push(`${currentCteName}.${metric.alias}`);
         finalSelects.push(`${previousCteName}.${metric.alias}_ly`);
         finalSelects.push(
-          `if(${previousCteName}.${metric.alias}_ly != 0, ` +
+          `if(${previousCteName}.${metric.alias}_ly > 0, ` +
             `((${currentCteName}.${metric.alias} - ${previousCteName}.${metric.alias}_ly) / ${previousCteName}.${metric.alias}_ly) * 100, ` +
-            `0) AS ${metric.alias}_vs_last_year`
+            `NULL) AS ${metric.alias}_vs_last_year`
         );
       }
     }
@@ -457,9 +457,9 @@ ${previousWhere}
           finalSelects.push(`${currentCteName}.${metric.alias}`);
           finalSelects.push(`${previousCteName}.${metric.alias}_ly`);
           finalSelects.push(
-            `if(${previousCteName}.${metric.alias}_ly != 0, ` +
+            `if(${previousCteName}.${metric.alias}_ly > 0, ` +
               `((${currentCteName}.${metric.alias} - ${previousCteName}.${metric.alias}_ly) / ${previousCteName}.${metric.alias}_ly) * 100, ` +
-              `0) AS ${metric.alias}_vs_last_year`
+              `NULL) AS ${metric.alias}_vs_last_year`
           );
         }
       } else {

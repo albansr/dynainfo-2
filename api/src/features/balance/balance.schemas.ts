@@ -40,7 +40,9 @@ export const BalanceSheetResponseSchema = Type.Object(
   Object.fromEntries(
     Object.entries(generateMetricsSchema()).map(([key, value]) => [
       key,
-      Type.Number({ description: value.description }),
+      (key.endsWith('_vs_last_year') || key === 'gross_margin_pct_last_year')
+        ? Type.Union([Type.Number(), Type.Null()], { description: value.description })
+        : Type.Number({ description: value.description }),
     ])
   ),
   {

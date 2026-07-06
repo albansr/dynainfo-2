@@ -133,13 +133,13 @@ export const CALCULATED_METRICS = [
     name: 'gross_margin_pct_last_year',
     description: 'Gross margin percentage from last year',
     dependencies: ['gross_margin_last_year', 'sales_last_year'],
-    formula: 'if({sales_last_year} != 0, ({gross_margin_last_year} / {sales_last_year}) * 100, 0)',
+    formula: 'if({sales_last_year} > 0, ({gross_margin_last_year} / {sales_last_year}) * 100, NULL)',
   },
   {
     name: 'gross_margin_pct_vs_last_year',
     description: 'YoY variance % for gross margin percentage',
     dependencies: ['gross_margin_pct', 'gross_margin_pct_last_year'],
-    formula: 'if({gross_margin_pct_last_year} != 0, (({gross_margin_pct} - {gross_margin_pct_last_year}) / {gross_margin_pct_last_year}) * 100, 0)',
+    formula: 'if({gross_margin_pct_last_year} > 0, (({gross_margin_pct} - {gross_margin_pct_last_year}) / {gross_margin_pct_last_year}) * 100, NULL)',
   },
   {
     name: 'cartera_compliance_pct',
@@ -163,7 +163,7 @@ export const CALCULATED_METRICS = [
     name: 'sales_total_vs_last_year',
     description: 'YoY variance % for total ventas',
     dependencies: ['sales_total', 'sales_total_last_year'],
-    formula: 'if({sales_total_last_year} != 0, (({sales_total} - {sales_total_last_year}) / {sales_total_last_year}) * 100, 0)',
+    formula: 'if({sales_total_last_year} > 0, (({sales_total} - {sales_total_last_year}) / {sales_total_last_year}) * 100, NULL)',
   },
   // Add more calculated metrics here as needed
   // Example:

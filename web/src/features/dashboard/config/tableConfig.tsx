@@ -67,17 +67,17 @@ export const getDashboardTableRows = (
 
   const salesMetric = getSalesMetric(apiData, preset);
   const marginPct2025 = salesMetric.current !== 0 ? (apiData.gross_margin / salesMetric.current) * 100 : 0;
-  const marginPct2024 = salesMetric.lastYear !== 0 ? (apiData.gross_margin_last_year / salesMetric.lastYear) * 100 : 0;
+  const marginPct2024 = salesMetric.lastYear > 0 ? (apiData.gross_margin_last_year / salesMetric.lastYear) * 100 : 0;
 
   return [
     {
       key: 'ventas',
       label: 'Total ventas mes',
       ventas_2024: `$ ${formatCurrency(salesMetric.lastYear)}`,
-      margen_2024: `${formatPercentage(marginPct2024)} %`,
+      margen_2024: salesMetric.lastYear > 0 ? `${formatPercentage(marginPct2024)} %` : 'N/A',
       facturado_2025: `$ ${formatCurrency(salesMetric.current)}`,
       margen_2025: `${formatPercentage(marginPct2025)} %`,
-      variacion: `${formatPercentage(salesMetric.vsLastYear)} %`,
+      variacion: Number.isFinite(salesMetric.vsLastYear) ? `${formatPercentage(salesMetric.vsLastYear)} %` : 'N/A',
       presupuesto: `$ ${formatCurrency(apiData.budget)}`,
       margen_presupuesto: `${formatPercentage(apiData.budget_gross_margin_pct)} %`,
       cumplimiento: `${formatPercentage(apiData.budget_achievement_pct)} %`,
