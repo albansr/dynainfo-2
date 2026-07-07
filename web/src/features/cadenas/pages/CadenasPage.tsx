@@ -7,6 +7,9 @@ export function CadenasPage() {
       groupBy="customer_name"
       totalsLabel="TOTAL CADENAS:"
       filters={{ channel: 'CADENAS' }}
+      showSearch
+      enableFilters
+      filterContext={{ channel: 'CADENAS' }}
       hideBudgetColumns={true}
     />
   );

@@ -1,8 +1,9 @@
 import { AnalyticsPage } from '@/core/components/analytics/AnalyticsPage';
+import { DistribucionBreadcrumbs } from '../components/DistribucionBreadcrumbs';
 
 /**
  * Distribution · Regionales — table-only listing grouped by regional,
- * filtered to the distribution channel.
+ * filtered to the distribution channel. Rows drill into the entity detail.
  */
 export function DistribucionRegionalesPage() {
   return (
@@ -13,6 +14,11 @@ export function DistribucionRegionalesPage() {
       filters={{ channel: 'DISTRIBUCION' }}
       hideMetrics
       showIdInName
+      showSearch
+      enableFilters
+      filterContext={{ channel: 'DISTRIBUCION' }}
+      drillToDetail
+      breadcrumbs={<DistribucionBreadcrumbs listLabel="Regionales" listPath="/distribucion/regionales" />}
     />
   );
 }

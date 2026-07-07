@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ColumnDefinition, ColumnGroup } from '@/features/distribution/components/RegionalTable/config/types';
 import type { BalanceSheetData } from '@/core/api/types';
 
@@ -19,19 +20,8 @@ export type BalanceData = BalanceSheetData;
 /**
  * Available grouping dimensions for analytics
  */
-export type GroupByDimension =
-  | 'IdRegional'
-  | 'seller_id'
-  | 'customer_id'
-  | 'customer_name'
-  | 'customer_country'
-  | 'product_id'
-  | 'ProveedorComercial'
-  | 'month'
-  | 'quarter'
-  | 'SegmentacionCliente'
-  | 'SegmentacionProducto'
-  | 'CentroOperaciones';
+import type { GroupByDimension } from '@/core/api/hooks/useList';
+export type { GroupByDimension };
 
 /**
  * Generic row data for analytics table
@@ -146,4 +136,25 @@ export interface AnalyticsPageConfig {
    * @default false
    */
   showSearch?: boolean;
+
+  /**
+   * When set, each table row becomes clickable and navigates to
+   * `${detailBasePath}/${row.id}` (passing the row name via router state).
+   */
+  detailBasePath?: string;
+
+  /**
+   * When true, rows drill into the generic distribution detail explorer
+   * (`/distribucion/detalle`) grouped/filtered by the clicked value.
+   */
+  drillToDetail?: boolean;
+
+  /** Show the faceted multi-select filter bar above the table. */
+  enableFilters?: boolean;
+
+  /** Context (e.g. channel) that scopes the filter value options. */
+  filterContext?: Record<string, any>;
+
+  /** Breadcrumbs rendered above the page title. */
+  breadcrumbs?: ReactNode;
 }

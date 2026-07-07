@@ -207,11 +207,23 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
   );
 }
 
-export function SegmentDistributionChart() {
+interface SegmentDistributionChartProps {
+  filters?: Record<string, any>;
+  /** Restrict the entity selector to these keys (default: all). */
+  entityOptions?: string[];
+  /** Initially selected entity type. */
+  defaultEntity?: string;
+}
+
+export function SegmentDistributionChart({ filters, entityOptions, defaultEntity }: SegmentDistributionChartProps = {}) {
+  const visibleEntityOptions = entityOptions
+    ? ENTITY_OPTIONS.filter((o) => entityOptions.includes(o.key))
+    : ENTITY_OPTIONS;
+
   const [analysisType, setAnalysisType] = useState<AnalysisType>('value');
-  const [entityType, setEntityType] = useState('customer_id');
+  const [entityType, setEntityType] = useState(defaultEntity ?? visibleEntityOptions[0]?.key ?? 'customer_id');
   const { startDate, endDate } = useDateRange();
-  const { data, isLoading } = useQube6Distribution(entityType, startDate, endDate);
+  const { data, isLoading } = useQube6Distribution(entityType, startDate, endDate, filters);
 
   const items = data?.data?.[analysisType] ?? [];
   const totalCount = items.reduce((acc, i) => acc + i.count, 0);
@@ -252,15 +264,17 @@ export function SegmentDistributionChart() {
               <SelectItem key={opt.key} className="!cursor-pointer" style={{ cursor: 'pointer' }}>{opt.label}</SelectItem>
             ))}
           </Select>
-          <Tabs
-            size="sm"
-            selectedKey={entityType}
-            onSelectionChange={(key) => setEntityType(key as string)}
-          >
-            {ENTITY_OPTIONS.map((opt) => (
-              <Tab key={opt.key} title={opt.label} />
-            ))}
-          </Tabs>
+          {visibleEntityOptions.length > 1 && (
+            <Tabs
+              size="sm"
+              selectedKey={entityType}
+              onSelectionChange={(key) => setEntityType(key as string)}
+            >
+              {visibleEntityOptions.map((opt) => (
+                <Tab key={opt.key} title={opt.label} />
+              ))}
+            </Tabs>
+          )}
         </div>
       </div>
 

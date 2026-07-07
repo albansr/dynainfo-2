@@ -8,6 +8,8 @@ export function PortafolioPage() {
       totalsLabel="TOTAL PORTAFOLIO:"
       hideBudgetColumns={true}
       hideRetainedColumn={true}
+      showSearch
+      enableFilters
     />
   );
 }

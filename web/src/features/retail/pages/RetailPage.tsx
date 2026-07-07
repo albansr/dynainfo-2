@@ -7,6 +7,9 @@ export function RetailPage() {
       groupBy="CentroOperaciones"
       totalsLabel="TOTAL RETAIL:"
       filters={{ IdRegional: 'RTL' }}
+      showSearch
+      enableFilters
+      filterContext={{ IdRegional: 'RTL' }}
       hideBudgetColumns={true}
       hideRetainedColumn={true}
       nameOverrides={{

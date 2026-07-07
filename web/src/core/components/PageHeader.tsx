@@ -8,9 +8,11 @@ interface PageHeaderProps {
   showDateFilter?: boolean;
   /** Optional chip shown next to the title (e.g. the user's channel). */
   chip?: string;
+  /** Optional breadcrumbs rendered above the title. */
+  breadcrumbs?: React.ReactNode;
 }
 
-export function PageHeader({ title, showDateFilter = true, chip }: PageHeaderProps) {
+export function PageHeader({ title, showDateFilter = true, chip, breadcrumbs }: PageHeaderProps) {
   const { preset, formattedRange, endDate } = useDateRange();
   const currentYear = endDate.getFullYear();
 
@@ -25,6 +27,7 @@ export function PageHeader({ title, showDateFilter = true, chip }: PageHeaderPro
     <div className="sticky -top-4 z-10 bg-white -mx-4 xl:-mx-10 px-4 xl:px-10 -mt-4 pt-4 pb-4 mb-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
+          {breadcrumbs && <div className="mb-1">{breadcrumbs}</div>}
           <div className="flex items-center gap-2">
             {title && (
               <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">

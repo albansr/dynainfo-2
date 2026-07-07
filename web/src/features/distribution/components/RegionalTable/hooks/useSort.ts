@@ -6,17 +6,17 @@ export function useSort(data: RegionalData[], columns: ColumnDefinition[]) {
   const [sortKey, setSortKey] = useState<SortKey | null>('sales');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+  // Note: keep the two setters independent (not nested). Nesting a
+  // side-effectful setter inside another setter's updater double-fires the
+  // toggle under React StrictMode, cancelling the direction change.
   const handleSort = useCallback((key: SortKey) => {
-    setSortKey((prevKey) => {
-      if (prevKey === key) {
-        setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
-        return key;
-      } else {
-        setSortDirection('desc');
-        return key;
-      }
-    });
-  }, []);
+    if (key === sortKey) {
+      setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDirection('desc');
+    }
+  }, [sortKey]);
 
   const sortedData = useMemo(() => {
     if (!sortKey) return data;

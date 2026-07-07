@@ -103,11 +103,19 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
  */
 export const DISTRIBUTION_MENU: MenuSection[] = [
   {
-    title: 'Distribución',
+    title: '',
     items: [
       { key: 'dist-regionales', label: 'Regionales', href: '/distribucion/regionales' },
       { key: 'dist-comerciales', label: 'Vendedores', href: '/distribucion/comerciales' },
       { key: 'dist-clientes', label: 'Clientes', href: '/distribucion/clientes' },
+      { key: 'dist-productos', label: 'Productos', href: '/distribucion/productos' },
+    ],
+  },
+  {
+    title: 'Marcas',
+    items: [
+      { key: 'dist-marcas', label: 'Marcas Exclusivas', href: '/distribucion/marcas' },
+      { key: 'dist-marcas-aliadas', label: 'Marcas Aliadas', href: '/distribucion/marcas-aliadas' },
     ],
   },
 ];

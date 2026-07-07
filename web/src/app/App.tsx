@@ -11,6 +11,10 @@ import { DistributionPage } from '@/features/distribution/pages/DistributionPage
 import { DistribucionRegionalesPage } from '@/features/distribution/pages/DistribucionRegionalesPage';
 import { DistribucionComercialesPage } from '@/features/distribution/pages/DistribucionComercialesPage';
 import { DistribucionClientesPage } from '@/features/distribution/pages/DistribucionClientesPage';
+import { FilteredDetailPage } from '@/features/distribution/pages/FilteredDetailPage';
+import { DistribucionProductosPage } from '@/features/distribution/pages/DistribucionProductosPage';
+import { DistribucionMarcasPage } from '@/features/distribution/pages/DistribucionMarcasPage';
+import { DistribucionMarcasAliadasPage } from '@/features/distribution/pages/DistribucionMarcasAliadasPage';
 import { ExportacionesPage } from '@/features/exportaciones/pages/ExportacionesPage';
 import { CadenasPage } from '@/features/cadenas/pages/CadenasPage';
 import { RetailPage } from '@/features/retail/pages/RetailPage';
@@ -103,6 +107,46 @@ function App() {
                 <RouteGuard requireAuth={true}>
                   <AppLayout>
                     <DistribucionClientesPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/productos"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DistribucionProductosPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/marcas"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DistribucionMarcasPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/marcas-aliadas"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DistribucionMarcasAliadasPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/detalle"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <FilteredDetailPage />
                   </AppLayout>
                 </RouteGuard>
               }

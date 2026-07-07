@@ -12,6 +12,9 @@ export function DistributionPage() {
       groupBy="IdRegional"
       totalsLabel="TOTAL REGIONALES:"
       filters={{ channel: 'DISTRIBUCION' }}
+      showSearch
+      enableFilters
+      filterContext={{ channel: 'DISTRIBUCION' }}
     />
   );
 }

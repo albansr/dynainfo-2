@@ -13,7 +13,7 @@ export interface FilterCondition {
  * Whitelist of allowed field names to prevent SQL injection
  * Dynamically built from config + common fields
  */
-const COMMON_FIELDS = ['date', 'sales_price', 'amount'] as const;
+const COMMON_FIELDS = ['date', 'sales_price', 'amount', 'channel'] as const;
 const ALLOWED_FIELDS = [...COMMON_FIELDS, ...ALLOWED_DIMENSIONS] as const;
 
 /**

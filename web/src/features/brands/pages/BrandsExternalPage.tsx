@@ -7,6 +7,9 @@ export function BrandsExternalPage() {
       groupBy="ProveedorComercial"
       totalsLabel="TOTAL MARCAS:"
       filters={{ 'ProveedorComercial[neq][]': ['VERA', 'FORTE'] }}
+      showSearch
+      enableFilters
+      filterContext={{ 'ProveedorComercial[neq][]': ['VERA', 'FORTE'] }}
     />
   );
 }

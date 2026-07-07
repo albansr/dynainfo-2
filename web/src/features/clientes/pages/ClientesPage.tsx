@@ -8,6 +8,8 @@ export function ClientesPage() {
       totalsLabel="TOTAL CLIENTES:"
       hideBudgetColumns={true}
       hideRetainedColumn={true}
+      showSearch
+      enableFilters
     />
   );
 }

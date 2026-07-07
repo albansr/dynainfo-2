@@ -7,6 +7,9 @@ export function ExportacionesPage() {
       groupBy="customer_country"
       totalsLabel="TOTAL EXPORTACIONES:"
       filters={{ channel: 'EXPORTACIONES' }}
+      showSearch
+      enableFilters
+      filterContext={{ channel: 'EXPORTACIONES' }}
       hideBudgetColumns={true}
     />
   );

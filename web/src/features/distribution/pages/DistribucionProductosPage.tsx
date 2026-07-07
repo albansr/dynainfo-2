@@ -2,16 +2,16 @@ import { AnalyticsPage } from '@/core/components/analytics/AnalyticsPage';
 import { DistribucionBreadcrumbs } from '../components/DistribucionBreadcrumbs';
 
 /**
- * Distribution · Clientes — table-only listing grouped by customer id
- * (displaying customer name), filtered to the distribution channel.
+ * Distribution · Productos — table-only listing grouped by product id
+ * (displaying product name), filtered to the distribution channel.
  * Rows drill into the entity detail.
  */
-export function DistribucionClientesPage() {
+export function DistribucionProductosPage() {
   return (
     <AnalyticsPage
-      title="Clientes"
-      groupBy="customer_id"
-      totalsLabel="TOTAL CLIENTES:"
+      title="Productos"
+      groupBy="product_id"
+      totalsLabel="TOTAL PRODUCTOS:"
       filters={{ channel: 'DISTRIBUCION' }}
       hideMetrics
       showIdInName
@@ -21,7 +21,7 @@ export function DistribucionClientesPage() {
       enableFilters
       filterContext={{ channel: 'DISTRIBUCION' }}
       drillToDetail
-      breadcrumbs={<DistribucionBreadcrumbs listLabel="Clientes" listPath="/distribucion/clientes" />}
+      breadcrumbs={<DistribucionBreadcrumbs listLabel="Productos" listPath="/distribucion/productos" />}
     />
   );
 }

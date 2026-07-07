@@ -107,8 +107,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               {/* Resto de secciones */}
               {visibleSections.map((section) => (
                 <ListboxSection
-                  key={section.title}
-                  title={section.title}
+                  key={section.items[0]?.href ?? section.title}
+                  title={section.title || undefined}
                   classNames={{
                     heading: "text-xs font-normal text-default-400 px-2 pb-1 uppercase",
                   }}
