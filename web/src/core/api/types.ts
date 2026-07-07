@@ -1,5 +1,6 @@
 export interface BalanceSheetData {
   budget: number;
+  budget_full: number;
   budget_last_year: number;
   budget_vs_last_year: number;
   budget_cost: number;
@@ -23,6 +24,7 @@ export interface BalanceSheetData {
   sales_total_vs_last_year: number;
   sales_vs_budget: number;
   budget_achievement_pct: number;
+  budget_achievement_full_pct: number;
   order_fulfillment_pct: number;
   cartera: number;
   cartera_compliance_pct: number;

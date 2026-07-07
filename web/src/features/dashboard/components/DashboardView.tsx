@@ -51,6 +51,17 @@ export function DashboardView({ title, chip, breadcrumbs, filters, segmentEntity
   const { startDate, endDate, preset } = useDateRange();
   const { data, isLoading } = useBalance(startDate, endDate, preset, filters);
 
+  // For prorated presets (today / current month) the budget shown is partial;
+  // also surface the full month budget + its compliance, which must always use
+  // the WHOLE current month's sales + orders (month-to-date), not the selected
+  // range. We fetch a current-month balance for that card; for other presets we
+  // reuse the same range so react-query dedupes (no extra request).
+  const isDailyPreset = typeof preset === 'string' && (DAY_PRESETS as readonly string[]).includes(preset);
+  const monthStart = isDailyPreset ? startOfMonth(endDate) : startDate;
+  const monthPreset = isDailyPreset ? 'current-month' : preset;
+  const { data: monthData } = useBalance(monthStart, endDate, monthPreset, filters);
+  const monthBalance = monthData?.data;
+
   const balanceData = data?.data;
   const previousYear = endDate.getFullYear() - 1;
   const salesMetric = getSalesMetric(balanceData, preset);
@@ -97,7 +108,7 @@ export function DashboardView({ title, chip, breadcrumbs, filters, segmentEntity
           />
 
           <MetricCard
-            label="CUMPL. PRESUPUESTO"
+            label={isDailyPreset ? 'CUMPL. PPTO (PARCIAL)' : 'CUMPL. PRESUPUESTO'}
             value={`${balanceData ? formatPercentage(balanceData.budget_achievement_pct) : '0'}%`}
             description={`Ppto: $ ${balanceData ? formatCurrency(balanceData.budget) : '0'}`}
             isLoading={isLoading}
@@ -190,6 +201,15 @@ export function DashboardView({ title, chip, breadcrumbs, filters, segmentEntity
             description={`Cumpl. ppto con cartera: ${balanceData ? formatPercentage(balanceData.cartera_compliance_pct) : '0'}%`}
             isLoading={isLoading}
           />
+
+          {isDailyPreset && (
+            <MetricCard
+              label="CUMPL. PPTO MES"
+              value={`${monthBalance ? formatPercentage(monthBalance.budget_achievement_full_pct) : '0'}%`}
+              description={`Ppto mes: $ ${monthBalance ? formatCurrency(monthBalance.budget_full) : '0'}`}
+              isLoading={isLoading}
+            />
+          )}
         </div>
       </div>
 

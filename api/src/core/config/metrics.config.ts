@@ -30,6 +30,14 @@ export const BALANCE_METRICS = [
     alias: 'budget',
   },
   {
+    // Full month budget (NOT prorated by elapsed business days). The budget CTE
+    // skips proration for aliases ending in "_full".
+    table: 'budget',
+    field: 'sales_price',
+    aggregation: 'sum',
+    alias: 'budget_full',
+  },
+  {
     table: 'budget',
     field: 'cost_price',
     aggregation: 'sum',
@@ -117,6 +125,13 @@ export const CALCULATED_METRICS = [
     description: 'Budget achievement %',
     dependencies: ['sales', 'orders', 'budget'],
     formula: 'if({budget} != 0, (({sales} + {orders}) / {budget}) * 100, 0)',
+    facturadoSensitive: true,
+  },
+  {
+    name: 'budget_achievement_full_pct',
+    description: 'Budget achievement % against the full (non-prorated) month budget',
+    dependencies: ['sales', 'orders', 'budget_full'],
+    formula: 'if({budget_full} != 0, (({sales} + {orders}) / {budget_full}) * 100, 0)',
     facturadoSensitive: true,
   },
   {

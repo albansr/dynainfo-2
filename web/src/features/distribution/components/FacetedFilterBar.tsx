@@ -118,6 +118,14 @@ function setFilterValue(
  * Applied-filter chips (each editable via a popover, removable via X) + Clear.
  * Renders nothing when there are no applied filters.
  */
+/** Chip label: field + the selected value names (truncated if many). */
+function chipSummary(dim: string, values: DimensionValue[]): string {
+  const label = DIM_LABEL[dim] ?? dim;
+  const names = values.map((v) => v.name);
+  const shown = names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')} +${names.length - 3}`;
+  return `${label}: ${shown}`;
+}
+
 export function FacetedFilterChips({ value, onChange, contextFilters }: FacetedProps) {
   const appliedDims = Object.keys(value).filter((k) => value[k]?.length);
   if (appliedDims.length === 0) return null;
@@ -131,7 +139,9 @@ export function FacetedFilterChips({ value, onChange, contextFilters }: FacetedP
         >
           <Popover placement="bottom-start">
             <PopoverTrigger>
-              <button className="font-medium">{DIM_LABEL[dim] ?? dim}: {value[dim]!.length}</button>
+              <button className="font-medium max-w-[22rem] truncate" title={chipSummary(dim, value[dim]!)}>
+                {chipSummary(dim, value[dim]!)}
+              </button>
             </PopoverTrigger>
             <PopoverContent>
               <ValuePicker

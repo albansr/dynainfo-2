@@ -568,9 +568,15 @@ ${previousWhere}
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Build metric expressions with proration
+    // Build metric expressions with proration (aliases ending in "_full" keep
+    // the raw, non-prorated month budget)
     const metricExprs = tableMetrics
-      .map((m) => `${m.aggregation}(${m.field} * ${prorationFactor}) AS ${m.alias}${aliasSuffix}`)
+      .map((m) => {
+        const expr = m.alias.endsWith('_full')
+          ? `${m.aggregation}(${m.field})`
+          : `${m.aggregation}(${m.field} * ${prorationFactor})`;
+        return `${expr} AS ${m.alias}${aliasSuffix}`;
+      })
       .join(', ');
 
     // Build dimension selects and GROUP BY for grouped queries
