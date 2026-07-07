@@ -79,6 +79,12 @@ export interface CalculatedMetricConfig {
   readonly description: string;
   readonly dependencies: readonly string[]; // Base metric aliases needed
   readonly formula: string; // SQL formula with {alias} placeholders
+  /**
+   * When true, the `orders` (comprometido) term is dropped from the formula
+   * for closed periods (facturadoOnly). Budget-relative metrics should only
+   * count facturado once the period is closed. See MetricCalculator.
+   */
+  readonly facturadoSensitive?: boolean;
 }
 
 /**
@@ -104,12 +110,14 @@ export const CALCULATED_METRICS = [
     description: 'Sales vs budget variance %',
     dependencies: ['sales', 'orders', 'budget'],
     formula: 'if({budget} != 0, ((({sales} + {orders}) - {budget}) / {budget}) * 100, 0)',
+    facturadoSensitive: true,
   },
   {
     name: 'budget_achievement_pct',
     description: 'Budget achievement %',
     dependencies: ['sales', 'orders', 'budget'],
     formula: 'if({budget} != 0, (({sales} + {orders}) / {budget}) * 100, 0)',
+    facturadoSensitive: true,
   },
   {
     name: 'order_fulfillment_pct',
@@ -146,6 +154,7 @@ export const CALCULATED_METRICS = [
     description: 'Cartera compliance % ((sales + orders + cartera) / budget * 100)',
     dependencies: ['sales', 'orders', 'cartera', 'budget'],
     formula: 'if({budget} != 0, (({sales} + {orders} + {cartera}) / {budget}) * 100, 0)',
+    facturadoSensitive: true,
   },
   {
     name: 'sales_total',

@@ -28,7 +28,8 @@ export class MetricCalculator {
   addCalculatedMetrics(
     selects: string[],
     metricsByTable: Map<string, MetricConfig[]>,
-    skippedTables?: Set<string>
+    skippedTables?: Set<string>,
+    facturadoOnly = false
   ): void {
     // Build map of alias -> CTE reference for base metrics
     const aliasToCte = this.buildAliasToCteMap(metricsByTable, skippedTables);
@@ -57,6 +58,12 @@ export class MetricCalculator {
           continue;
         }
 
+        // For closed periods, budget-relative metrics drop the comprometido
+        // (orders) term: same metric name, facturado-only calculation.
+        const dropOrders = facturadoOnly
+          && 'facturadoSensitive' in calculatedMetric
+          && calculatedMetric.facturadoSensitive === true;
+
         // Replace {alias} placeholders with actual references
         let formula: string = calculatedMetric.formula;
         for (const dependency of calculatedMetric.dependencies) {
@@ -65,6 +72,11 @@ export class MetricCalculator {
           // If not in base metrics, check if it's a previously calculated metric
           if (!reference && addedMetrics.has(dependency)) {
             reference = dependency; // Just use the metric name directly
+          }
+
+          // Facturado-only: zero out the orders term in budget-relative metrics
+          if (dropOrders && dependency === 'orders') {
+            reference = '0';
           }
 
           if (reference) {

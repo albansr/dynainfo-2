@@ -1,9 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
+import { usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
 import type { BalanceSheetResponse, BalanceQueryParams } from '../types';
 
-async function fetchBalance(params: BalanceQueryParams, filters?: Record<string, any>): Promise<BalanceSheetResponse> {
+async function fetchBalance(
+  params: BalanceQueryParams,
+  facturadoOnly: boolean,
+  filters?: Record<string, any>
+): Promise<BalanceSheetResponse> {
   const queryParams = new URLSearchParams();
 
   if (params.startDate) {
@@ -12,6 +17,11 @@ async function fetchBalance(params: BalanceQueryParams, filters?: Record<string,
 
   if (params.endDate) {
     queryParams.append('endDate', params.endDate);
+  }
+
+  // Closed periods exclude comprometido from budget-relative metrics
+  if (facturadoOnly) {
+    queryParams.append('facturadoOnly', 'true');
   }
 
   // Add additional filters
@@ -30,15 +40,21 @@ async function fetchBalance(params: BalanceQueryParams, filters?: Record<string,
   return apiClient<BalanceSheetResponse>(endpoint);
 }
 
-export function useBalance(startDate: Date, endDate: Date, filters?: Record<string, any>) {
+export function useBalance(
+  startDate: Date,
+  endDate: Date,
+  preset: SalesMetricPreset,
+  filters?: Record<string, any>
+) {
   const params: BalanceQueryParams = {
     startDate: format(startDate, 'yyyy-MM-dd'),
     endDate: format(endDate, 'yyyy-MM-dd'),
   };
+  const facturadoOnly = usesFacturadoOnly(preset);
 
   return useQuery({
-    queryKey: ['balance', params.startDate, params.endDate, filters],
-    queryFn: () => fetchBalance(params, filters),
+    queryKey: ['balance', params.startDate, params.endDate, facturadoOnly, filters],
+    queryFn: () => fetchBalance(params, facturadoOnly, filters),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
   });

@@ -10,7 +10,7 @@ import { getDashboardTableColumns, getDashboardTableRows } from '../config/table
 
 export function EjemploPage() {
   const { startDate, endDate, preset } = useDateRange();
-  const { data, isLoading } = useBalance(startDate, endDate);
+  const { data, isLoading } = useBalance(startDate, endDate, preset);
 
   const balanceData = data?.data;
   const currentYear = endDate.getFullYear();

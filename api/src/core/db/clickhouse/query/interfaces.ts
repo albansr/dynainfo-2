@@ -18,6 +18,7 @@ export interface IAnalyticsQueryBuilder {
   buildMultiTableYoYQuery(config: {
     metrics: readonly MetricConfig[];
     currentPeriodFilters: import('./filter-builder.js').FilterCondition[];
+    facturadoOnly?: boolean;
   }): Promise<Record<string, number>>;
 
   /**
@@ -31,6 +32,7 @@ export interface IAnalyticsQueryBuilder {
     offset?: number;
     orderBy?: string;
     orderDirection?: 'asc' | 'desc';
+    facturadoOnly?: boolean;
   }): Promise<Array<Record<string, number | string>>>;
 
   /**

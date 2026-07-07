@@ -80,10 +80,15 @@ export function listRoutes(
       // Combine all filters
       const allFilters = combineFilters(dynamicFilters, dateFilters);
 
+      // Closed periods (facturadoOnly) exclude comprometido from budget-relative metrics
+      const facturadoOnly = (query as Record<string, unknown>)['facturadoOnly'] === true
+        || (query as Record<string, unknown>)['facturadoOnly'] === 'true';
+
       // Get list with combined filters
       const listResponse = await service.getBalanceList({
         ...params,
         filters: allFilters,
+        facturadoOnly,
       });
 
       return reply.code(200).send(listResponse as any);

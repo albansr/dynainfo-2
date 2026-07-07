@@ -85,8 +85,9 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
   async buildMultiTableYoYQuery(config: {
     metrics: MetricConfig[];
     currentPeriodFilters: FilterCondition[];
+    facturadoOnly?: boolean;
   }): Promise<Record<string, number>> {
-    const { metrics, currentPeriodFilters } = config;
+    const { metrics, currentPeriodFilters, facturadoOnly = false } = config;
 
     // Build previous year filters (shift dates by -1 year)
     const previousYearFilters = this.filterBuilder.shiftDateFilters(
@@ -114,7 +115,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     );
 
     // Add calculated metrics
-    this.metricCalculator.addCalculatedMetrics(finalSelects, metricsByTable);
+    this.metricCalculator.addCalculatedMetrics(finalSelects, metricsByTable, undefined, facturadoOnly);
 
     // Build and execute final query
     const query = this.buildFinalQuery(ctes, finalSelects, metricsByTable);
@@ -146,6 +147,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     offset?: number;
     orderBy?: string;
     orderDirection?: OrderDirection;
+    facturadoOnly?: boolean;
   }): Promise<Array<Record<string, number | string>>> {
     const {
       metrics,
@@ -155,6 +157,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       offset,
       orderBy = 'sales',
       orderDirection = 'desc',
+      facturadoOnly = false,
     } = config;
 
     // Validate groupBy field
@@ -189,7 +192,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     );
 
     // Add calculated metrics (pass skipped tables so formulas use literal aliases instead of CTE refs)
-    this.metricCalculator.addCalculatedMetrics(finalSelects, metricsByTable, skippedTables);
+    this.metricCalculator.addCalculatedMetrics(finalSelects, metricsByTable, skippedTables, facturadoOnly);
 
     // Build and execute final query with JOINs (only for tables that have the dimension)
     const query = this.buildGroupedFinalQuery(

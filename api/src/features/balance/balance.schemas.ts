@@ -15,6 +15,7 @@ export const BalanceQueryStringSchema = Type.Object(
   {
     startDate: Type.Optional(DateStringSchema),
     endDate: Type.Optional(DateStringSchema),
+    facturadoOnly: Type.Optional(Type.Boolean({ description: 'Closed period: exclude comprometido from budget-relative metrics' })),
   },
   {
     additionalProperties: true,

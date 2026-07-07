@@ -46,7 +46,7 @@ export class ListService {
    * Accepts filters directly or via params for backward compatibility
    */
   async getBalanceList(
-    params: ListQueryParams & { filters?: FilterCondition[] }
+    params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
   ): Promise<ListResponse> {
     // Support both filter formats: direct filters or params to parse
     const filters = params.filters ?? parseQueryParamsToFilters(params);
@@ -56,6 +56,7 @@ export class ListService {
       limit = 50,
       orderBy = 'sales_total',
       orderDirection = 'desc',
+      facturadoOnly = false,
     } = params;
 
     // Calculate offset for pagination
@@ -70,6 +71,7 @@ export class ListService {
       offset,
       orderBy,
       orderDirection,
+      facturadoOnly,
     });
 
     // Extract total count from first row (window function returns same value in all rows)
@@ -104,13 +106,14 @@ export class ListService {
    * (mapped to 400 by the route) before any mapping/workbook work happens.
    */
   async getBalanceListForExport(
-    params: ListQueryParams & { filters?: FilterCondition[] }
+    params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
   ): Promise<ListItemResponse[]> {
     const filters = params.filters ?? parseQueryParamsToFilters(params);
     const {
       groupBy,
       orderBy = 'sales_total',
       orderDirection = 'desc',
+      facturadoOnly = false,
     } = params;
 
     const results = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
@@ -120,6 +123,7 @@ export class ListService {
       limit: EXPORT_ROW_HARD_CAP + 1,
       orderBy,
       orderDirection,
+      facturadoOnly,
     });
 
     if (results.length > EXPORT_ROW_HARD_CAP) {

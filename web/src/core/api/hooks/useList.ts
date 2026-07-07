@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
-import { getSalesOrderByField, type SalesMetricPreset } from '@/core/utils/salesMetric';
+import { getSalesOrderByField, usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
 
 export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'month' | 'quarter' | 'year';
 
@@ -86,9 +86,14 @@ async function fetchList(params: ListQueryParams): Promise<ListResponse> {
     queryParams.append('orderDirection', params.orderDirection);
   }
 
+  // Closed periods exclude comprometido from budget-relative metrics
+  if (params.facturadoOnly) {
+    queryParams.append('facturadoOnly', 'true');
+  }
+
   // Add dynamic filters
   for (const [key, value] of Object.entries(params)) {
-    if (!['groupBy', 'startDate', 'endDate', 'page', 'limit', 'orderBy', 'orderDirection'].includes(key)) {
+    if (!['groupBy', 'startDate', 'endDate', 'page', 'limit', 'orderBy', 'orderDirection', 'facturadoOnly'].includes(key)) {
       if (Array.isArray(value)) {
         // For arrays, append each value separately
         value.forEach(v => queryParams.append(key, String(v)));
@@ -119,6 +124,7 @@ export function useList(
     limit,
     orderBy: getSalesOrderByField(preset),
     orderDirection: 'desc',
+    facturadoOnly: usesFacturadoOnly(preset),
     ...filters,
   };
 

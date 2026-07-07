@@ -37,7 +37,7 @@ export class BalanceService {
    * Accepts filters directly or via params for backward compatibility
    */
   async getBalanceSheet(
-    params: BalanceQueryParams | { filters: FilterCondition[] }
+    params: (BalanceQueryParams | { filters: FilterCondition[] }) & { facturadoOnly?: boolean }
   ): Promise<BalanceSheetResponse> {
     // Support both filter formats: direct filters or params to parse
     const filters = 'filters' in params
@@ -48,6 +48,7 @@ export class BalanceService {
     const result = await this.analyticsBuilder.buildMultiTableYoYQuery({
       metrics: BALANCE_METRICS,
       currentPeriodFilters: filters,
+      facturadoOnly: params.facturadoOnly ?? false,
     });
 
     // Build response using shared utility

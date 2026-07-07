@@ -3,7 +3,14 @@ import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
 /**
  * Reserved query parameters that should not be treated as filters
  */
-const RESERVED_PARAMS = ['startDate', 'endDate', 'groupBy', 'page', 'limit', 'granularity'];
+const RESERVED_PARAMS = [
+  'startDate', 'endDate', 'groupBy', 'page', 'limit', 'granularity',
+  'orderBy', 'orderDirection', 'preset', 'facturadoOnly',
+  // Excel export presentation params (never filters)
+  'reportTitle', 'periodLabel', 'generatedLabel', 'dimensionLabel', 'billingLabel',
+  'totalsLabel', 'currentYear', 'previousYear', 'hideBudgetColumns', 'hideRetainedColumn',
+  'nameOverrides', 'filename',
+];
 
 /**
  * Parse dynamic filters from query parameters

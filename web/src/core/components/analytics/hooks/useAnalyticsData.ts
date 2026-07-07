@@ -34,7 +34,7 @@ export function useAnalyticsData(
     data: balanceData,
     isLoading: isLoadingBalance,
     error: balanceError,
-  } = useBalance(startDate, endDate, filters);
+  } = useBalance(startDate, endDate, preset, filters);
 
   const {
     data: listData,

@@ -69,8 +69,12 @@ export function balanceRoutes(
       // Combine all filters
       const allFilters = combineFilters(dynamicFilters, dateFilters);
 
+      // Closed periods (facturadoOnly) exclude comprometido from budget-relative metrics
+      const facturadoOnly = (query as Record<string, unknown>)['facturadoOnly'] === true
+        || (query as Record<string, unknown>)['facturadoOnly'] === 'true';
+
       // Get balance with combined filters
-      const balance = await service.getBalanceSheet({ filters: allFilters });
+      const balance = await service.getBalanceSheet({ filters: allFilters, facturadoOnly });
 
       return reply.code(200).send({
         data: balance,

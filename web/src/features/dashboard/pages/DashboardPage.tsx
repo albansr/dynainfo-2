@@ -24,7 +24,7 @@ function getChartConfig(preset: ReturnType<typeof useDateRange>['preset'], endDa
 
 export function DashboardPage() {
   const { startDate, endDate, preset } = useDateRange();
-  const { data, isLoading } = useBalance(startDate, endDate);
+  const { data, isLoading } = useBalance(startDate, endDate, preset);
 
   const balanceData = data?.data;
   const currentYear = endDate.getFullYear();
