@@ -8,6 +8,9 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
 import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
+import { DistribucionRegionalesPage } from '@/features/distribution/pages/DistribucionRegionalesPage';
+import { DistribucionComercialesPage } from '@/features/distribution/pages/DistribucionComercialesPage';
+import { DistribucionClientesPage } from '@/features/distribution/pages/DistribucionClientesPage';
 import { ExportacionesPage } from '@/features/exportaciones/pages/ExportacionesPage';
 import { CadenasPage } from '@/features/cadenas/pages/CadenasPage';
 import { RetailPage } from '@/features/retail/pages/RetailPage';
@@ -70,6 +73,36 @@ function App() {
                 <RouteGuard requireAuth={true}>
                   <AppLayout>
                     <DistributionPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/regionales"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DistribucionRegionalesPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/comerciales"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DistribucionComercialesPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/distribucion/clientes"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <DistribucionClientesPage />
                   </AppLayout>
                 </RouteGuard>
               }

@@ -4,6 +4,8 @@ import { useBalance } from '@/core/api/hooks/useBalance';
 import { useBalanceSeries } from '@/core/api/hooks/useBalanceSeries';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
 import { getSalesMetric } from '@/core/utils/salesMetric';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { getRoleChannelLabel } from '@/core/config/access';
 import { PrimaryMetricCard } from '../components/PrimaryMetricCard';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '@/core/components/PageHeader';
@@ -24,6 +26,8 @@ function getChartConfig(preset: ReturnType<typeof useDateRange>['preset'], endDa
 
 export function DashboardPage() {
   const { startDate, endDate, preset } = useDateRange();
+  const { user } = useAuth();
+  const channelLabel = getRoleChannelLabel(user?.dynaRole);
   const { data, isLoading } = useBalance(startDate, endDate, preset);
 
   const balanceData = data?.data;
@@ -36,7 +40,10 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Análisis General de la compañía" />
+      <PageHeader
+        title={channelLabel ? 'Análisis General' : 'Análisis General de la compañía'}
+        chip={channelLabel ? `Canal ${channelLabel}` : undefined}
+      />
 
       {/* Ventas */}
       <div className="border border-gray-200 rounded-lg p-4 sm:p-6">

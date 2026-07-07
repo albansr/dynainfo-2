@@ -46,7 +46,7 @@ export class ListService {
    * Accepts filters directly or via params for backward compatibility
    */
   async getBalanceList(
-    params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
+    params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean; search?: string }
   ): Promise<ListResponse> {
     // Support both filter formats: direct filters or params to parse
     const filters = params.filters ?? parseQueryParamsToFilters(params);
@@ -57,6 +57,7 @@ export class ListService {
       orderBy = 'sales_total',
       orderDirection = 'desc',
       facturadoOnly = false,
+      search,
     } = params;
 
     // Calculate offset for pagination
@@ -72,6 +73,7 @@ export class ListService {
       orderBy,
       orderDirection,
       facturadoOnly,
+      ...(search && { search }),
     });
 
     // Extract total count from first row (window function returns same value in all rows)

@@ -46,6 +46,7 @@ export const ListQueryStringSchema = Type.Composite(
       limit: Type.Optional(Type.Integer({ minimum: 20, maximum: 100, default: 50, description: 'Items per page (min 20, max 100)' })),
       orderBy: Type.Optional(Type.String({ description: 'Field to order by (metric alias or "name"). Default: "sales"' })),
       orderDirection: Type.Optional(OrderDirectionSchema),
+      search: Type.Optional(Type.String({ description: 'Case-insensitive substring search on the dimension id/name' })),
     }),
   ],
   {

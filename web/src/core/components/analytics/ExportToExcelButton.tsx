@@ -21,6 +21,10 @@ interface ExportToExcelButtonProps {
   nameOverrides?: Record<string, string>;
   /** Page title, shown as the report title in the exported file. */
   reportTitle: string;
+  /** Override the dimension column header in the export (defaults to the dimension label). */
+  dimensionLabelOverride?: string;
+  /** Disable the button (e.g. while the page data is loading). */
+  disabled?: boolean;
 }
 
 /** Grouped billing header label, matching getColumnGroups() in the table config. */
@@ -53,6 +57,8 @@ export function ExportToExcelButton({
   hideRetainedColumn,
   nameOverrides,
   reportTitle,
+  dimensionLabelOverride,
+  disabled,
 }: ExportToExcelButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -60,6 +66,7 @@ export function ExportToExcelButton({
     setIsExporting(true);
     try {
       const currentYear = endDate.getFullYear();
+      const dimensionLabel = dimensionLabelOverride || getDimensionLabel(groupBy);
       const params = new URLSearchParams();
       params.append('groupBy', groupBy);
       params.append('startDate', format(startDate, 'yyyy-MM-dd'));
@@ -68,7 +75,7 @@ export function ExportToExcelButton({
       params.append('orderBy', getSalesOrderByField(preset));
       params.append('orderDirection', 'desc');
       params.append('totalsLabel', totalsLabel);
-      params.append('dimensionLabel', getDimensionLabel(groupBy));
+      params.append('dimensionLabel', dimensionLabel);
       params.append('billingLabel', billingGroupLabel(preset));
       params.append('currentYear', String(currentYear));
       params.append('previousYear', String(currentYear - 1));
@@ -80,7 +87,7 @@ export function ExportToExcelButton({
       if (nameOverrides) params.append('nameOverrides', JSON.stringify(nameOverrides));
 
       // Filename: dimension + date range (sanitized server-side too)
-      const filename = `${getDimensionLabel(groupBy)}_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
+      const filename = `${dimensionLabel}_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
       params.append('filename', filename);
 
       // Dynamic filters (mirrors useList's fetchList spreading)
@@ -135,6 +142,7 @@ export function ExportToExcelButton({
       color="primary"
       startContent={!isExporting && <ArrowDownTrayIcon className="h-4 w-4" />}
       isLoading={isExporting}
+      isDisabled={disabled}
       onPress={handleExport}
     >
       Exportar a Excel

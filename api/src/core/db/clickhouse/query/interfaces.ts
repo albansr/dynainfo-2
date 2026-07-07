@@ -33,6 +33,7 @@ export interface IAnalyticsQueryBuilder {
     orderBy?: string;
     orderDirection?: 'asc' | 'desc';
     facturadoOnly?: boolean;
+    search?: string;
   }): Promise<Array<Record<string, number | string>>>;
 
   /**

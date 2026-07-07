@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 import { getSalesOrderByField, usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
+import { useAuthStore } from '@/core/store/authStore';
+import { getRoleDataFilter } from '@/core/config/access';
 
 export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'month' | 'quarter' | 'year';
 
@@ -91,9 +93,14 @@ async function fetchList(params: ListQueryParams): Promise<ListResponse> {
     queryParams.append('facturadoOnly', 'true');
   }
 
+  // Case-insensitive search on the dimension id/name
+  if (params.search) {
+    queryParams.append('search', String(params.search));
+  }
+
   // Add dynamic filters
   for (const [key, value] of Object.entries(params)) {
-    if (!['groupBy', 'startDate', 'endDate', 'page', 'limit', 'orderBy', 'orderDirection', 'facturadoOnly'].includes(key)) {
+    if (!['groupBy', 'startDate', 'endDate', 'page', 'limit', 'orderBy', 'orderDirection', 'facturadoOnly', 'search'].includes(key)) {
       if (Array.isArray(value)) {
         // For arrays, append each value separately
         value.forEach(v => queryParams.append(key, String(v)));
@@ -114,8 +121,15 @@ export function useList(
   preset: SalesMetricPreset,
   filters?: Record<string, any>,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  search?: string
 ) {
+  // Channel roles get their data filtered by channel automatically
+  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
+  const roleFilter = getRoleDataFilter(dynaRole);
+  const mergedFilters = roleFilter ? { ...filters, ...roleFilter } : filters;
+  const trimmedSearch = search?.trim() || undefined;
+
   const params: ListQueryParams = {
     groupBy,
     ...(startDate && { startDate: format(startDate, 'yyyy-MM-dd') }),
@@ -125,11 +139,12 @@ export function useList(
     orderBy: getSalesOrderByField(preset),
     orderDirection: 'desc',
     facturadoOnly: usesFacturadoOnly(preset),
-    ...filters,
+    ...(trimmedSearch && { search: trimmedSearch }),
+    ...mergedFilters,
   };
 
   return useQuery({
-    queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, filters, preset],
+    queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, mergedFilters, preset, trimmedSearch],
     queryFn: () => fetchList(params),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,

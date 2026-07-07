@@ -148,6 +148,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     orderBy?: string;
     orderDirection?: OrderDirection;
     facturadoOnly?: boolean;
+    search?: string;
   }): Promise<Array<Record<string, number | string>>> {
     const {
       metrics,
@@ -158,6 +159,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       orderBy = 'sales',
       orderDirection = 'desc',
       facturadoOnly = false,
+      search,
     } = config;
 
     // Validate groupBy field
@@ -188,7 +190,8 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       queryParams,
       columnMap,
       groupBy,
-      includeTotalCount
+      includeTotalCount,
+      search
     );
 
     // Add calculated metrics (pass skipped tables so formulas use literal aliases instead of CTE refs)
@@ -346,7 +349,8 @@ ${previousWhere}
     queryParams: Record<string, string | string[]>,
     columnMap: Map<string, Set<string>>,
     groupBy: string,
-    includeTotalCount = false
+    includeTotalCount = false,
+    search?: string
   ): { ctes: string[]; finalSelects: string[]; tablesWithDimension: string[]; skippedTables: Set<string> } {
     const ctes: string[] = [];
     const finalSelects: string[] = [];
@@ -361,6 +365,19 @@ ${previousWhere}
       return columnMap.get(tableName)?.has(idField) ?? false;
     });
     const skippedTables = new Set(tables.filter((t) => !tablesWithDimension.includes(t)));
+
+    // The driving table (FROM clause) filters the visible groups; inject the
+    // case-insensitive search predicate (id OR name) into its current CTE so
+    // pagination and count() OVER() reflect the filtered set.
+    const drivingTable = tablesWithDimension[0];
+    const trimmedSearch = search?.trim();
+    let searchPredicate = '';
+    if (trimmedSearch) {
+      queryParams['search_term'] = `%${trimmedSearch}%`;
+      searchPredicate = idField === nameField
+        ? `${idField} ILIKE {search_term:String}`
+        : `(${idField} ILIKE {search_term:String} OR ${nameField} ILIKE {search_term:String})`;
+    }
 
     // Build COALESCE for id field (only from tables that have the dimension)
     const idCoalesceArgs = tablesWithDimension.flatMap((table) => [
@@ -409,13 +426,19 @@ ${previousWhere}
           }));
         } else {
           // Build table-aware WHERE clauses
-          const currentWhere = this.filterBuilder.buildWhereClauseForTable(
+          let currentWhere = this.filterBuilder.buildWhereClauseForTable(
             currentPeriodFilters,
             queryParams,
             `current_${table}`,
             tableName,
             columnMap
           );
+          // Inject the search predicate into the driving table's current CTE
+          if (searchPredicate && table === drivingTable) {
+            currentWhere = currentWhere
+              ? `${currentWhere} AND ${searchPredicate}`
+              : `WHERE ${searchPredicate}`;
+          }
           const previousWhere = this.filterBuilder.buildWhereClauseForTable(
             previousYearFilters,
             queryParams,

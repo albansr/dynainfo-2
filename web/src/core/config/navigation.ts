@@ -96,3 +96,18 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
     ],
   },
 ] as const;
+
+/**
+ * Menu shown to the Distribution channel role (MANAGER_DISTRIBUTION).
+ * Table-only listings, filtered to the distribution channel.
+ */
+export const DISTRIBUTION_MENU: MenuSection[] = [
+  {
+    title: 'Distribución',
+    items: [
+      { key: 'dist-regionales', label: 'Regionales', href: '/distribucion/regionales' },
+      { key: 'dist-comerciales', label: 'Vendedores', href: '/distribucion/comerciales' },
+      { key: 'dist-clientes', label: 'Clientes', href: '/distribucion/clientes' },
+    ],
+  },
+];

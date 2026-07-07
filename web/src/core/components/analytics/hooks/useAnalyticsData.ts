@@ -28,7 +28,10 @@ export function useAnalyticsData(
   startDate: Date,
   endDate: Date,
   preset: SalesMetricPreset,
-  filters?: Record<string, any>
+  filters?: Record<string, any>,
+  page: number = 1,
+  limit: number = 50,
+  search?: string
 ) {
   const {
     data: balanceData,
@@ -40,7 +43,7 @@ export function useAnalyticsData(
     data: listData,
     isLoading: isLoadingList,
     error: listError,
-  } = useList(groupBy, startDate, endDate, preset, filters);
+  } = useList(groupBy, startDate, endDate, preset, filters, page, limit, search);
 
   return {
     balanceData: balanceData?.data,

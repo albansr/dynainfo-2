@@ -12,6 +12,8 @@ export interface BalanceSheetData {
   gross_margin_last_year: number;
   gross_margin_vs_last_year: number;
   gross_margin_pct: number;
+  gross_margin_pct_last_year: number | null;
+  gross_margin_pct_vs_last_year: number | null;
   budget_gross_margin_pct: number;
   orders: number;
   orders_last_year: number;

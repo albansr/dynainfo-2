@@ -112,4 +112,38 @@ export interface AnalyticsPageConfig {
    * @example { 'COD': 'Ventas C.O.D', '006': 'Ventas del centro de operación 006' }
    */
   nameOverrides?: Record<string, string>;
+
+  /**
+   * Hide the top metric cards, showing only the title + table (+ export).
+   * @default false
+   */
+  hideMetrics?: boolean;
+
+  /**
+   * Prefix each row's name with its ID ("{id} - {name}"), e.g. to disambiguate
+   * regionals or customers that may share a name.
+   * @default false
+   */
+  showIdInName?: boolean;
+
+  /**
+   * Override the first (dimension) column header label and the export label.
+   * Defaults to the dimension's semantic label (e.g. seller_id → "VENDEDOR").
+   * @example "COMERCIALES"
+   */
+  dimensionLabel?: string;
+
+  /**
+   * Rows per page for the table. Pagination controls appear when the dataset
+   * spans more than one page. Backend maximum is 100.
+   * @default 50
+   */
+  pageSize?: number;
+
+  /**
+   * Show a search input (by name or ID) that filters server-side across the
+   * whole dataset (not just the current page).
+   * @default false
+   */
+  showSearch?: boolean;
 }

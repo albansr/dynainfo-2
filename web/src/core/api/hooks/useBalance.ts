@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 import { usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
+import { useAuthStore } from '@/core/store/authStore';
+import { getRoleDataFilter } from '@/core/config/access';
 import type { BalanceSheetResponse, BalanceQueryParams } from '../types';
 
 async function fetchBalance(
@@ -52,9 +54,14 @@ export function useBalance(
   };
   const facturadoOnly = usesFacturadoOnly(preset);
 
+  // Channel roles get their data filtered by channel automatically
+  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
+  const roleFilter = getRoleDataFilter(dynaRole);
+  const mergedFilters = roleFilter ? { ...filters, ...roleFilter } : filters;
+
   return useQuery({
-    queryKey: ['balance', params.startDate, params.endDate, facturadoOnly, filters],
-    queryFn: () => fetchBalance(params, facturadoOnly, filters),
+    queryKey: ['balance', params.startDate, params.endDate, facturadoOnly, mergedFilters],
+    queryFn: () => fetchBalance(params, facturadoOnly, mergedFilters),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
   });

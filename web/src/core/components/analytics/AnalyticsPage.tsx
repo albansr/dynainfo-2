@@ -1,4 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pagination, Input } from '@heroui/react';
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useAnalyticsData } from './hooks/useAnalyticsData';
 import { StandardMetrics } from './presets/standardMetrics';
@@ -10,7 +12,10 @@ import {
   getColumnGroupsWithoutBudget,
   getColumnGroups,
 } from '@/features/distribution/components/RegionalTable/config/columns';
-import { getSalesMetric } from '@/core/utils/salesMetric';
+import { getSalesMetric, type SalesMetricPreset } from '@/core/utils/salesMetric';
+import type { BalanceSheetData } from '@/core/api/types';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { getRoleChannelLabel } from '@/core/config/access';
 import { ExportToExcelButton } from './ExportToExcelButton';
 import type { AnalyticsPageConfig } from './types';
 import type { ListItemResponse } from '@/core/api/hooks/useList';
@@ -95,6 +100,31 @@ function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalDat
 }
 
 /**
+ * Build the totals row from the backend aggregate (whole filtered dataset),
+ * so the TOTAL reflects ALL rows — not just the current page.
+ */
+function buildTotalsFromBalance(
+  balance: BalanceSheetData,
+  preset: SalesMetricPreset,
+  totalsLabel: string
+): RegionalData {
+  const sales = getSalesMetric(balance, preset);
+  return {
+    id: 'totals',
+    name: totalsLabel,
+    sales: { current: sales.current, previous: sales.lastYear, variation: sales.vsLastYear },
+    budget: { amount: balance.budget, compliance: balance.budget_achievement_pct },
+    margin: {
+      current: balance.gross_margin_pct,
+      previous: balance.gross_margin_pct_last_year ?? NaN,
+      variation: balance.gross_margin_pct_vs_last_year ?? NaN,
+      budget: balance.budget_gross_margin_pct,
+    },
+    retained: { amount: balance.cartera, compliance: balance.cartera_compliance_pct },
+  };
+}
+
+/**
  * Generic Analytics Page Component
  *
  * Creates an analytics page with metrics and data table based on configuration.
@@ -126,17 +156,43 @@ export function AnalyticsPage({
   hideBudgetColumns = false,
   hideRetainedColumn = false,
   nameOverrides,
+  hideMetrics = false,
+  showIdInName = false,
+  dimensionLabel,
+  pageSize = 50,
+  showSearch = false,
 }: AnalyticsPageConfig) {
   const { startDate, endDate, preset } = useDateRange();
+  const { user } = useAuth();
+  const channelLabel = getRoleChannelLabel(user?.dynaRole);
+
+  // Search input with debounce (server-side search across the whole dataset)
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset to the first page when the query inputs change
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [groupBy, startDate, endDate, preset, pageSize, debouncedSearch]);
 
   // Fetch balance data for metrics and list data for table
-  const { balanceData, listData, isLoading } = useAnalyticsData(
+  const { balanceData, listData, listMeta, isLoading } = useAnalyticsData(
     groupBy,
     startDate,
     endDate,
     preset,
-    filters
+    filters,
+    page,
+    pageSize,
+    debouncedSearch
   );
+
+  const totalPages = listMeta?.totalPages ?? 1;
 
   // Map API response to RegionalData format (preset-aware sales metric)
   const mapApiToRegionalData = useCallback(
@@ -172,31 +228,45 @@ export function AnalyticsPage({
   const mappedData = useMemo(
     () => (listData || []).map(item => {
       const data = mapApiToRegionalData(item);
-      if (nameOverrides && data.name in nameOverrides) {
-        return { ...data, name: nameOverrides[data.name] };
+      let name = data.name;
+      if (nameOverrides && name in nameOverrides) {
+        name = nameOverrides[name]!;
       }
-      return data;
+      if (showIdInName && data.id && data.id !== name) {
+        name = `${data.id} - ${name}`;
+      }
+      return { ...data, name };
     }),
-    [listData, nameOverrides, mapApiToRegionalData]
+    [listData, nameOverrides, showIdInName, mapApiToRegionalData]
   );
 
-  // Calculate totals for table footer
+  // Totals row: use the backend aggregate (grand total across ALL rows) when
+  // available; fall back to the current page's sum otherwise.
   const totals = useMemo(
-    () => calculateTotals(mappedData, totalsLabel),
-    [mappedData, totalsLabel]
+    () => balanceData
+      ? buildTotalsFromBalance(balanceData, preset, totalsLabel)
+      : calculateTotals(mappedData, totalsLabel),
+    [balanceData, preset, mappedData, totalsLabel]
   );
 
   // Compute columns and groups based on configuration
   const columns = useMemo(() => {
     if (tableColumns) return tableColumns;
-    const cols = hideBudgetColumns
+    let cols = hideBudgetColumns
       ? getColumnsWithoutBudget(groupBy, hideRetainedColumn)
       : getColumnsWithDynamicLabel(groupBy);
     if (hideRetainedColumn && !hideBudgetColumns) {
-      return cols.filter(col => col.id !== 'retained');
+      cols = cols.filter(col => col.id !== 'retained');
+    }
+    if (dimensionLabel) {
+      cols = cols.map(col =>
+        col.id === 'regional'
+          ? { ...col, header: { ...col.header, label: dimensionLabel } }
+          : col
+      );
     }
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy]);
+  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
@@ -205,23 +275,12 @@ export function AnalyticsPage({
 
   const currentYear = endDate.getFullYear();
 
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title={title} />
-        <div className="flex items-center justify-center h-64">
-          <div className="text-zinc-500">Cargando datos...</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
-      <PageHeader title={title} />
+      <PageHeader title={title} chip={channelLabel ? `Canal ${channelLabel}` : undefined} />
 
       {/* Metrics */}
-      {metricsPreset === 'standard' && (
+      {!hideMetrics && metricsPreset === 'standard' && (
         <StandardMetrics
           balanceData={balanceData}
           endDate={endDate}
@@ -230,8 +289,29 @@ export function AnalyticsPage({
         />
       )}
 
-      {/* Export */}
-      <div className="mt-8 flex justify-end">
+      {/* Search + Export */}
+      <div className="mt-8 flex items-center justify-between gap-3">
+        {showSearch ? (
+          <div className="flex items-center gap-2">
+            <Input
+              size="sm"
+              className="max-w-xs"
+              placeholder="Buscar por nombre o ID..."
+              value={searchInput}
+              onValueChange={setSearchInput}
+              isClearable
+              onClear={() => setSearchInput('')}
+              startContent={<MagnifyingGlassIcon className="h-4 w-4 text-default-400" />}
+            />
+            {listMeta && (
+              <span className="text-xs text-default-400 whitespace-nowrap">
+                {listMeta.total.toLocaleString('es-CO')} resultados
+              </span>
+            )}
+          </div>
+        ) : (
+          <div />
+        )}
         <ExportToExcelButton
           groupBy={groupBy}
           startDate={startDate}
@@ -243,23 +323,49 @@ export function AnalyticsPage({
           hideRetainedColumn={hideRetainedColumn}
           nameOverrides={nameOverrides}
           reportTitle={title}
+          dimensionLabelOverride={dimensionLabel}
+          disabled={isLoading}
         />
       </div>
 
       {/* Table */}
-      <RegionalTable
-        data={mappedData}
-        totals={totals}
-        columns={columns}
-        columnGroups={columnGroups}
-        config={{
-          currency: '$',
-          locale: 'es-CO',
-          currentYear,
-          previousYear: currentYear - 1,
-        }}
-        className="mt-3"
-      />
+      {isLoading ? (
+        <div className="mt-3 flex items-center justify-center h-64">
+          <div className="text-zinc-500">Cargando datos...</div>
+        </div>
+      ) : (
+        <RegionalTable
+          data={mappedData}
+          totals={totals}
+          columns={columns}
+          columnGroups={columnGroups}
+          config={{
+            currency: '$',
+            locale: 'es-CO',
+            currentYear,
+            previousYear: currentYear - 1,
+          }}
+          className="mt-3"
+        />
+      )}
+
+      {!isLoading && totalPages > 1 && (
+        <div className="mt-4 flex flex-col items-center gap-1">
+          <Pagination
+            showControls
+            page={page}
+            total={totalPages}
+            onChange={setPage}
+            size="sm"
+            variant="light"
+          />
+          {listMeta && (
+            <span className="text-xs text-zinc-400">
+              {listMeta.total.toLocaleString('es-CO')} registros · página {page} de {totalPages}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

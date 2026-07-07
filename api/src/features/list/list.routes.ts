@@ -84,11 +84,17 @@ export function listRoutes(
       const facturadoOnly = (query as Record<string, unknown>)['facturadoOnly'] === true
         || (query as Record<string, unknown>)['facturadoOnly'] === 'true';
 
+      // Optional case-insensitive search on the dimension id/name
+      const search = typeof (query as Record<string, unknown>)['search'] === 'string'
+        ? ((query as Record<string, unknown>)['search'] as string)
+        : undefined;
+
       // Get list with combined filters
       const listResponse = await service.getBalanceList({
         ...params,
         filters: allFilters,
         facturadoOnly,
+        ...(search && { search }),
       });
 
       return reply.code(200).send(listResponse as any);

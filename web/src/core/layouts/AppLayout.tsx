@@ -2,7 +2,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Chip } from '@heroui/react';
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
-import { NAVIGATION_SECTIONS } from '@/core/config/navigation';
+import { canAccessPath, getRoleChannelLabel, getMenuSections } from '@/core/config/access';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLogout } from '@/features/auth/hooks/useLogout';
 
@@ -39,6 +39,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, [location.pathname]);
 
   const dynaRoleLabel = getDynaRoleLabel(user?.dynaRole);
+
+  // Filter the sidebar by the user's role (MANAGER/empty sees all)
+  const dynaRole = user?.dynaRole;
+  const canSeeDashboard = canAccessPath(dynaRole, '/dashboard');
+  // Channel roles see "Inicio"; MANAGER/full access keeps "Compañía General"
+  const dashboardLabel = getRoleChannelLabel(dynaRole) ? 'Inicio' : 'Compañía General';
+  const visibleSections = useMemo(() => getMenuSections(dynaRole), [dynaRole]);
 
   const handleLinkClick = () => {
     // Close sidebar on mobile when clicking a link
@@ -78,24 +85,27 @@ export function AppLayout({ children }: AppLayoutProps) {
             selectionMode="single"
             selectedKeys={selectedKeys}
             hideSelectedIcon
+            emptyContent={null}
           >
             <>
               {/* Compañía General - sin sección */}
-              <ListboxItem
-                key="/dashboard"
-                href="/dashboard"
-                className="cursor-pointer mb-4"
-                classNames={{
-                  base: "data-[selected=true]:bg-primary/10",
-                  title: "data-[selected=true]:text-primary data-[selected=true]:font-semibold",
-                }}
-                onPress={handleLinkClick}
-              >
-                Compañía General
-              </ListboxItem>
+              {canSeeDashboard ? (
+                <ListboxItem
+                  key="/dashboard"
+                  href="/dashboard"
+                  className="cursor-pointer mb-4"
+                  classNames={{
+                    base: "data-[selected=true]:bg-primary/10",
+                    title: "data-[selected=true]:text-primary data-[selected=true]:font-semibold",
+                  }}
+                  onPress={handleLinkClick}
+                >
+                  {dashboardLabel}
+                </ListboxItem>
+              ) : null}
 
               {/* Resto de secciones */}
-              {NAVIGATION_SECTIONS.filter(section => section.title !== 'General').map((section) => (
+              {visibleSections.map((section) => (
                 <ListboxSection
                   key={section.title}
                   title={section.title}
