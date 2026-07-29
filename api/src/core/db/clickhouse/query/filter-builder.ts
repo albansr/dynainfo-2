@@ -7,6 +7,14 @@ export interface FilterCondition {
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in';
   value: string | string[];
+  /**
+   * Restrict the condition to a single metrics table (bare name, without
+   * TABLE_PREFIX — e.g. 'pedidos_retenidos'). Other tables ignore it entirely.
+   * Lets a caller express per-table semantics for the same logical filter,
+   * e.g. the Festival window filters transactions by `order_date` but
+   * pedidos_retenidos by `date` (that table has no order date column).
+   */
+  table?: string;
 }
 
 /**
@@ -122,8 +130,7 @@ export class FilterBuilder {
       date.setFullYear(date.getFullYear() + years);
 
       return {
-        field: filter.field,
-        operator: filter.operator,
+        ...filter,
         value: date.toISOString().split('T')[0]!,
       };
     });

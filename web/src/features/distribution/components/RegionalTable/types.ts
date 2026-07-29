@@ -36,5 +36,5 @@ export interface HeatmapThresholds {
   margin: { excellent: number; good: number; neutral: number };
 }
 
-export type SortKey = 'name' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained';
+export type SortKey = 'name' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder';
 export type SortDirection = 'asc' | 'desc';

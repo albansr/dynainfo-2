@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { CodeVerifyPage } from '@/features/auth/pages/CodeVerifyPage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
+import { FestivalVirtualPage } from '@/features/festival/pages/FestivalVirtualPage';
 import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
 import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
 import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
@@ -67,6 +68,16 @@ function App() {
                 <RouteGuard requireAuth={true}>
                   <AppLayout>
                     <DashboardPage />
+                  </AppLayout>
+                </RouteGuard>
+              }
+            />
+            <Route
+              path="/festival-virtual"
+              element={
+                <RouteGuard requireAuth={true}>
+                  <AppLayout>
+                    <FestivalVirtualPage />
                   </AppLayout>
                 </RouteGuard>
               }

@@ -6,6 +6,6 @@
 export interface MetricConfig {
   table: string;
   field: string;
-  aggregation: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  aggregation: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'uniqExact';
   alias: string;
 }

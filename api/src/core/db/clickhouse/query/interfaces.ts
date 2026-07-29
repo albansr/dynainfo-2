@@ -18,6 +18,12 @@ export interface IAnalyticsQueryBuilder {
   buildMultiTableYoYQuery(config: {
     metrics: readonly MetricConfig[];
     currentPeriodFilters: import('./filter-builder.js').FilterCondition[];
+    /**
+     * Explicit comparison-period filters. When provided, the "previous" period
+     * uses these verbatim instead of the default same-range-last-year shift.
+     * Enables comparing against an arbitrary static date range (e.g. Festival).
+     */
+    comparisonFilters?: import('./filter-builder.js').FilterCondition[];
     facturadoOnly?: boolean;
   }): Promise<Record<string, number>>;
 
@@ -27,6 +33,8 @@ export interface IAnalyticsQueryBuilder {
   buildGroupedMultiTableYoYQuery(config: {
     metrics: readonly MetricConfig[];
     currentPeriodFilters: import('./filter-builder.js').FilterCondition[];
+    /** Explicit comparison-period filters (see buildMultiTableYoYQuery). */
+    comparisonFilters?: import('./filter-builder.js').FilterCondition[];
     groupBy: string;
     limit?: number;
     offset?: number;
@@ -54,4 +62,24 @@ export interface IAnalyticsQueryBuilder {
     filters: import('./filter-builder.js').FilterCondition[];
     granularity: 'day' | 'month';
   }): Promise<Array<{ period: string; sales: number; budget: number }>>;
+
+  /**
+   * Build a daily value series summed across several sources, each grouped by
+   * its own date column (e.g. Festival: transactions by order_date plus
+   * pedidos_retenidos by date). Filters honour FilterCondition.table scoping.
+   */
+  buildDailySeriesQuery(config: {
+    sources: Array<{ table: string; dateField: string; valueField: string }>;
+    filters: import('./filter-builder.js').FilterCondition[];
+  }): Promise<Array<{ period: string; value: number }>>;
+
+  /**
+   * Count distinct values of a field across several tables, deduplicated
+   * BETWEEN tables (a value present in more than one source counts once).
+   * Filters honour FilterCondition.table scoping.
+   */
+  buildDistinctCountQuery(config: {
+    sources: Array<{ table: string; field: string }>;
+    filters: import('./filter-builder.js').FilterCondition[];
+  }): Promise<number>;
 }

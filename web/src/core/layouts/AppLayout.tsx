@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Chip } from '@heroui/react';
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { canAccessPath, getRoleChannelLabel, getMenuSections } from '@/core/config/access';
+import { NavBadge } from '@/core/components/NavBadge';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLogout } from '@/features/auth/hooks/useLogout';
 
@@ -122,6 +123,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                         base: "data-[selected=true]:bg-primary/10",
                         title: "data-[selected=true]:text-primary data-[selected=true]:font-semibold",
                       }}
+                      endContent={item.badge ? <NavBadge type={item.badge} /> : undefined}
                       onPress={handleLinkClick}
                     >
                       {item.label}

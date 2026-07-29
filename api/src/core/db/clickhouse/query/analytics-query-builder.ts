@@ -85,15 +85,15 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
   async buildMultiTableYoYQuery(config: {
     metrics: MetricConfig[];
     currentPeriodFilters: FilterCondition[];
+    comparisonFilters?: FilterCondition[];
     facturadoOnly?: boolean;
   }): Promise<Record<string, number>> {
-    const { metrics, currentPeriodFilters, facturadoOnly = false } = config;
+    const { metrics, currentPeriodFilters, comparisonFilters, facturadoOnly = false } = config;
 
-    // Build previous year filters (shift dates by -1 year)
-    const previousYearFilters = this.filterBuilder.shiftDateFilters(
-      currentPeriodFilters,
-      -1
-    );
+    // Comparison period: an explicit static range when provided (e.g. Festival),
+    // otherwise the same range shifted back one year (year-over-year default).
+    const previousYearFilters = comparisonFilters
+      ?? this.filterBuilder.shiftDateFilters(currentPeriodFilters, -1);
 
     // Get all table names for column discovery
     const metricsByTable = this.groupMetricsByTable(metrics);
@@ -142,6 +142,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
   async buildGroupedMultiTableYoYQuery(config: {
     metrics: MetricConfig[];
     currentPeriodFilters: FilterCondition[];
+    comparisonFilters?: FilterCondition[];
     groupBy: string;
     limit?: number;
     offset?: number;
@@ -153,6 +154,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     const {
       metrics,
       currentPeriodFilters,
+      comparisonFilters,
       groupBy,
       limit,
       offset,
@@ -165,11 +167,9 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     // Validate groupBy field
     this.filterBuilder.validateFieldName(groupBy);
 
-    // Build previous year filters (shift dates by -1 year)
-    const previousYearFilters = this.filterBuilder.shiftDateFilters(
-      currentPeriodFilters,
-      -1
-    );
+    // Comparison period: explicit static range when provided, else same range -1 year
+    const previousYearFilters = comparisonFilters
+      ?? this.filterBuilder.shiftDateFilters(currentPeriodFilters, -1);
 
     // Get all table names for column discovery
     const metricsByTable = this.groupMetricsByTable(metrics);
@@ -243,6 +243,14 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
   }
 
   /**
+   * Conditions applicable to a table: unscoped ones plus those scoped to it
+   * (see FilterCondition.table). `table` is the bare name, without prefix.
+   */
+  private filtersForTable(filters: FilterCondition[], table: string): FilterCondition[] {
+    return filters.filter((f) => !f.table || f.table === table);
+  }
+
+  /**
    * Build CTEs and SELECT clauses for non-grouped query with table-aware filtering
    */
   private buildQueryComponents(
@@ -261,9 +269,13 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       const previousCteName = `${table}_previous`;
       const tableColumns = columnMap.get(tableName) ?? new Set<string>();
 
+      // Conditions scoped to other tables do not apply here at all
+      const tableCurrentFilters = this.filtersForTable(currentPeriodFilters, table);
+      const tablePreviousFilters = this.filtersForTable(previousYearFilters, table);
+
       // If any non-date filter field is absent from this table, it can't be scoped to
       // the requested dimension → treat all its metrics as 0 (consistent with grouped query)
-      const hasUnfilterableColumn = currentPeriodFilters
+      const hasUnfilterableColumn = tableCurrentFilters
         .filter(f => f.field !== 'date')
         .some(f => !tableColumns.has(f.field));
 
@@ -276,25 +288,25 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
         // Budget: expand date filter to start of month + prorate by business days
         ctes.push(this.buildBudgetCteSql({
           cteName: currentCteName, tableMetrics,
-          filters: currentPeriodFilters, queryParams,
+          filters: tableCurrentFilters, queryParams,
           paramPrefix: `current_${table}`, tableName, columnMap, aliasSuffix: '',
         }));
         ctes.push(this.buildBudgetCteSql({
           cteName: previousCteName, tableMetrics,
-          filters: previousYearFilters, queryParams,
+          filters: tablePreviousFilters, queryParams,
           paramPrefix: `previous_${table}`, tableName, columnMap, aliasSuffix: '_ly',
         }));
       } else {
         // Build table-aware WHERE clauses
         const currentWhere = this.filterBuilder.buildWhereClauseForTable(
-          currentPeriodFilters,
+          tableCurrentFilters,
           queryParams,
           `current_${table}`,
           tableName,
           columnMap
         );
         const previousWhere = this.filterBuilder.buildWhereClauseForTable(
-          previousYearFilters,
+          tablePreviousFilters,
           queryParams,
           `previous_${table}`,
           tableName,
@@ -358,11 +370,20 @@ ${previousWhere}
     // Get field mapping for id and name
     const { idField, nameField } = getFieldPair(groupBy);
 
-    // Determine which tables have the dimension column
+    // Determine which tables can contribute: they need the dimension column
+    // and no filter explicitly scoped to them referencing a missing column —
+    // such a filter cannot be applied, and the caller deliberately meant to
+    // constrain the table (e.g. Festival excludes comprometido, which has no
+    // rappel column, from rappel views). Unscoped filters keep the historical
+    // drop-silently behaviour.
     const tables = Array.from(metricsByTable.keys());
     const tablesWithDimension = tables.filter((table) => {
       const tableName = `${this.tablePrefix}${table}`;
-      return columnMap.get(tableName)?.has(idField) ?? false;
+      const cols = columnMap.get(tableName);
+      if (!(cols?.has(idField) ?? false)) return false;
+      return !this.filtersForTable(currentPeriodFilters, table).some(
+        (f) => f.table === table && !(cols?.has(f.field) ?? false)
+      );
     });
     const skippedTables = new Set(tables.filter((t) => !tablesWithDimension.includes(t)));
 
@@ -406,28 +427,29 @@ ${previousWhere}
       const tableName = `${this.tablePrefix}${table}`;
       const currentCteName = `${table}_current`;
       const previousCteName = `${table}_previous`;
-      const tableColumns = columnMap.get(tableName);
-      const tableHasDimension = tableColumns?.has(idField) ?? false;
+      // Conditions scoped to other tables do not apply here at all
+      const tableCurrentFilters = this.filtersForTable(currentPeriodFilters, table);
+      const tablePreviousFilters = this.filtersForTable(previousYearFilters, table);
 
-      if (tableHasDimension) {
+      if (tablesWithDimension.includes(table)) {
         if (table === 'budget') {
           // Budget: expand date filter to start of month + prorate by business days
           ctes.push(this.buildBudgetCteSql({
             cteName: currentCteName, tableMetrics,
-            filters: currentPeriodFilters, queryParams,
+            filters: tableCurrentFilters, queryParams,
             paramPrefix: `current_${table}`, tableName, columnMap, aliasSuffix: '',
             groupByConfig: { idField, nameField },
           }));
           ctes.push(this.buildBudgetCteSql({
             cteName: previousCteName, tableMetrics,
-            filters: previousYearFilters, queryParams,
+            filters: tablePreviousFilters, queryParams,
             paramPrefix: `previous_${table}`, tableName, columnMap, aliasSuffix: '_ly',
             groupByConfig: { idField, nameField },
           }));
         } else {
           // Build table-aware WHERE clauses
           let currentWhere = this.filterBuilder.buildWhereClauseForTable(
-            currentPeriodFilters,
+            tableCurrentFilters,
             queryParams,
             `current_${table}`,
             tableName,
@@ -440,7 +462,7 @@ ${previousWhere}
               : `WHERE ${searchPredicate}`;
           }
           const previousWhere = this.filterBuilder.buildWhereClauseForTable(
-            previousYearFilters,
+            tablePreviousFilters,
             queryParams,
             `previous_${table}`,
             tableName,
@@ -489,7 +511,8 @@ ${previousWhere}
           );
         }
       } else {
-        // Table doesn't have the dimension column — use 0 for all its metrics
+        // Table lacks the dimension column or has an inapplicable scoped
+        // filter — use 0 for all its metrics
         for (const metric of tableMetrics) {
           finalSelects.push(`0 AS ${metric.alias}`);
           finalSelects.push(`0 AS ${metric.alias}_ly`);
@@ -800,6 +823,140 @@ ORDER BY s.period ASC
     });
 
     return resultSet.json<{ period: string; sales: number; budget: number }>();
+  }
+
+  /**
+   * Build a daily value series summed across several sources, each grouped by
+   * its own date column (e.g. Festival: transactions by order_date plus
+   * pedidos_retenidos by date).
+   *
+   * Filters honour FilterCondition.table scoping. A source whose applicable
+   * non-date filters reference columns it lacks contributes nothing,
+   * consistent with the zeroing in buildMultiTableYoYQuery.
+   */
+  async buildDailySeriesQuery(config: {
+    sources: Array<{ table: string; dateField: string; valueField: string }>;
+    filters: FilterCondition[];
+  }): Promise<Array<{ period: string; value: number }>> {
+    const { sources, filters } = config;
+
+    const tableNames = sources.map((s) => `${this.tablePrefix}${s.table}`);
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
+    const queryParams: Record<string, string | string[]> = {};
+
+    const sourceSelects: string[] = [];
+    for (const source of sources) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(source.dateField) || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(source.valueField)) {
+        throw new Error(`Invalid field name format: ${source.dateField} / ${source.valueField}`);
+      }
+
+      const tableName = `${this.tablePrefix}${source.table}`;
+      const tableColumns = columnMap.get(tableName) ?? new Set<string>();
+      const tableFilters = this.filtersForTable(filters, source.table);
+
+      const hasUnfilterableColumn = tableFilters
+        .filter((f) => f.field !== 'date')
+        .some((f) => !tableColumns.has(f.field));
+      if (hasUnfilterableColumn || !tableColumns.has(source.dateField) || !tableColumns.has(source.valueField)) {
+        continue;
+      }
+
+      const where = this.filterBuilder.buildWhereClauseForTable(
+        tableFilters,
+        queryParams,
+        `series_${source.table}`,
+        tableName,
+        columnMap
+      );
+
+      sourceSelects.push(`SELECT toString(toDate(${source.dateField})) AS period, sum(${source.valueField}) AS value
+  FROM ${tableName}
+  ${where}
+  GROUP BY period`);
+    }
+
+    if (sourceSelects.length === 0) return [];
+
+    const query = `
+SELECT period, sum(value) AS value
+FROM (
+  ${sourceSelects.join('\n  UNION ALL\n  ')}
+)
+GROUP BY period
+ORDER BY period ASC
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    return resultSet.json<{ period: string; value: number }>();
+  }
+
+  /**
+   * Count distinct values of a field across several tables, deduplicated
+   * BETWEEN tables via UNION ALL + uniqExact (a value present in more than one
+   * source counts once). Filters honour FilterCondition.table scoping; a
+   * source whose applicable non-date filters reference columns it lacks
+   * contributes nothing (consistent with buildMultiTableYoYQuery zeroing).
+   */
+  async buildDistinctCountQuery(config: {
+    sources: Array<{ table: string; field: string }>;
+    filters: FilterCondition[];
+  }): Promise<number> {
+    const { sources, filters } = config;
+
+    const tableNames = sources.map((s) => `${this.tablePrefix}${s.table}`);
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
+    const queryParams: Record<string, string | string[]> = {};
+
+    const sourceSelects: string[] = [];
+    for (const source of sources) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(source.field)) {
+        throw new Error(`Invalid field name format: ${source.field}`);
+      }
+
+      const tableName = `${this.tablePrefix}${source.table}`;
+      const tableColumns = columnMap.get(tableName) ?? new Set<string>();
+      const tableFilters = this.filtersForTable(filters, source.table);
+
+      const hasUnfilterableColumn = tableFilters
+        .filter((f) => f.field !== 'date')
+        .some((f) => !tableColumns.has(f.field));
+      if (hasUnfilterableColumn || !tableColumns.has(source.field)) {
+        continue;
+      }
+
+      const where = this.filterBuilder.buildWhereClauseForTable(
+        tableFilters,
+        queryParams,
+        `distinct_${source.table}`,
+        tableName,
+        columnMap
+      );
+
+      sourceSelects.push(`SELECT ${source.field} AS value FROM ${tableName} ${where}`);
+    }
+
+    if (sourceSelects.length === 0) return 0;
+
+    const query = `
+SELECT uniqExact(value) AS count
+FROM (
+  ${sourceSelects.join('\n  UNION ALL\n  ')}
+)
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    const rows = await resultSet.json<{ count: number }>();
+    return Number(rows[0]?.count ?? 0);
   }
 
   /**

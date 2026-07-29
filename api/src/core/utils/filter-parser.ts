@@ -4,7 +4,7 @@ import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
  * Reserved query parameters that should not be treated as filters
  */
 const RESERVED_PARAMS = [
-  'startDate', 'endDate', 'groupBy', 'page', 'limit', 'granularity',
+  'startDate', 'endDate', 'compareStartDate', 'compareEndDate', 'groupBy', 'page', 'limit', 'granularity',
   'orderBy', 'orderDirection', 'preset', 'facturadoOnly', 'search',
   // Excel export presentation params (never filters)
   'reportTitle', 'periodLabel', 'generatedLabel', 'dimensionLabel', 'billingLabel',

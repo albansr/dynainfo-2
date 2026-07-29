@@ -56,8 +56,10 @@ export function SalesBarChart({ series, granularity, title, isLoading }: SalesBa
     const n = series.length;
     const salesData = series.map((d) => d.sales);
     const avgSales = salesData.reduce((a, b) => a + b, 0) / n;
-    // Budget per period comes already prorated from the backend
+    // Budget per period comes already prorated from the backend. A series
+    // without budget (e.g. Festival Virtual) hides the budget average line.
     const avgBudget = series.reduce((a, d) => a + d.budget, 0) / n;
+    const hasBudget = avgBudget > 0;
 
     const option: echarts.EChartsOption = {
       tooltip: {
@@ -111,15 +113,19 @@ export function SalesBarChart({ series, granularity, title, isLoading }: SalesBa
           data: salesData,
           itemStyle: { color: '#4b5563', borderRadius: [2, 2, 0, 0] },
         },
-        {
-          name: 'PROMEDIO PPTO',
-          type: 'line',
-          data: series.map(() => avgBudget),
-          symbol: 'circle',
-          symbolSize: 6,
-          lineStyle: { type: 'dashed', color: '#3b82f6', width: 1.5 },
-          itemStyle: { color: '#3b82f6' },
-        },
+        ...(hasBudget
+          ? [
+              {
+                name: 'PROMEDIO PPTO',
+                type: 'line' as const,
+                data: series.map(() => avgBudget),
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { type: 'dashed' as const, color: '#3b82f6', width: 1.5 },
+                itemStyle: { color: '#3b82f6' },
+              },
+            ]
+          : []),
         {
           name: 'PROMEDIO DE VENTAS',
           type: 'line',

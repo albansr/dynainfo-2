@@ -2,6 +2,8 @@ export interface MenuItem {
   key: string;
   label: string;
   href: string;
+  /** Optional highlight badge rendered next to the label in the sidebar. */
+  badge?: 'live' | 'new';
 }
 
 export interface MenuSection {
@@ -17,6 +19,18 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
         key: 'inicio',
         label: 'Inicio',
         href: '/dashboard',
+      },
+    ],
+  },
+  {
+    // Standalone highlighted item shown right after "Inicio" (no section heading).
+    title: '',
+    items: [
+      {
+        key: 'festival-virtual',
+        label: 'Festival Virtual',
+        href: '/festival-virtual',
+        badge: 'live',
       },
     ],
   },

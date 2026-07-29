@@ -32,6 +32,11 @@ services:
       - "5002:5002"
     env_file:
       - ./api/.env
+    environment:
+      # Inside the compose network Postgres is reachable at the service name, not
+      # localhost (which resolves to this container). Overrides POSTGRES_URL from
+      # .env, whose localhost host is meant for `make dev` (API runs on the host).
+      - POSTGRES_URL=postgresql://dynainfo:dynainfo_dev@postgres:5432/dynainfo
     depends_on:
       postgres:
         condition: service_healthy
