@@ -49,6 +49,18 @@ const textCell = (_d: RegionalData, _c: TableConfig, value: string): ReactNode =
   <div className="px-4 text-left py-2.5 text-[12px] font-medium text-zinc-900">{value}</div>
 );
 
+/** Budget compliance: green from 100% up, red below; dash without budget. */
+const complianceCell = (d: RegionalData, _c: TableConfig, value: number): ReactNode =>
+  d.margin.budget > 0 ? (
+    <div
+      className={`px-4 text-right py-2.5 text-[13px] font-semibold ${value >= 100 ? 'text-green-600' : 'text-red-600'}`}
+    >
+      {formatPercentage(value)}%
+    </div>
+  ) : (
+    <div className="px-4 text-right py-2.5 text-[13px] text-zinc-400">—</div>
+  );
+
 /**
  * Festival listing columns. Flat (no groups), so every header spans both header
  * rows (rowSpan: 2) — a plain column with no group and no rowSpan would not be
@@ -147,7 +159,7 @@ const FESTIVAL_BUDGET_COLUMNS: ColumnDefinition[] = [
     id: 'pptoCumpl',
     header: { label: 'CUMPL. PPTO', sortable: true, align: 'right', rowSpan: 2 },
     accessor: (d) => d.margin.previous,
-    cellRenderer: percentCell,
+    cellRenderer: complianceCell,
     align: 'right',
     sortable: true,
     sortKey: 'pptoCumpl',

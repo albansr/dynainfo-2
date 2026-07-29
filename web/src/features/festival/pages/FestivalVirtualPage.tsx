@@ -241,7 +241,11 @@ function FestivalDashboard() {
           {b?.cumplimiento_ppto != null && (
             <MetricCard
               label="CUMPLIMIENTO PRESUPUESTO"
-              value={`${formatPercentage(b.cumplimiento_ppto)}%`}
+              value={
+                <span className={b.cumplimiento_ppto >= 100 ? 'text-green-600' : 'text-red-600'}>
+                  {formatPercentage(b.cumplimiento_ppto)}%
+                </span>
+              }
               description={
                 !eventFinished && b.current_day > 0 && b.presupuesto_meta != null && b.presupuesto != null && b.presupuesto_meta < b.presupuesto
                   ? `Meta día ${b.current_day}: $ ${formatCurrency(b.presupuesto_meta)}`
