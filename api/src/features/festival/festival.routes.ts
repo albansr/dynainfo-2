@@ -110,7 +110,10 @@ export function festivalRoutes(
       },
     },
     async (request, reply) => {
-      const balance = await service.getFestivalBalance(buildWindows(request.query));
+      const balance = await service.getFestivalBalance({
+        ...buildWindows(request.query),
+        window: request.query,
+      });
       return reply.code(200).send({ data: balance });
     }
   );

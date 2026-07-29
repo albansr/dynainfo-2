@@ -102,6 +102,14 @@ function FestivalDashboard() {
     });
   }, [dailyData, festival.startDate, festival.endDate]);
 
+  // El evento termina al cerrar su último día; desde entonces las tarjetas
+  // pasan del "a mismo día" a las cifras completas del festival anterior.
+  const eventFinished = new Date(new Date().setHours(0, 0, 0, 0)) > festival.endDate;
+  // Referencia acumulada del festival anterior: hasta el día en curso durante
+  // el evento; el total completo antes de empezar y al finalizar.
+  const useToDateCompare = !eventFinished && !!b && b.current_day > 0;
+  const compareDayLabel = useToDateCompare ? `Festival anterior (día ${b!.current_day}):` : 'Festival anterior:';
+
   const eventRange = formatRange(festival.startDate, festival.endDate);
   const compareRange = hasComparison ? formatRange(festival.compareStartDate!, festival.compareEndDate!) : null;
   const dimLabel = FESTIVAL_DIM_LABEL[groupBy] ?? groupBy;
@@ -210,14 +218,23 @@ function FestivalDashboard() {
           <PrimaryMetricCard
             label="VENTAS (Facturado + comprometido)"
             mainValue={`$ ${b ? formatCurrency(b.sales_total) : '0'}`}
-            secondaryLabel="Festival anterior:"
-            secondaryValue={b?.sales_total_compare != null ? `$ ${formatCurrency(b.sales_total_compare)}` : 'N/A'}
+            secondaryLabel={compareDayLabel}
+            secondaryValue={(() => {
+              const value = useToDateCompare ? b!.sales_total_compare_to_date : b?.sales_total_compare;
+              return value != null ? `$ ${formatCurrency(value)}` : 'N/A';
+            })()}
             isLoading={isLoading}
           />
           <MetricCard
-            label="CRECIMIENTO DE VENTAS"
-            value={b ? growth(b.sales_total_growth) : <span>0%</span>}
-            description="vs festival anterior"
+            label={eventFinished ? 'CRECIMIENTO DE VENTAS' : 'CRECIMIENTO A MISMO DÍA'}
+            value={b ? growth(eventFinished ? b.sales_total_growth : b.sales_total_growth_to_date) : <span>0%</span>}
+            description={
+              eventFinished
+                ? 'vs festival anterior completo'
+                : b && b.to_date_days > 0
+                  ? `Días 1–${b.to_date_days} de ${b.event_days} vs festival anterior`
+                  : 'Disponible al cierre del día 1'
+            }
             isLoading={isLoading}
             centered
           />
@@ -230,14 +247,23 @@ function FestivalDashboard() {
           <PrimaryMetricCard
             label="MARGEN TOTAL (Margen + Margen Recuperado)"
             mainValue={`${b ? formatPercentage(b.margen_rappel_pct) : '0'}%`}
-            secondaryLabel="Festival anterior:"
-            secondaryValue={b?.margen_rappel_pct_compare != null ? `${formatPercentage(b.margen_rappel_pct_compare)}%` : 'N/A'}
+            secondaryLabel={compareDayLabel}
+            secondaryValue={(() => {
+              const value = useToDateCompare ? b!.margen_rappel_pct_compare_to_date : b?.margen_rappel_pct_compare;
+              return value != null ? `${formatPercentage(value)}%` : 'N/A';
+            })()}
             isLoading={isLoading}
           />
           <MetricCard
-            label="CRECIMIENTO MARGEN TOTAL"
-            value={b ? growth(b.margen_rappel_pct_growth) : <span>0%</span>}
-            description="vs festival anterior"
+            label={eventFinished ? 'CRECIMIENTO MARGEN TOTAL' : 'CREC. MARGEN A MISMO DÍA'}
+            value={b ? growth(eventFinished ? b.margen_rappel_pct_growth : b.margen_rappel_pct_growth_to_date) : <span>0%</span>}
+            description={
+              eventFinished
+                ? 'vs festival anterior completo'
+                : b && b.to_date_days > 0
+                  ? `Días 1–${b.to_date_days} de ${b.event_days} vs festival anterior`
+                  : 'Disponible al cierre del día 1'
+            }
             isLoading={isLoading}
             centered
           />

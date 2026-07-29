@@ -8,6 +8,11 @@ export interface FestivalBalance {
   sales_total: number;
   sales_total_compare: number;
   sales_total_growth: number | null;
+  sales_total_growth_to_date: number | null;
+  sales_total_compare_to_date: number | null;
+  to_date_days: number;
+  current_day: number;
+  event_days: number;
   gross_margin: number;
   gross_margin_pct: number;
   gross_margin_pct_compare: number | null;
@@ -18,6 +23,8 @@ export interface FestivalBalance {
   margen_rappel_pct: number;
   margen_rappel_pct_compare: number | null;
   margen_rappel_pct_growth: number | null;
+  margen_rappel_pct_growth_to_date: number | null;
+  margen_rappel_pct_compare_to_date: number | null;
   comprometido: number;
   pedidos_count: number;
   pedido_promedio: number;

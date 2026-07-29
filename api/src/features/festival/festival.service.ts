@@ -20,6 +20,31 @@ function nullableNum(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+/** Day index (UTC epoch days) of a yyyy-MM-dd string. */
+function epochDay(date: string): number {
+  return Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+}
+
+/** yyyy-MM-dd of `date` shifted by `days`. */
+function shiftDay(date: string, days: number): string {
+  return new Date((epochDay(date) + days) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Position of "today" within the event window: fully closed days, the running
+ * day number (1-based; 0 before the event, capped at the length) and the total
+ * length. "Today" is resolved in America/Bogota — the API container runs in
+ * UTC and would otherwise close each day five hours early.
+ */
+function closedEventDays(startDate: string, endDate: string): { closed: number; currentDay: number; total: number } {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const total = epochDay(endDate) - epochDay(startDate) + 1;
+  const elapsed = epochDay(today) - epochDay(startDate);
+  const closed = Math.min(Math.max(elapsed, 0), total);
+  const currentDay = Math.min(Math.max(elapsed + 1, 0), total);
+  return { closed, currentDay, total };
+}
+
 /**
  * Service for the Festival Virtual dashboard.
  *
@@ -32,6 +57,8 @@ export class FestivalService {
   async getFestivalBalance(params: {
     currentFilters: FilterCondition[];
     comparisonFilters?: FilterCondition[];
+    /** Raw event/comparison windows, needed for the to-date (mismo día) growth. */
+    window?: { startDate: string; endDate: string; compareStartDate?: string; compareEndDate?: string };
   }): Promise<FestivalBalance> {
     const hasComparison = !!params.comparisonFilters;
     // Unique reach counts dedupe BETWEEN tables: a customer/product present in
@@ -39,7 +66,7 @@ export class FestivalService {
     const distinctSources = (field: string) =>
       Object.keys(FESTIVAL_DATE_FIELDS).map((table) => ({ table, field }));
 
-    const [result, clientesUnicos, productosUnicos] = await Promise.all([
+    const [result, clientesUnicos, productosUnicos, toDate] = await Promise.all([
       this.analyticsBuilder.buildMultiTableYoYQuery({
         metrics: FESTIVAL_METRICS,
         currentPeriodFilters: params.currentFilters,
@@ -53,6 +80,7 @@ export class FestivalService {
         sources: distinctSources('product_id'),
         filters: params.currentFilters,
       }),
+      this.salesGrowthToDate(params),
     ]);
 
     const sales = num(result['sales']);
@@ -89,6 +117,11 @@ export class FestivalService {
       // No comparison window → comparison/growth come back null.
       sales_total_compare: hasComparison ? num(result['sales_total_last_year']) : null,
       sales_total_growth: hasComparison ? nullableNum(result['sales_total_vs_last_year']) : null,
+      sales_total_growth_to_date: toDate.growth,
+      sales_total_compare_to_date: toDate.salesCompareToDate,
+      to_date_days: toDate.days,
+      current_day: toDate.currentDay,
+      event_days: toDate.total,
 
       gross_margin: grossMargin,
       gross_margin_pct: num(result['gross_margin_pct']),
@@ -102,6 +135,8 @@ export class FestivalService {
       margen_rappel_pct: margenRappelPct,
       margen_rappel_pct_compare: margenRappelPctCompare,
       margen_rappel_pct_growth: margenRappelPctGrowth,
+      margen_rappel_pct_growth_to_date: toDate.margenGrowth,
+      margen_rappel_pct_compare_to_date: toDate.margenCompareToDate,
 
       comprometido: num(result['orders']),
       pedidos_count: pedidosCount,
@@ -154,6 +189,92 @@ export class FestivalService {
         pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
       };
     });
+  }
+
+  /**
+   * "Mismo día" pacing growths: the CLOSED days of the current event vs the
+   * same day-indexes of the comparison event (day 1 vs day 1, day 2 vs day
+   * 2…). The running day is excluded — comparing a partial day against a full
+   * one would always understate. Implemented by re-running the balance query
+   * with both windows truncated to the closed-day count, so sales and margin
+   * use exactly the same formulas as the headline cards. Growths are null
+   * until the first day closes, without a comparison window, or on a 0 base.
+   */
+  private async salesGrowthToDate(params: {
+    currentFilters: FilterCondition[];
+    comparisonFilters?: FilterCondition[];
+    window?: { startDate: string; endDate: string; compareStartDate?: string; compareEndDate?: string };
+  }): Promise<{
+    growth: number | null;
+    margenGrowth: number | null;
+    salesCompareToDate: number | null;
+    margenCompareToDate: number | null;
+    days: number;
+    currentDay: number;
+    total: number;
+  }> {
+    const empty = { growth: null, margenGrowth: null, salesCompareToDate: null, margenCompareToDate: null };
+    const w = params.window;
+    if (!w) return { ...empty, days: 0, currentDay: 0, total: 0 };
+
+    const { closed, currentDay, total } = closedEventDays(w.startDate, w.endDate);
+    if (currentDay === 0 || !params.comparisonFilters || !w.compareStartDate) {
+      return { ...empty, days: closed, currentDay, total };
+    }
+
+    // Truncate a window's upper date bound to its first `days` days. The
+    // window bounds are the scoped lte conditions on the per-table date fields.
+    const dateFields = new Set<string>(Object.values(FESTIVAL_DATE_FIELDS));
+    const truncate = (filters: FilterCondition[], start: string, days: number): FilterCondition[] =>
+      filters.map((f) =>
+        dateFields.has(f.field) && f.operator === 'lte' && f.table
+          ? { ...f, value: shiftDay(start, days - 1) }
+          : f
+      );
+
+    const margenPct = (sales: number, margin: number, rappel: number): number =>
+      sales !== 0 ? ((margin + rappel) / sales) * 100 : 0;
+
+    // Two truncations: growth compares CLOSED days (partial running day would
+    // always understate), while the "Festival anterior" display accumulates
+    // through the RUNNING day so the reference grows with the event.
+    const [growthResult, compareToDate] = await Promise.all([
+      closed > 0
+        ? this.analyticsBuilder.buildMultiTableYoYQuery({
+            metrics: FESTIVAL_METRICS,
+            currentPeriodFilters: truncate(params.currentFilters, w.startDate, closed),
+            comparisonFilters: truncate(params.comparisonFilters, w.compareStartDate, closed),
+          })
+        : Promise.resolve(null),
+      this.analyticsBuilder.buildMultiTableYoYQuery({
+        metrics: FESTIVAL_METRICS,
+        currentPeriodFilters: truncate(params.comparisonFilters, w.compareStartDate, currentDay),
+      }),
+    ]);
+
+    let growth: number | null = null;
+    let margenGrowth: number | null = null;
+    if (growthResult) {
+      const compareTotal = num(growthResult['sales_total_last_year']);
+      growth = compareTotal > 0 ? ((num(growthResult['sales_total']) - compareTotal) / compareTotal) * 100 : null;
+      const margenCur = margenPct(num(growthResult['sales']), num(growthResult['gross_margin']), num(growthResult['rappel']));
+      const margenComp = margenPct(num(growthResult['sales_ly']), num(growthResult['gross_margin_ly']), num(growthResult['rappel_ly']));
+      margenGrowth = margenComp > 0 ? ((margenCur - margenComp) / margenComp) * 100 : null;
+    }
+
+    return {
+      growth,
+      margenGrowth,
+      salesCompareToDate: num(compareToDate['sales_total']),
+      margenCompareToDate: margenPct(
+        num(compareToDate['sales']),
+        num(compareToDate['gross_margin']),
+        num(compareToDate['rappel'])
+      ),
+      days: closed,
+      currentDay,
+      total,
+    };
   }
 
   /**

@@ -65,7 +65,14 @@ export const FestivalBalanceSchema = Type.Object(
     // Ventas (facturado + comprometido)
     sales_total: Type.Number({ description: 'Ventas del evento (facturado + comprometido)' }),
     sales_total_compare: NullableNumber, // null cuando no hay comparativa
-    sales_total_growth: NullableNumber, // % vs comparación
+    sales_total_growth: NullableNumber, // % vs comparación (evento completo)
+    // Crecimiento "a mismo día": días cerrados vs mismos días del evento anterior.
+    sales_total_growth_to_date: NullableNumber, // null hasta cerrar el día 1 o sin comparativa
+    // Acumulado del evento anterior hasta el día en curso (crece cada día).
+    sales_total_compare_to_date: NullableNumber,
+    to_date_days: Type.Number({ description: 'Días cerrados incluidos en el crecimiento a mismo día' }),
+    current_day: Type.Number({ description: 'Día del evento en curso (0 antes de empezar)' }),
+    event_days: Type.Number({ description: 'Duración del evento en días' }),
 
     // Margen
     gross_margin: Type.Number({ description: 'Margen bruto (valor absoluto)' }),
@@ -81,7 +88,9 @@ export const FestivalBalanceSchema = Type.Object(
     margen_rappel: Type.Number({ description: 'Margen bruto + rappel (valor absoluto)' }),
     margen_rappel_pct: Type.Number({ description: '(Margen bruto + rappel) sobre ventas, %' }),
     margen_rappel_pct_compare: NullableNumber, // null sin comparativa
-    margen_rappel_pct_growth: NullableNumber, // % vs comparación
+    margen_rappel_pct_growth: NullableNumber, // % vs comparación (evento completo)
+    margen_rappel_pct_growth_to_date: NullableNumber, // "a mismo día" (días cerrados)
+    margen_rappel_pct_compare_to_date: NullableNumber, // margen del anterior hasta el día en curso
 
     // Pedidos
     comprometido: Type.Number({ description: 'Valor de pedidos comprometidos (pendientes de facturar)' }),
