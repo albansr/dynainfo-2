@@ -46,6 +46,17 @@ function closedEventDays(startDate: string, endDate: string): { closed: number; 
 }
 
 /**
+ * Budget proration factor: the target grows day by day during the event
+ * (día 3 de 5 → 3/5 of the budget) and is the full budget before the event
+ * starts (the complete goal is the reference) and after it ends.
+ */
+function budgetProrateFactor(window?: { startDate: string; endDate: string }): number {
+  if (!window) return 1;
+  const { currentDay, total } = closedEventDays(window.startDate, window.endDate);
+  return currentDay > 0 && total > 0 ? currentDay / total : 1;
+}
+
+/**
  * Service for the Festival Virtual dashboard.
  *
  * Reuses the analytics engine (single CTE query) but with an explicit static
@@ -145,6 +156,19 @@ export class FestivalService {
 
       clientes_unicos: clientesUnicos,
       productos_unicos: productosUnicos,
+
+      ...(() => {
+        // Budget 0 means "not applicable under the active filters" (the engine
+        // zeroes the table) or simply no data → the frontend hides compliance.
+        const budgetTotal = num(result['budget']);
+        if (budgetTotal <= 0) return { presupuesto: null, presupuesto_meta: null, cumplimiento_ppto: null };
+        const meta = budgetTotal * budgetProrateFactor(params.window);
+        return {
+          presupuesto: budgetTotal,
+          presupuesto_meta: meta,
+          cumplimiento_ppto: meta > 0 ? (salesTotal / meta) * 100 : null,
+        };
+      })(),
     };
   }
 
@@ -157,6 +181,8 @@ export class FestivalService {
     currentFilters: FilterCondition[];
     comparisonFilters?: FilterCondition[];
     groupBy?: string;
+    /** Event window, used to prorate the budget target to the running day. */
+    window?: { startDate: string; endDate: string };
   }): Promise<FestivalListRow[]> {
     // Comparison is irrelevant to the listing (only current-period metrics are shown).
     const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
@@ -168,6 +194,8 @@ export class FestivalService {
       orderDirection: 'desc',
     });
 
+    const prorate = budgetProrateFactor(params.window);
+
     return rows.map((row) => {
       const sales = num(row['sales']);
       const rappel = num(row['rappel']);
@@ -175,6 +203,8 @@ export class FestivalService {
       const grossMarginPct = num(row['gross_margin_pct']);
       const salesTotal = num(row['sales_total']);
       const pedidosCount = num(row['invoiced_orders']) + num(row['retained_orders']);
+      const budget = num(row['budget']);
+      const meta = budget * prorate;
       const rawId = String(row['id'] ?? '').trim();
       const rawName = String(row['name'] ?? '').trim();
 
@@ -187,6 +217,8 @@ export class FestivalService {
         margen_rappel_pct: grossMarginPct + rappelPct,
         comprometido: num(row['orders']),
         pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
+        presupuesto: budget > 0 ? budget : null,
+        cumplimiento_ppto: meta > 0 ? (salesTotal / meta) * 100 : null,
       };
     });
   }
@@ -362,6 +394,10 @@ export class FestivalService {
       margen_rappel_pct: grossMarginPct + rappelPct,
       comprometido: num(result['orders']),
       pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
+      // Virtual buckets are not budget-splittable; the scoped bucket filters
+      // zero the budget table.
+      presupuesto: null,
+      cumplimiento_ppto: null,
     };
   }
 }

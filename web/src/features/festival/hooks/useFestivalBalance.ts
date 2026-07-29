@@ -31,6 +31,10 @@ export interface FestivalBalance {
   pedido_promedio_compare: number | null;
   clientes_unicos: number;
   productos_unicos: number;
+  /** Null cuando los filtros activos no aplican al presupuesto. */
+  presupuesto: number | null;
+  presupuesto_meta: number | null;
+  cumplimiento_ppto: number | null;
 }
 
 export interface FestivalListRow {
@@ -42,6 +46,8 @@ export interface FestivalListRow {
   margen_rappel_pct: number;
   comprometido: number;
   pedido_promedio: number;
+  presupuesto: number | null;
+  cumplimiento_ppto: number | null;
 }
 
 interface Wrapped<T> {

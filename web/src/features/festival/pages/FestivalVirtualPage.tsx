@@ -238,6 +238,19 @@ function FestivalDashboard() {
             isLoading={isLoading}
             centered
           />
+          {b?.cumplimiento_ppto != null && (
+            <MetricCard
+              label="CUMPLIMIENTO PRESUPUESTO"
+              value={`${formatPercentage(b.cumplimiento_ppto)}%`}
+              description={
+                !eventFinished && b.current_day > 0 && b.presupuesto_meta != null && b.presupuesto != null && b.presupuesto_meta < b.presupuesto
+                  ? `Meta día ${b.current_day}: $ ${formatCurrency(b.presupuesto_meta)}`
+                  : `Presupuesto: $ ${formatCurrency(b.presupuesto ?? 0)}`
+              }
+              isLoading={isLoading}
+              centered
+            />
+          )}
         </div>
       </div>
 
@@ -368,7 +381,7 @@ function FestivalDashboard() {
               currentYear: festival.endDate.getFullYear(),
               previousYear: festival.compareEndDate?.getFullYear() ?? festival.endDate.getFullYear(),
             }}
-            columns={getFestivalColumns(dimLabel)}
+            columns={getFestivalColumns(dimLabel, rows.some((r) => r.presupuesto != null && r.presupuesto > 0))}
             columnGroups={[]}
             {...(isDrillable ? { onRowClick: drillInto } : {})}
           />

@@ -15,6 +15,7 @@ import {
   FESTIVAL_DATE_FIELDS,
   brandGroupFilters,
   rappelGroupFilters,
+  pptoPeriodoFilter,
 } from './festival.schemas.js';
 import { SuccessResponseSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
@@ -23,9 +24,12 @@ import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-par
  * Fixed filters always applied to the festival, both windows. The festival only
  * counts distribution-channel sales — retail, exports and chains do not apply.
  * (Retail lives under IdRegional=RTL, which is outside channel=DISTRIBUCION.)
+ * Scoped to the sales tables: the budget table has no channel column and is
+ * distribution-only by nature — an unscoped filter would zero it.
  */
 const FESTIVAL_FIXED_FILTERS: FilterCondition[] = [
-  { field: 'channel', operator: 'eq', value: 'DISTRIBUCION' },
+  { field: 'channel', operator: 'eq', value: 'DISTRIBUCION', table: 'transactions' },
+  { field: 'channel', operator: 'eq', value: 'DISTRIBUCION', table: 'pedidos_retenidos' },
 ];
 
 /**
@@ -70,11 +74,18 @@ function buildWindows(query: {
     ...FESTIVAL_FIXED_FILTERS,
     ...expandVirtualGroups(parseDynamicFilters(query as Record<string, unknown>)),
   ];
-  const currentFilters = combineFilters(dynamicFilters, dateRangeFilters(query.startDate, query.endDate));
+  // The budget joins each window via its edition (periodo), not via dates.
+  const currentFilters = combineFilters(dynamicFilters, [
+    ...dateRangeFilters(query.startDate, query.endDate),
+    pptoPeriodoFilter(query.startDate),
+  ]);
   if (query.compareStartDate && query.compareEndDate) {
     return {
       currentFilters,
-      comparisonFilters: combineFilters(dynamicFilters, dateRangeFilters(query.compareStartDate, query.compareEndDate)),
+      comparisonFilters: combineFilters(dynamicFilters, [
+        ...dateRangeFilters(query.compareStartDate, query.compareEndDate),
+        pptoPeriodoFilter(query.compareStartDate),
+      ]),
     };
   }
   return { currentFilters };
@@ -144,7 +155,7 @@ export function festivalRoutes(
         ? await service.getFestivalBrandGroups({ currentFilters: windows.currentFilters })
         : groupBy === FESTIVAL_RAPPEL_GROUP
           ? await service.getFestivalRappelGroups({ currentFilters: windows.currentFilters })
-          : await service.getFestivalList({ ...windows, ...(groupBy && { groupBy }) });
+          : await service.getFestivalList({ ...windows, window: request.query, ...(groupBy && { groupBy }) });
       return reply.code(200).send({ data: rows });
     }
   );

@@ -16,6 +16,8 @@ import type { FestivalListRow } from '../hooks/useFestivalBalance';
  *   retained.compliance → margen total (margen + rappel) %
  *   budget.amount   → comprometido (valor de pedidos pendientes de facturar)
  *   retained.amount → pedido promedio
+ *   margin.budget   → presupuesto del festival ($)
+ *   margin.previous → cumplimiento de presupuesto (%)
  * `% sobre total` is computed here over the sum of the current listing.
  */
 export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalData[] {
@@ -24,7 +26,7 @@ export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalDat
     id: row.id || `row-${index}`, // fall back keeps React keys unique
     name: row.name,
     sales: { current: row.sales_total, previous: total > 0 ? (row.sales_total / total) * 100 : 0, variation: NaN },
-    margin: { current: row.gross_margin_pct, previous: 0, variation: NaN, budget: 0 },
+    margin: { current: row.gross_margin_pct, previous: row.cumplimiento_ppto ?? 0, variation: NaN, budget: row.presupuesto ?? 0 },
     budget: { amount: row.comprometido, compliance: row.rappel_pct },
     retained: { amount: row.pedido_promedio, compliance: row.margen_rappel_pct },
   }));
@@ -127,9 +129,40 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
   },
 ];
 
-/** Festival columns with the first column labelled for the current dimension. */
-export function getFestivalColumns(firstColLabel: string): ColumnDefinition[] {
-  return FESTIVAL_COLUMNS.map((c) =>
+/**
+ * Budget columns, shown only when the current grouping/filters are
+ * budget-applicable (the rows carry a non-null presupuesto).
+ */
+const FESTIVAL_BUDGET_COLUMNS: ColumnDefinition[] = [
+  {
+    id: 'ppto',
+    header: { label: 'PPTO FESTIVAL', sortable: true, align: 'right', rowSpan: 2 },
+    accessor: (d) => d.margin.budget,
+    cellRenderer: currencyCell,
+    align: 'right',
+    sortable: true,
+    sortKey: 'ppto',
+  },
+  {
+    id: 'pptoCumpl',
+    header: { label: 'CUMPL. PPTO', sortable: true, align: 'right', rowSpan: 2 },
+    accessor: (d) => d.margin.previous,
+    cellRenderer: percentCell,
+    align: 'right',
+    sortable: true,
+    sortKey: 'pptoCumpl',
+  },
+];
+
+/**
+ * Festival columns with the first column labelled for the current dimension.
+ * Budget columns are inserted after VENTAS only when applicable.
+ */
+export function getFestivalColumns(firstColLabel: string, includeBudget: boolean): ColumnDefinition[] {
+  const columns = FESTIVAL_COLUMNS.flatMap((c) =>
+    c.id === 'sales' && includeBudget ? [c, ...FESTIVAL_BUDGET_COLUMNS] : [c]
+  );
+  return columns.map((c) =>
     c.id === 'name' ? { ...c, header: { ...c.header, label: firstColLabel.toUpperCase() } } : c
   );
 }

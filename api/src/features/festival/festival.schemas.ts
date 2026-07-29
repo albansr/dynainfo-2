@@ -12,6 +12,25 @@ import type { FilterCondition } from '../../core/db/clickhouse/query/filter-buil
  */
 
 /**
+ * Festival budget table: one row per regional × seller per edition, keyed by
+ * `periodo` (yyyyMM of the event month, e.g. 202608) with `date` at month
+ * start — outside the event window, so it is selected via periodo, never via
+ * the window date filters. Only IdRegional/seller_id dimensions exist (no
+ * channel/product/customer/brand).
+ */
+export const FESTIVAL_PPTO_TABLE = 'ppto_festival';
+
+/** Budget-table filter selecting the edition that contains `startDate`. */
+export function pptoPeriodoFilter(startDate: string): FilterCondition {
+  return {
+    field: 'periodo',
+    operator: 'eq',
+    value: startDate.slice(0, 7).replace('-', ''),
+    table: FESTIVAL_PPTO_TABLE,
+  };
+}
+
+/**
  * Base metrics summed for the festival, per period.
  *
  * Deliberately a small subset of the global BALANCE_METRICS (no budget/cartera):
@@ -30,6 +49,11 @@ export const FESTIVAL_METRICS = [
   // don't overlap). Feed `pedidos_count` and `pedido_promedio`.
   { table: 'transactions', field: 'Pedido', aggregation: 'uniqExact', alias: 'invoiced_orders' },
   { table: 'pedidos_retenidos', field: 'pedidoId', aggregation: 'uniqExact', alias: 'retained_orders' },
+  // Event budget (dyna_ppto_festival): one row per regional × seller per
+  // edition, selected via `periodo`. The table only has IdRegional/seller_id
+  // dimensions — any other filter or grouping zeroes it, and the frontend
+  // hides the compliance metric when budget comes back 0.
+  { table: FESTIVAL_PPTO_TABLE, field: 'valor', aggregation: 'sum', alias: 'budget' },
 ] as const satisfies readonly MetricConfig[];
 
 /**
@@ -101,6 +125,12 @@ export const FestivalBalanceSchema = Type.Object(
     // Alcance del evento (deduplicados entre facturado y comprometido)
     clientes_unicos: Type.Number({ description: 'Clientes únicos atendidos durante el evento' }),
     productos_unicos: Type.Number({ description: 'Productos únicos vendidos durante el evento' }),
+
+    // Presupuesto del festival. Null cuando los filtros activos no son
+    // aplicables al presupuesto (producto, cliente, marca, promoción…).
+    presupuesto: NullableNumber, // presupuesto completo del evento
+    presupuesto_meta: NullableNumber, // meta prorrateada al día en curso (completa antes/después del evento)
+    cumplimiento_ppto: NullableNumber, // ventas totales / meta, %
   },
   { $id: 'FestivalBalance', description: 'Métricas del dashboard Festival Virtual' }
 );
@@ -143,11 +173,17 @@ export function brandGroupFilters(bucket: 'exclusivas' | 'aliadas'): FilterCondi
     pedidos_retenidos: 'proveedorComercial',
   } as const;
 
-  return Object.entries(brandFieldByTable).flatMap(([table, field]): FilterCondition[] =>
+  const brandConditions = Object.entries(brandFieldByTable).flatMap(([table, field]): FilterCondition[] =>
     bucket === 'exclusivas'
       ? [{ field, operator: 'in', value: EXCLUSIVE_BRANDS, table }]
       : EXCLUSIVE_BRANDS.map((b) => ({ field, operator: 'neq', value: b, table }))
   );
+  return [
+    ...brandConditions,
+    // The budget has no brand column → this scoped condition cannot be applied
+    // and the engine zeroes the table (budget is not splittable by brand).
+    { field: 'ProveedorComercial', operator: 'in', value: EXCLUSIVE_BRANDS, table: FESTIVAL_PPTO_TABLE },
+  ];
 }
 
 /**
@@ -165,9 +201,11 @@ export function rappelGroupFilters(bucket: 'con_rappel' | 'sin_rappel'): FilterC
   // rappel_pct > 0 ⟺ rappel > 0 (verified: zero discrepancies in data).
   return [
     { field: 'rappel_pct', operator: bucket === 'con_rappel' ? 'gt' : 'eq', value: '0', table: 'transactions' },
-    // pedidos_retenidos has no rappel column → the scoped condition cannot be
-    // applied and the engine zeroes the table (excludes comprometido).
+    // Neither pedidos_retenidos nor the budget have a rappel column → these
+    // scoped conditions cannot be applied and the engine zeroes both tables
+    // (comprometido and presupuesto are excluded from rappel views).
     { field: 'rappel_pct', operator: 'gt', value: '0', table: 'pedidos_retenidos' },
+    { field: 'rappel_pct', operator: 'gt', value: '0', table: FESTIVAL_PPTO_TABLE },
   ];
 }
 
@@ -205,6 +243,8 @@ export const FestivalListRowSchema = Type.Object(
     margen_rappel_pct: Type.Number({ description: '(Margen + rappel) sobre ventas, %' }),
     comprometido: Type.Number({ description: 'Valor de pedidos comprometidos (pendientes de facturar)' }),
     pedido_promedio: Type.Number({ description: 'Ventas totales / nº de pedidos del grupo' }),
+    presupuesto: NullableNumber, // presupuesto del evento para el grupo; null si no aplica
+    cumplimiento_ppto: NullableNumber, // ventas / meta prorrateada, %
   },
   { $id: 'FestivalListRow' }
 );

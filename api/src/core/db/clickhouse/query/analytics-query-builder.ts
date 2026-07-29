@@ -387,6 +387,13 @@ ${previousWhere}
     });
     const skippedTables = new Set(tables.filter((t) => !tablesWithDimension.includes(t)));
 
+    // Tables that also carry the display-name column. A table with only the id
+    // (e.g. ppto_festival has IdRegional but not Regional) still joins and
+    // aggregates by id — its name simply doesn't feed the COALESCE.
+    const tableHasName = (table: string): boolean =>
+      idField === nameField || (columnMap.get(`${this.tablePrefix}${table}`)?.has(nameField) ?? false);
+    const tablesWithName = tablesWithDimension.filter(tableHasName);
+
     // The driving table (FROM clause) filters the visible groups; inject the
     // case-insensitive search predicate (id OR name) into its current CTE so
     // pagination and count() OVER() reflect the filtered set.
@@ -409,13 +416,15 @@ ${previousWhere}
       `COALESCE(${idCoalesceArgs.join(', ')}) AS id`
     );
 
-    // Build COALESCE for name field
-    const nameCoalesceArgs = tablesWithDimension.flatMap((table) => [
+    // Build COALESCE for name field (only from tables that carry it)
+    const nameCoalesceArgs = tablesWithName.flatMap((table) => [
       `${table}_current.${nameField}`,
       `${table}_previous.${nameField}`,
     ]);
     finalSelects.push(
-      `COALESCE(${nameCoalesceArgs.join(', ')}) AS name`
+      nameCoalesceArgs.length > 0
+        ? `COALESCE(${nameCoalesceArgs.join(', ')}) AS name`
+        : `COALESCE(${idCoalesceArgs.join(', ')}) AS name`
     );
 
     // Add total count as window function if pagination is needed
@@ -474,17 +483,18 @@ ${previousWhere}
             .map((m) => `${m.aggregation}(${m.field}) AS ${m.alias}`)
             .join(', ');
 
-          // Select both id and name fields
-          // If idField === nameField (e.g., month), only select once
-          const dimensionSelects = idField === nameField
-            ? `trimBoth(${idField}) AS ${idField}`
-            : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
+          // Select both id and name fields. If idField === nameField (e.g.
+          // month) or the table lacks the name column, only select the id.
+          const selectName = idField !== nameField && tableHasName(table);
+          const dimensionSelects = selectName
+            ? `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`
+            : `trimBoth(${idField}) AS ${idField}`;
 
           ctes.push(`${currentCteName} AS (
   SELECT ${dimensionSelects}, ${currentMetrics}
   FROM ${tableName}
 ${currentWhere}
-  GROUP BY ${idField === nameField ? '1' : '1, 2'}
+  GROUP BY ${selectName ? '1, 2' : '1'}
 )`);
 
           // Previous year CTE with GROUP BY
@@ -496,7 +506,7 @@ ${currentWhere}
   SELECT ${dimensionSelects}, ${previousMetrics}
   FROM ${tableName}
 ${previousWhere}
-  GROUP BY ${idField === nameField ? '1' : '1, 2'}
+  GROUP BY ${selectName ? '1, 2' : '1'}
 )`);
         }
 
