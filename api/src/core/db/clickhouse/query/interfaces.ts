@@ -82,4 +82,15 @@ export interface IAnalyticsQueryBuilder {
     sources: Array<{ table: string; field: string }>;
     filters: import('./filter-builder.js').FilterCondition[];
   }): Promise<number>;
+
+  /**
+   * Distinct-count per group value: same between-table dedup as
+   * buildDistinctCountQuery, but grouped by a dimension column. Sources
+   * lacking the dimension or the counted field contribute nothing.
+   */
+  buildGroupedDistinctCountQuery(config: {
+    sources: Array<{ table: string; field: string }>;
+    filters: import('./filter-builder.js').FilterCondition[];
+    groupBy: string;
+  }): Promise<Map<string, number>>;
 }

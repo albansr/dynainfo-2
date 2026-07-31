@@ -46,6 +46,15 @@ function closedEventDays(startDate: string, endDate: string): { closed: number; 
 }
 
 /**
+ * Sources for the unique-reach counts (numérica / items): the same field
+ * across both sales tables, deduped BETWEEN tables — a customer/product
+ * present in facturado and comprometido counts once.
+ */
+function distinctSources(field: string): Array<{ table: string; field: string }> {
+  return Object.keys(FESTIVAL_DATE_FIELDS).map((table) => ({ table, field }));
+}
+
+/**
  * Budget proration factor: the target grows day by day during the event
  * (día 3 de 5 → 3/5 of the budget) and is the full budget before the event
  * starts (the complete goal is the reference) and after it ends.
@@ -72,10 +81,6 @@ export class FestivalService {
     window?: { startDate: string; endDate: string; compareStartDate?: string; compareEndDate?: string };
   }): Promise<FestivalBalance> {
     const hasComparison = !!params.comparisonFilters;
-    // Unique reach counts dedupe BETWEEN tables: a customer/product present in
-    // both facturado and comprometido counts once.
-    const distinctSources = (field: string) =>
-      Object.keys(FESTIVAL_DATE_FIELDS).map((table) => ({ table, field }));
 
     const [result, clientesUnicos, productosUnicos, toDate] = await Promise.all([
       this.analyticsBuilder.buildMultiTableYoYQuery({
@@ -184,15 +189,29 @@ export class FestivalService {
     /** Event window, used to prorate the budget target to the running day. */
     window?: { startDate: string; endDate: string };
   }): Promise<FestivalListRow[]> {
+    const groupBy = params.groupBy || FESTIVAL_DEFAULT_GROUP_BY;
+
     // Comparison is irrelevant to the listing (only current-period metrics are shown).
-    const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-      metrics: FESTIVAL_METRICS,
-      currentPeriodFilters: params.currentFilters,
-      ...(params.comparisonFilters ? { comparisonFilters: params.comparisonFilters } : {}),
-      groupBy: params.groupBy || FESTIVAL_DEFAULT_GROUP_BY,
-      orderBy: 'sales_total',
-      orderDirection: 'desc',
-    });
+    const [rows, clientesByGroup, productosByGroup] = await Promise.all([
+      this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+        metrics: FESTIVAL_METRICS,
+        currentPeriodFilters: params.currentFilters,
+        ...(params.comparisonFilters ? { comparisonFilters: params.comparisonFilters } : {}),
+        groupBy,
+        orderBy: 'sales_total',
+        orderDirection: 'desc',
+      }),
+      this.analyticsBuilder.buildGroupedDistinctCountQuery({
+        sources: distinctSources('customer_id'),
+        filters: params.currentFilters,
+        groupBy,
+      }),
+      this.analyticsBuilder.buildGroupedDistinctCountQuery({
+        sources: distinctSources('product_id'),
+        filters: params.currentFilters,
+        groupBy,
+      }),
+    ]);
 
     const prorate = budgetProrateFactor(params.window);
 
@@ -217,6 +236,8 @@ export class FestivalService {
         margen_rappel_pct: grossMarginPct + rappelPct,
         comprometido: num(row['orders']),
         pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
+        clientes_unicos: clientesByGroup.get(rawId) ?? 0,
+        productos_unicos: productosByGroup.get(rawId) ?? 0,
         presupuesto: budget > 0 ? budget : null,
         cumplimiento_ppto: meta > 0 ? (salesTotal / meta) * 100 : null,
       };
@@ -374,10 +395,20 @@ export class FestivalService {
     name: string,
     filters: FilterCondition[]
   ): Promise<FestivalListRow> {
-    const result = await this.analyticsBuilder.buildMultiTableYoYQuery({
-      metrics: FESTIVAL_METRICS,
-      currentPeriodFilters: filters,
-    });
+    const [result, clientesUnicos, productosUnicos] = await Promise.all([
+      this.analyticsBuilder.buildMultiTableYoYQuery({
+        metrics: FESTIVAL_METRICS,
+        currentPeriodFilters: filters,
+      }),
+      this.analyticsBuilder.buildDistinctCountQuery({
+        sources: distinctSources('customer_id'),
+        filters,
+      }),
+      this.analyticsBuilder.buildDistinctCountQuery({
+        sources: distinctSources('product_id'),
+        filters,
+      }),
+    ]);
     const sales = num(result['sales']);
     const rappel = num(result['rappel']);
     const rappelPct = sales !== 0 ? (rappel / sales) * 100 : 0;
@@ -394,6 +425,8 @@ export class FestivalService {
       margen_rappel_pct: grossMarginPct + rappelPct,
       comprometido: num(result['orders']),
       pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
+      clientes_unicos: clientesUnicos,
+      productos_unicos: productosUnicos,
       // Virtual buckets are not budget-splittable; the scoped bucket filters
       // zero the budget table.
       presupuesto: null,

@@ -46,6 +46,10 @@ export interface FestivalListRow {
   margen_rappel_pct: number;
   comprometido: number;
   pedido_promedio: number;
+  /** Numérica: clientes únicos del grupo durante el evento. */
+  clientes_unicos: number;
+  /** Items: productos únicos del grupo durante el evento. */
+  productos_unicos: number;
   presupuesto: number | null;
   cumplimiento_ppto: number | null;
 }
@@ -87,7 +91,7 @@ function buildParams(range: FestivalRange, filters?: Record<string, unknown>): s
 }
 
 /** Channel roles get their data filtered by channel automatically (parity with useBalance). */
-function useMergedFilters(filters?: Record<string, unknown>): Record<string, unknown> | undefined {
+export function useMergedFilters(filters?: Record<string, unknown>): Record<string, unknown> | undefined {
   const dynaRole = useAuthStore((s) => s.user?.dynaRole);
   const roleFilter = getRoleDataFilter(dynaRole);
   return roleFilter ? { ...filters, ...roleFilter } : filters;

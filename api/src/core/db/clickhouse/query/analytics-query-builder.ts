@@ -970,6 +970,78 @@ FROM (
   }
 
   /**
+   * Distinct-count per group value: same between-table dedup as
+   * buildDistinctCountQuery (UNION ALL + uniqExact), grouped by a dimension
+   * column. A source lacking the dimension, the counted field, or with an
+   * inapplicable non-date filter contributes nothing — consistent with the
+   * zeroing in buildGroupedMultiTableYoYQuery.
+   */
+  async buildGroupedDistinctCountQuery(config: {
+    sources: Array<{ table: string; field: string }>;
+    filters: FilterCondition[];
+    groupBy: string;
+  }): Promise<Map<string, number>> {
+    const { sources, filters, groupBy } = config;
+
+    this.filterBuilder.validateFieldName(groupBy);
+
+    const tableNames = sources.map((s) => `${this.tablePrefix}${s.table}`);
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
+    const queryParams: Record<string, string | string[]> = {};
+
+    const sourceSelects: string[] = [];
+    for (const source of sources) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(source.field)) {
+        throw new Error(`Invalid field name format: ${source.field}`);
+      }
+
+      const tableName = `${this.tablePrefix}${source.table}`;
+      const tableColumns = columnMap.get(tableName) ?? new Set<string>();
+      const tableFilters = this.filtersForTable(filters, source.table);
+
+      const hasUnfilterableColumn = tableFilters
+        .filter((f) => f.field !== 'date')
+        .some((f) => !tableColumns.has(f.field));
+      if (hasUnfilterableColumn || !tableColumns.has(source.field) || !tableColumns.has(groupBy)) {
+        continue;
+      }
+
+      const where = this.filterBuilder.buildWhereClauseForTable(
+        tableFilters,
+        queryParams,
+        `gdistinct_${source.table}`,
+        tableName,
+        columnMap
+      );
+
+      // trimBoth matches the id normalization of the grouped metrics query,
+      // so counts merge onto listing rows by id.
+      sourceSelects.push(
+        `SELECT trimBoth(${groupBy}) AS id, ${source.field} AS value FROM ${tableName} ${where}`
+      );
+    }
+
+    if (sourceSelects.length === 0) return new Map();
+
+    const query = `
+SELECT id, uniqExact(value) AS count
+FROM (
+  ${sourceSelects.join('\n  UNION ALL\n  ')}
+)
+GROUP BY id
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    const rows = await resultSet.json<{ id: string; count: number }>();
+    return new Map(rows.map((r) => [r.id, Number(r.count)]));
+  }
+
+  /**
    * Build query to get distinct values from a column
    * Returns array of unique string values sorted alphabetically A-Z
    *

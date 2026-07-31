@@ -18,6 +18,8 @@ import type { FestivalListRow } from '../hooks/useFestivalBalance';
  *   retained.amount → pedido promedio
  *   margin.budget   → presupuesto del festival ($)
  *   margin.previous → cumplimiento de presupuesto (%)
+ *   sales.variation → numérica (clientes únicos)
+ *   margin.variation → items (productos únicos)
  * `% sobre total` is computed here over the sum of the current listing.
  */
 export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalData[] {
@@ -25,8 +27,8 @@ export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalDat
   return rows.map((row, index) => ({
     id: row.id || `row-${index}`, // fall back keeps React keys unique
     name: row.name,
-    sales: { current: row.sales_total, previous: total > 0 ? (row.sales_total / total) * 100 : 0, variation: NaN },
-    margin: { current: row.gross_margin_pct, previous: row.cumplimiento_ppto ?? 0, variation: NaN, budget: row.presupuesto ?? 0 },
+    sales: { current: row.sales_total, previous: total > 0 ? (row.sales_total / total) * 100 : 0, variation: row.clientes_unicos },
+    margin: { current: row.gross_margin_pct, previous: row.cumplimiento_ppto ?? 0, variation: row.productos_unicos, budget: row.presupuesto ?? 0 },
     budget: { amount: row.comprometido, compliance: row.rappel_pct },
     retained: { amount: row.pedido_promedio, compliance: row.margen_rappel_pct },
   }));
@@ -47,6 +49,12 @@ const percentCell = (_d: RegionalData, _c: TableConfig, value: number): ReactNod
 
 const textCell = (_d: RegionalData, _c: TableConfig, value: string): ReactNode => (
   <div className="px-4 text-left py-2.5 text-[12px] font-medium text-zinc-900">{value}</div>
+);
+
+const integerCell = (_d: RegionalData, _c: TableConfig, value: number): ReactNode => (
+  <div className="px-4 text-right py-2.5 text-[13px] font-semibold text-zinc-900">
+    {Math.round(value).toLocaleString('es-CO')}
+  </div>
 );
 
 /** Budget compliance: green from 100% up, red below; dash without budget. */
@@ -139,6 +147,24 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
     sortable: true,
     sortKey: 'avgOrder',
   },
+  {
+    id: 'numerica',
+    header: { label: 'NUMÉRICA', sortable: true, align: 'right', rowSpan: 2 },
+    accessor: (d) => d.sales.variation,
+    cellRenderer: integerCell,
+    align: 'right',
+    sortable: true,
+    sortKey: 'numerica',
+  },
+  {
+    id: 'items',
+    header: { label: 'ITEMS', sortable: true, align: 'right', rowSpan: 2 },
+    accessor: (d) => d.margin.variation,
+    cellRenderer: integerCell,
+    align: 'right',
+    sortable: true,
+    sortKey: 'items',
+  },
 ];
 
 /**
@@ -168,11 +194,21 @@ const FESTIVAL_BUDGET_COLUMNS: ColumnDefinition[] = [
 
 /**
  * Festival columns with the first column labelled for the current dimension.
- * Budget columns are inserted after VENTAS only when applicable.
+ * Budget columns are inserted after VENTAS only when applicable. NUMÉRICA /
+ * ITEMS are dropped when grouping by the counted entity itself (a column of
+ * 1s carries no information).
  */
-export function getFestivalColumns(firstColLabel: string, includeBudget: boolean): ColumnDefinition[] {
+export function getFestivalColumns(
+  firstColLabel: string,
+  includeBudget: boolean,
+  groupBy?: string
+): ColumnDefinition[] {
   const columns = FESTIVAL_COLUMNS.flatMap((c) =>
     c.id === 'sales' && includeBudget ? [c, ...FESTIVAL_BUDGET_COLUMNS] : [c]
+  ).filter(
+    (c) =>
+      !(c.id === 'numerica' && groupBy === 'customer_id') &&
+      !(c.id === 'items' && groupBy === 'product_id')
   );
   return columns.map((c) =>
     c.id === 'name' ? { ...c, header: { ...c.header, label: firstColLabel.toUpperCase() } } : c

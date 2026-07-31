@@ -8,17 +8,24 @@ import {
   FestivalQueryStringSchema,
   FestivalBalanceSchema,
   FestivalListQueryStringSchema,
+  FestivalListExportQueryStringSchema,
   FestivalListSchema,
   FestivalDailySchema,
   FESTIVAL_BRAND_GROUP,
   FESTIVAL_RAPPEL_GROUP,
   FESTIVAL_DATE_FIELDS,
+  FESTIVAL_PPTO_TABLE,
   brandGroupFilters,
   rappelGroupFilters,
   pptoPeriodoFilter,
+  type FestivalListQueryString,
 } from './festival.schemas.js';
+import { buildFestivalExportWorkbook } from './festival.export.workbook.js';
 import { SuccessResponseSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
+import { sanitizeFilename } from '../../core/utils/export-filename.js';
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /**
  * Fixed filters always applied to the festival, both windows. The festival only
@@ -33,9 +40,30 @@ const FESTIVAL_FIXED_FILTERS: FilterCondition[] = [
 ];
 
 /**
+ * Drill dimensions whose column name differs (or does not exist) per table.
+ * Their filters are expanded into one scoped copy per table: a scoped copy
+ * referencing a missing column excludes that table's metrics entirely (0),
+ * instead of silently leaving it unfiltered in grouped listings. That is the
+ * desired behaviour — e.g. the budget is not splittable by provider/brand.
+ */
+const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
+  ProveedorComercial: {
+    transactions: 'ProveedorComercial',
+    pedidos_retenidos: 'proveedorComercial',
+    [FESTIVAL_PPTO_TABLE]: 'ProveedorComercial',
+  },
+  Marca: {
+    transactions: 'Marca',
+    pedidos_retenidos: 'Marca',
+    [FESTIVAL_PPTO_TABLE]: 'Marca',
+  },
+};
+
+/**
  * Expand virtual drill filters (`brand_group`, `rappel_group`) into real
- * per-table conditions so the rest of the pipeline sees normal column filters.
- * (Neither is a ClickHouse column — they are UI buckets.)
+ * per-table conditions so the rest of the pipeline sees normal column filters
+ * (neither is a ClickHouse column — they are UI buckets), and scope the
+ * per-table drill dimensions (see SCOPED_DRILL_FIELDS).
  */
 function expandVirtualGroups(filters: FilterCondition[]): FilterCondition[] {
   return filters.flatMap((f) => {
@@ -44,6 +72,10 @@ function expandVirtualGroups(filters: FilterCondition[]): FilterCondition[] {
     }
     if (f.field === FESTIVAL_RAPPEL_GROUP) {
       return f.value === 'con_rappel' || f.value === 'sin_rappel' ? rappelGroupFilters(f.value) : [];
+    }
+    const scoped = SCOPED_DRILL_FIELDS[f.field];
+    if (scoped && !f.table) {
+      return Object.entries(scoped).map(([table, field]) => ({ ...f, field, table }));
     }
     return [f];
   });
@@ -103,6 +135,19 @@ export function festivalRoutes(
   const analyticsBuilder = new AnalyticsQueryBuilder(dbClient.getClient());
   const service = new FestivalService(analyticsBuilder);
 
+  /** Listing rows for the requested windows/groupBy ("Marcas"/"Promoción" are virtual buckets). */
+  const fetchListRows = (query: FestivalListQueryString) => {
+    const windows = buildWindows(query);
+    const groupBy = query.groupBy;
+    if (groupBy === FESTIVAL_BRAND_GROUP) {
+      return service.getFestivalBrandGroups({ currentFilters: windows.currentFilters });
+    }
+    if (groupBy === FESTIVAL_RAPPEL_GROUP) {
+      return service.getFestivalRappelGroups({ currentFilters: windows.currentFilters });
+    }
+    return service.getFestivalList({ ...windows, window: query, ...(groupBy && { groupBy }) });
+  };
+
   /**
    * GET /festival
    * Festival dashboard metrics for a fixed event window compared against a
@@ -148,15 +193,53 @@ export function festivalRoutes(
       },
     },
     async (request, reply) => {
-      const windows = buildWindows(request.query);
-      const groupBy = request.query.groupBy;
-      // "Marcas" and "Rappel" are virtual groupings (buckets), not real columns.
-      const rows = groupBy === FESTIVAL_BRAND_GROUP
-        ? await service.getFestivalBrandGroups({ currentFilters: windows.currentFilters })
-        : groupBy === FESTIVAL_RAPPEL_GROUP
-          ? await service.getFestivalRappelGroups({ currentFilters: windows.currentFilters })
-          : await service.getFestivalList({ ...windows, window: request.query, ...(groupBy && { groupBy }) });
+      const rows = await fetchListRows(request.query);
       return reply.code(200).send({ data: rows });
+    }
+  );
+
+  /**
+   * GET /festival/list/export
+   * Same listing as /festival/list, streamed as a styled Excel file.
+   */
+  server.get(
+    '/festival/list/export',
+    {
+      schema: {
+        description: 'Export the festival listing (grouped by the requested dimension) as a styled Excel file.',
+        tags: ['festival'],
+        querystring: FestivalListExportQueryStringSchema,
+        // NOTE: no response schema — the handler sends a raw xlsx Buffer.
+      },
+    },
+    async (request, reply) => {
+      const query = request.query;
+      const rows = await fetchListRows(query);
+      const groupBy = query.groupBy;
+
+      const buffer = await buildFestivalExportWorkbook({
+        rows,
+        dimensionLabel: query.dimensionLabel || groupBy || 'Grupo',
+        includeBudget: rows.some((r) => r.presupuesto != null && r.presupuesto > 0),
+        // Grouping by the counted entity itself would render a column of 1s.
+        hideNumerica: groupBy === 'customer_id',
+        hideItems: groupBy === 'product_id',
+        ...(query.reportTitle && { reportTitle: query.reportTitle }),
+        ...(query.periodLabel && { periodLabel: query.periodLabel }),
+        ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
+      });
+
+      const baseName = sanitizeFilename(query.filename) || `festival-${groupBy ?? 'listado'}`;
+      const asciiName = baseName.replace(/[^\x20-\x7e]+/g, '_');
+      const encodedName = encodeURIComponent(`${baseName}.xlsx`);
+
+      return reply
+        .header('Content-Type', XLSX_MIME)
+        .header(
+          'Content-Disposition',
+          `attachment; filename="${asciiName}.xlsx"; filename*=UTF-8''${encodedName}`
+        )
+        .send(buffer);
     }
   );
 

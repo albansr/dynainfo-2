@@ -20,6 +20,7 @@ import {
   FESTIVAL_ACCESS_STORAGE_KEY,
 } from '../config/festival';
 import { FestivalTeaser } from '../components/FestivalTeaser';
+import { FestivalExportButton } from '../components/FestivalExportButton';
 import { getFestivalColumns, festivalRowsToRegionalData } from '../config/festivalColumns';
 import { useFestivalBalance, useFestivalList, useFestivalDaily } from '../hooks/useFestivalBalance';
 
@@ -318,20 +319,20 @@ function FestivalDashboard() {
         </div>
       </div>
 
-      {/* Alcance del evento: clientes y productos únicos (mismo formato que Margen Total) */}
+      {/* Alcance del evento: numérica (clientes únicos) e items (productos únicos) */}
       <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
-            label="CLIENTES ÚNICOS"
+            label="NUMÉRICA"
             mainValue={(b?.clientes_unicos ?? 0).toLocaleString('es-CO')}
-            secondaryLabel="Atendidos durante el evento"
+            secondaryLabel="Clientes únicos atendidos"
             secondaryValue=""
             isLoading={isLoading}
           />
           <MetricCard
-            label="PRODUCTOS ÚNICOS"
+            label="ITEMS"
             value={(b?.productos_unicos ?? 0).toLocaleString('es-CO')}
-            description="Vendidos durante el evento"
+            description="Productos únicos vendidos"
             isLoading={isLoading}
             centered
           />
@@ -354,22 +355,33 @@ function FestivalDashboard() {
           <h2 className="text-sm font-semibold text-gray-600 tracking-wider">
             DETALLE POR {dimLabel.toUpperCase()}
           </h2>
-          <Select
-            aria-label="Agrupar por"
-            label="Agrupar por"
-            size="sm"
-            className="w-full sm:w-56"
-            selectedKeys={[groupBy]}
-            disallowEmptySelection
-            onSelectionChange={(keys) => {
-              const dim = Array.from(keys)[0];
-              if (dim) changeDimension(String(dim));
-            }}
-          >
-            {availableDimensions.map((d) => (
-              <SelectItem key={d.key}>{d.label}</SelectItem>
-            ))}
-          </Select>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <FestivalExportButton
+              startDate={festival.startDate}
+              endDate={festival.endDate}
+              groupBy={groupBy}
+              dimensionLabel={dimLabel}
+              filters={filters}
+              reportTitle={[festival.name, ...trail].join(' · ')}
+              disabled={listLoading || rows.length === 0}
+            />
+            <Select
+              aria-label="Agrupar por"
+              label="Agrupar por"
+              size="sm"
+              className="w-full sm:w-56"
+              selectedKeys={[groupBy]}
+              disallowEmptySelection
+              onSelectionChange={(keys) => {
+                const dim = Array.from(keys)[0];
+                if (dim) changeDimension(String(dim));
+              }}
+            >
+              {availableDimensions.map((d) => (
+                <SelectItem key={d.key}>{d.label}</SelectItem>
+              ))}
+            </Select>
+          </div>
         </div>
 
         {listLoading ? (
@@ -385,7 +397,7 @@ function FestivalDashboard() {
               currentYear: festival.endDate.getFullYear(),
               previousYear: festival.compareEndDate?.getFullYear() ?? festival.endDate.getFullYear(),
             }}
-            columns={getFestivalColumns(dimLabel, rows.some((r) => r.presupuesto != null && r.presupuesto > 0))}
+            columns={getFestivalColumns(dimLabel, rows.some((r) => r.presupuesto != null && r.presupuesto > 0), groupBy)}
             columnGroups={[]}
             {...(isDrillable ? { onRowClick: drillInto } : {})}
           />

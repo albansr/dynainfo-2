@@ -230,6 +230,30 @@ export const FestivalListQueryStringSchema = Type.Object(
 export type FestivalListQueryString = Static<typeof FestivalListQueryStringSchema>;
 
 /**
+ * Query parameters for the festival listing Excel export: same contract as
+ * /festival/list plus presentation labels. The labels are already reserved in
+ * the dynamic filter parser, so they never leak into the filters.
+ */
+export const FestivalListExportQueryStringSchema = Type.Composite(
+  [
+    FestivalListQueryStringSchema,
+    Type.Object({
+      dimensionLabel: Type.Optional(Type.String({ description: 'Header of the dimension column' })),
+      reportTitle: Type.Optional(Type.String({ description: 'Report title shown at the top of the file' })),
+      periodLabel: Type.Optional(Type.String({ description: 'Human-readable event window' })),
+      generatedLabel: Type.Optional(Type.String({ description: 'Date the export was generated' })),
+      filename: Type.Optional(Type.String({ description: 'Download filename (without extension)' })),
+    }),
+  ],
+  {
+    additionalProperties: true,
+    description: 'Festival listing export: listing params + presentation labels.',
+  }
+);
+
+export type FestivalListExportQueryString = Static<typeof FestivalListExportQueryStringSchema>;
+
+/**
  * One row of the festival listing (grouped by any dimension). Same metric
  * labels as the header cards: ventas del evento, margen %, rappel %, margen + rappel %.
  */
@@ -243,6 +267,9 @@ export const FestivalListRowSchema = Type.Object(
     margen_rappel_pct: Type.Number({ description: '(Margen + rappel) sobre ventas, %' }),
     comprometido: Type.Number({ description: 'Valor de pedidos comprometidos (pendientes de facturar)' }),
     pedido_promedio: Type.Number({ description: 'Ventas totales / nº de pedidos del grupo' }),
+    // Alcance del grupo (deduplicados entre facturado y comprometido)
+    clientes_unicos: Type.Number({ description: 'Numérica: clientes únicos del grupo durante el evento' }),
+    productos_unicos: Type.Number({ description: 'Items: productos únicos del grupo durante el evento' }),
     presupuesto: NullableNumber, // presupuesto del evento para el grupo; null si no aplica
     cumplimiento_ppto: NullableNumber, // ventas / meta prorrateada, %
   },

@@ -61,6 +61,8 @@ export const FESTIVAL_RAPPEL_GROUP = 'rappel_group';
 export const FESTIVAL_DIMENSIONS: { key: string; label: string }[] = [
   { key: FESTIVAL_BRAND_GROUP, label: 'Marcas' },
   { key: FESTIVAL_RAPPEL_GROUP, label: 'Promoción' },
+  { key: 'ProveedorComercial', label: 'Proveedores' },
+  { key: 'Marca', label: 'Marca' },
   { key: 'IdRegional', label: 'Regionales' },
   { key: 'seller_id', label: 'Vendedores' },
   { key: 'product_id', label: 'Productos' },
@@ -71,6 +73,8 @@ export const FESTIVAL_DIMENSIONS: { key: string; label: string }[] = [
 export const FESTIVAL_DIM_LABEL: Record<string, string> = {
   [FESTIVAL_BRAND_GROUP]: 'Marca',
   [FESTIVAL_RAPPEL_GROUP]: 'Promoción',
+  ProveedorComercial: 'Proveedor',
+  Marca: 'Marca',
   IdRegional: 'Regional',
   seller_id: 'Vendedor',
   product_id: 'Producto',
@@ -78,17 +82,22 @@ export const FESTIVAL_DIM_LABEL: Record<string, string> = {
 };
 
 /**
- * Dimension a row drills into when clicked. Same logic as the distribution
- * manager detail: entities cross over (product ↔ customer); brand/seller lead
- * to products.
+ * Dimension a row drills into when clicked. Festival analysis follows a fixed
+ * concept chain, regardless of where you enter it:
+ *   Regional → Vendedor → Proveedor → Marca → Producto
+ *   Cliente ─────────────↗
+ * The virtual buckets (Marcas Exclusivas/Aliadas, Promoción) drill straight
+ * into products, and a product still crosses over to its customers.
  */
 export const FESTIVAL_DRILL_TARGET: Record<string, string> = {
   [FESTIVAL_BRAND_GROUP]: 'product_id',
   [FESTIVAL_RAPPEL_GROUP]: 'product_id',
-  IdRegional: 'product_id',
-  seller_id: 'product_id',
+  IdRegional: 'seller_id',
+  seller_id: 'ProveedorComercial',
+  customer_id: 'ProveedorComercial',
+  ProveedorComercial: 'Marca',
+  Marca: 'product_id',
   product_id: 'customer_id',
-  customer_id: 'product_id',
 };
 
 /** Default listing dimension. */
