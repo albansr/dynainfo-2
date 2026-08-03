@@ -134,7 +134,7 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
                         <table className="w-full text-left">
                           <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.gray.200)]">
                             <tr className="text-xs font-semibold text-gray-600 tracking-wider">
-                              <th className="py-2 pr-4">CÓDIGO</th>
+                              <th className="py-2 pr-4">NIT</th>
                               <th className="py-2 pr-4">CLIENTE</th>
                               <th className="py-2">VENDEDOR</th>
                             </tr>

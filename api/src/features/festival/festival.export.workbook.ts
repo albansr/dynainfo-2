@@ -130,7 +130,7 @@ export interface SinCompraWorkbookInput {
  */
 export async function buildSinCompraExportWorkbook(input: SinCompraWorkbookInput): Promise<Buffer> {
   const columns = [
-    { header: 'Código Cliente', width: 16, value: (r: FestivalSinCompraRow) => r.customer_id },
+    { header: 'NIT', width: 16, value: (r: FestivalSinCompraRow) => r.customer_id },
     { header: 'Cliente', width: 46, value: (r: FestivalSinCompraRow) => r.customer_name },
     { header: 'Código Vendedor', width: 16, value: (r: FestivalSinCompraRow) => r.seller_id },
     { header: 'Vendedor', width: 34, value: (r: FestivalSinCompraRow) => r.seller_name },
