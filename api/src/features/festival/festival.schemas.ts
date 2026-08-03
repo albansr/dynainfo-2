@@ -125,6 +125,9 @@ export const FestivalBalanceSchema = Type.Object(
     // Alcance del evento (deduplicados entre facturado y comprometido)
     clientes_unicos: Type.Number({ description: 'Clientes únicos atendidos durante el evento' }),
     productos_unicos: Type.Number({ description: 'Productos únicos vendidos durante el evento' }),
+    clientes_sin_compra: Type.Number({
+      description: 'Clientes activos con compra en el año del evento que no han comprado durante el festival',
+    }),
 
     // Presupuesto del festival. Null cuando los filtros activos no son
     // aplicables al presupuesto (producto, cliente, marca, promoción…).
@@ -159,6 +162,19 @@ export const FESTIVAL_DATE_FIELDS = {
   transactions: 'order_date',
   pedidos_retenidos: 'date',
 } as const;
+
+/**
+ * Universe for "clientes sin compra": active customers (customer_active) with
+ * invoiced sales in the event's year. Scoped to transactions — the retained
+ * orders table has no activity/year columns. The festival buyers subtracted
+ * from this universe come from the same sources as `clientes_unicos`.
+ */
+export function activeCustomerUniverseFilters(startDate: string): FilterCondition[] {
+  return [
+    { field: 'year', operator: 'eq', value: startDate.slice(0, 4), table: 'transactions' },
+    { field: 'customer_active', operator: 'eq', value: 'true', table: 'transactions' },
+  ];
+}
 
 /**
  * Expand a brand bucket into per-table filter conditions. The commercial
@@ -270,6 +286,9 @@ export const FestivalListRowSchema = Type.Object(
     // Alcance del grupo (deduplicados entre facturado y comprometido)
     clientes_unicos: Type.Number({ description: 'Numérica: clientes únicos del grupo durante el evento' }),
     productos_unicos: Type.Number({ description: 'Items: productos únicos del grupo durante el evento' }),
+    clientes_sin_compra: Type.Number({
+      description: 'Clientes activos con compra del grupo en el año del evento y sin compra del grupo durante el festival',
+    }),
     presupuesto: NullableNumber, // presupuesto del evento para el grupo; null si no aplica
     cumplimiento_ppto: NullableNumber, // ventas / meta prorrateada, %
   },
@@ -279,6 +298,47 @@ export const FestivalListRowSchema = Type.Object(
 export type FestivalListRow = Static<typeof FestivalListRowSchema>;
 
 export const FestivalListSchema = Type.Array(FestivalListRowSchema);
+
+/**
+ * One client of the "clientes sin compra" detail listing: an active customer
+ * with invoiced sales in the event's year and no purchase during the festival.
+ * The seller is the one on the customer's latest invoiced sale of the year.
+ */
+export const FestivalSinCompraRowSchema = Type.Object(
+  {
+    customer_id: Type.String(),
+    customer_name: Type.String(),
+    seller_id: Type.String(),
+    seller_name: Type.String(),
+  },
+  { $id: 'FestivalSinCompraRow' }
+);
+
+export type FestivalSinCompraRow = Static<typeof FestivalSinCompraRowSchema>;
+
+export const FestivalSinCompraSchema = Type.Array(FestivalSinCompraRowSchema);
+
+/**
+ * Query parameters for the "clientes sin compra" Excel export: same contract
+ * as /festival plus presentation labels (reserved in the filter parser).
+ */
+export const FestivalSinCompraExportQueryStringSchema = Type.Composite(
+  [
+    FestivalQueryStringSchema,
+    Type.Object({
+      reportTitle: Type.Optional(Type.String()),
+      periodLabel: Type.Optional(Type.String()),
+      generatedLabel: Type.Optional(Type.String()),
+      filename: Type.Optional(Type.String()),
+    }),
+  ],
+  {
+    additionalProperties: true,
+    description: 'Clientes sin compra export: festival params + presentation labels.',
+  }
+);
+
+export type FestivalSinCompraExportQueryString = Static<typeof FestivalSinCompraExportQueryStringSchema>;
 
 /** One day of the festival daily sales series. */
 export const FestivalDailyPointSchema = Type.Object(

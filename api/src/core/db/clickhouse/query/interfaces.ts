@@ -93,4 +93,47 @@ export interface IAnalyticsQueryBuilder {
     filters: import('./filter-builder.js').FilterCondition[];
     groupBy: string;
   }): Promise<Map<string, number>>;
+
+  /**
+   * Distinct count over a universe source EXCLUDING values present in any of
+   * the exclusion sources (e.g. active-year customers who did NOT buy during
+   * an event). Filters honour FilterCondition.table scoping.
+   */
+  buildDistinctCountExcludingQuery(config: {
+    universe: { table: string; field: string; filters: import('./filter-builder.js').FilterCondition[] };
+    exclude: {
+      sources: Array<{ table: string; field: string }>;
+      filters: import('./filter-builder.js').FilterCondition[];
+    };
+  }): Promise<number>;
+
+  /**
+   * Detail listing of the universe values counted by
+   * buildDistinctCountExcludingQuery: one row per key with attribute columns
+   * resolved from the key's most recent universe row (argMax over dateField).
+   */
+  buildDistinctDetailsExcludingQuery(config: {
+    universe: { table: string; keyField: string; filters: import('./filter-builder.js').FilterCondition[] };
+    attributes: string[];
+    dateField: string;
+    exclude: {
+      sources: Array<{ table: string; field: string }>;
+      filters: import('./filter-builder.js').FilterCondition[];
+    };
+    orderBy?: string;
+  }): Promise<Array<Record<string, string>>>;
+
+  /**
+   * buildDistinctCountExcludingQuery grouped by a dimension column: exclusion
+   * is per (group, value) pair — a customer excluded in one group can still
+   * count in another.
+   */
+  buildGroupedDistinctCountExcludingQuery(config: {
+    universe: { table: string; field: string; filters: import('./filter-builder.js').FilterCondition[] };
+    exclude: {
+      sources: Array<{ table: string; field: string }>;
+      filters: import('./filter-builder.js').FilterCondition[];
+    };
+    groupBy: string;
+  }): Promise<Map<string, number>>;
 }

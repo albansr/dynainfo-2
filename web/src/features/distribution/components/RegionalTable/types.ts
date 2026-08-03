@@ -19,6 +19,8 @@ export interface RegionalData {
   retained: {
     amount: number;
     compliance: number;
+    /** Optional extra numeric slot (used by the festival listing). */
+    variation?: number;
   };
 }
 
@@ -36,5 +38,5 @@ export interface HeatmapThresholds {
   margin: { excellent: number; good: number; neutral: number };
 }
 
-export type SortKey = 'name' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder' | 'ppto' | 'pptoCumpl' | 'numerica' | 'items';
+export type SortKey = 'name' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder' | 'ppto' | 'pptoCumpl' | 'numerica' | 'items' | 'sinCompra';
 export type SortDirection = 'asc' | 'desc';

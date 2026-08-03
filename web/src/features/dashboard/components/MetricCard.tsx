@@ -2,7 +2,7 @@ import { Skeleton } from '@heroui/react';
 import type { ReactNode } from 'react';
 
 interface MetricCardProps {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   description: ReactNode;
   isLoading?: boolean;

@@ -31,6 +31,8 @@ export interface FestivalBalance {
   pedido_promedio_compare: number | null;
   clientes_unicos: number;
   productos_unicos: number;
+  /** Clientes activos con compra en el año del evento y sin compra durante el festival. */
+  clientes_sin_compra: number;
   /** Null cuando los filtros activos no aplican al presupuesto. */
   presupuesto: number | null;
   presupuesto_meta: number | null;
@@ -50,6 +52,8 @@ export interface FestivalListRow {
   clientes_unicos: number;
   /** Items: productos únicos del grupo durante el evento. */
   productos_unicos: number;
+  /** Clientes activos con compra del grupo en el año y sin compra del grupo en el festival. */
+  clientes_sin_compra: number;
   presupuesto: number | null;
   cumplimiento_ppto: number | null;
 }
@@ -118,6 +122,28 @@ export function useFestivalBalance(range: FestivalRange, filters?: Record<string
     staleTime: 1000 * 60 * 2,
     refetchInterval: LIVE_REFETCH_INTERVAL,
     refetchOnWindowFocus: false,
+  });
+}
+
+export interface FestivalSinCompraRow {
+  customer_id: string;
+  customer_name: string;
+  seller_id: string;
+  seller_name: string;
+}
+
+/**
+ * Detail of the `clientes_sin_compra` metric (fetched on demand when the
+ * modal opens). Same window/filters contract as the balance.
+ */
+export function useFestivalSinCompra(range: FestivalRange, filters: Record<string, unknown> | undefined, enabled: boolean) {
+  const mergedFilters = useMergedFilters(filters);
+
+  return useQuery({
+    queryKey: ['festival-sin-compra', ...rangeKey(range), mergedFilters],
+    queryFn: () => apiClient<Wrapped<FestivalSinCompraRow[]>>(`/api/festival/sin-compra?${buildParams(range, mergedFilters)}`),
+    staleTime: 1000 * 60 * 2,
+    enabled,
   });
 }
 

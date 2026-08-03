@@ -11,6 +11,8 @@ import {
   FestivalListExportQueryStringSchema,
   FestivalListSchema,
   FestivalDailySchema,
+  FestivalSinCompraSchema,
+  FestivalSinCompraExportQueryStringSchema,
   FESTIVAL_BRAND_GROUP,
   FESTIVAL_RAPPEL_GROUP,
   FESTIVAL_DATE_FIELDS,
@@ -18,9 +20,10 @@ import {
   brandGroupFilters,
   rappelGroupFilters,
   pptoPeriodoFilter,
+  activeCustomerUniverseFilters,
   type FestivalListQueryString,
 } from './festival.schemas.js';
-import { buildFestivalExportWorkbook } from './festival.export.workbook.js';
+import { buildFestivalExportWorkbook, buildSinCompraExportWorkbook } from './festival.export.workbook.js';
 import { SuccessResponseSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
 import { sanitizeFilename } from '../../core/utils/export-filename.js';
@@ -94,13 +97,19 @@ function dateRangeFilters(start: string, end: string): FilterCondition[] {
 }
 
 /**
- * Build the event-window and (optional) comparison-window filter sets.
+ * Build the event-window and (optional) comparison-window filter sets, plus
+ * the active-year customer universe for `clientes_sin_compra` (same dynamic
+ * filters, but bounded by the event's year instead of the event window).
  * Dynamic filters (compare* dates are reserved) apply to both windows.
  * `comparisonFilters` is undefined when the query has no comparison window.
  */
 function buildWindows(query: {
   startDate: string; endDate: string; compareStartDate?: string; compareEndDate?: string;
-}): { currentFilters: FilterCondition[]; comparisonFilters?: FilterCondition[] } {
+}): {
+  currentFilters: FilterCondition[];
+  comparisonFilters?: FilterCondition[];
+  universeFilters: FilterCondition[];
+} {
   // Distribution-only is enforced server-side; brand_group buckets are expanded.
   const dynamicFilters = [
     ...FESTIVAL_FIXED_FILTERS,
@@ -111,6 +120,7 @@ function buildWindows(query: {
     ...dateRangeFilters(query.startDate, query.endDate),
     pptoPeriodoFilter(query.startDate),
   ]);
+  const universeFilters = combineFilters(dynamicFilters, activeCustomerUniverseFilters(query.startDate));
   if (query.compareStartDate && query.compareEndDate) {
     return {
       currentFilters,
@@ -118,9 +128,10 @@ function buildWindows(query: {
         ...dateRangeFilters(query.compareStartDate, query.compareEndDate),
         pptoPeriodoFilter(query.compareStartDate),
       ]),
+      universeFilters,
     };
   }
-  return { currentFilters };
+  return { currentFilters, universeFilters };
 }
 
 /**
@@ -140,10 +151,16 @@ export function festivalRoutes(
     const windows = buildWindows(query);
     const groupBy = query.groupBy;
     if (groupBy === FESTIVAL_BRAND_GROUP) {
-      return service.getFestivalBrandGroups({ currentFilters: windows.currentFilters });
+      return service.getFestivalBrandGroups({
+        currentFilters: windows.currentFilters,
+        universeFilters: windows.universeFilters,
+      });
     }
     if (groupBy === FESTIVAL_RAPPEL_GROUP) {
-      return service.getFestivalRappelGroups({ currentFilters: windows.currentFilters });
+      return service.getFestivalRappelGroups({
+        currentFilters: windows.currentFilters,
+        universeFilters: windows.universeFilters,
+      });
     }
     return service.getFestivalList({ ...windows, window: query, ...(groupBy && { groupBy }) });
   };
@@ -230,6 +247,77 @@ export function festivalRoutes(
       });
 
       const baseName = sanitizeFilename(query.filename) || `festival-${groupBy ?? 'listado'}`;
+      const asciiName = baseName.replace(/[^\x20-\x7e]+/g, '_');
+      const encodedName = encodeURIComponent(`${baseName}.xlsx`);
+
+      return reply
+        .header('Content-Type', XLSX_MIME)
+        .header(
+          'Content-Disposition',
+          `attachment; filename="${asciiName}.xlsx"; filename*=UTF-8''${encodedName}`
+        )
+        .send(buffer);
+    }
+  );
+
+  /**
+   * GET /festival/sin-compra
+   * Detail of the `clientes_sin_compra` balance metric: active customers with
+   * invoiced sales in the event's year and no purchase during the festival,
+   * with their assigned seller. Same window/filters contract as /festival.
+   */
+  server.get(
+    '/festival/sin-compra',
+    {
+      schema: {
+        description: 'Clientes activos con compra en el año del evento y sin compra durante el festival, con su vendedor.',
+        tags: ['festival'],
+        querystring: FestivalQueryStringSchema,
+        response: {
+          200: SuccessResponseSchema(FestivalSinCompraSchema),
+        },
+      },
+    },
+    async (request, reply) => {
+      const windows = buildWindows(request.query);
+      const rows = await service.getFestivalSinCompraList({
+        currentFilters: windows.currentFilters,
+        universeFilters: windows.universeFilters,
+      });
+      return reply.code(200).send({ data: rows });
+    }
+  );
+
+  /**
+   * GET /festival/sin-compra/export
+   * Same listing as /festival/sin-compra, streamed as a styled Excel file.
+   */
+  server.get(
+    '/festival/sin-compra/export',
+    {
+      schema: {
+        description: 'Export the clientes-sin-compra listing as a styled Excel file.',
+        tags: ['festival'],
+        querystring: FestivalSinCompraExportQueryStringSchema,
+        // NOTE: no response schema — the handler sends a raw xlsx Buffer.
+      },
+    },
+    async (request, reply) => {
+      const query = request.query;
+      const windows = buildWindows(query);
+      const rows = await service.getFestivalSinCompraList({
+        currentFilters: windows.currentFilters,
+        universeFilters: windows.universeFilters,
+      });
+
+      const buffer = await buildSinCompraExportWorkbook({
+        rows,
+        ...(query.reportTitle && { reportTitle: query.reportTitle }),
+        ...(query.periodLabel && { periodLabel: query.periodLabel }),
+        ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
+      });
+
+      const baseName = sanitizeFilename(query.filename) || 'festival-clientes-sin-compra';
       const asciiName = baseName.replace(/[^\x20-\x7e]+/g, '_');
       const encodedName = encodeURIComponent(`${baseName}.xlsx`);
 

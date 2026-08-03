@@ -8,6 +8,7 @@ import {
   type FestivalBalance,
   type FestivalListRow,
   type FestivalDailyPoint,
+  type FestivalSinCompraRow,
 } from './festival.schemas.js';
 
 /** Coalesce a possibly-null/undefined query value to a number. */
@@ -77,12 +78,14 @@ export class FestivalService {
   async getFestivalBalance(params: {
     currentFilters: FilterCondition[];
     comparisonFilters?: FilterCondition[];
+    /** Active-year customer universe for `clientes_sin_compra`. */
+    universeFilters: FilterCondition[];
     /** Raw event/comparison windows, needed for the to-date (mismo día) growth. */
     window?: { startDate: string; endDate: string; compareStartDate?: string; compareEndDate?: string };
   }): Promise<FestivalBalance> {
     const hasComparison = !!params.comparisonFilters;
 
-    const [result, clientesUnicos, productosUnicos, toDate] = await Promise.all([
+    const [result, clientesUnicos, productosUnicos, clientesSinCompra, toDate] = await Promise.all([
       this.analyticsBuilder.buildMultiTableYoYQuery({
         metrics: FESTIVAL_METRICS,
         currentPeriodFilters: params.currentFilters,
@@ -95,6 +98,10 @@ export class FestivalService {
       this.analyticsBuilder.buildDistinctCountQuery({
         sources: distinctSources('product_id'),
         filters: params.currentFilters,
+      }),
+      this.analyticsBuilder.buildDistinctCountExcludingQuery({
+        universe: { table: 'transactions', field: 'customer_id', filters: params.universeFilters },
+        exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
       }),
       this.salesGrowthToDate(params),
     ]);
@@ -161,6 +168,7 @@ export class FestivalService {
 
       clientes_unicos: clientesUnicos,
       productos_unicos: productosUnicos,
+      clientes_sin_compra: clientesSinCompra,
 
       ...(() => {
         // Budget 0 means "not applicable under the active filters" (the engine
@@ -185,6 +193,8 @@ export class FestivalService {
   async getFestivalList(params: {
     currentFilters: FilterCondition[];
     comparisonFilters?: FilterCondition[];
+    /** Active-year customer universe for `clientes_sin_compra`. */
+    universeFilters: FilterCondition[];
     groupBy?: string;
     /** Event window, used to prorate the budget target to the running day. */
     window?: { startDate: string; endDate: string };
@@ -192,7 +202,7 @@ export class FestivalService {
     const groupBy = params.groupBy || FESTIVAL_DEFAULT_GROUP_BY;
 
     // Comparison is irrelevant to the listing (only current-period metrics are shown).
-    const [rows, clientesByGroup, productosByGroup] = await Promise.all([
+    const [rows, clientesByGroup, productosByGroup, sinCompraByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
         metrics: FESTIVAL_METRICS,
         currentPeriodFilters: params.currentFilters,
@@ -209,6 +219,11 @@ export class FestivalService {
       this.analyticsBuilder.buildGroupedDistinctCountQuery({
         sources: distinctSources('product_id'),
         filters: params.currentFilters,
+        groupBy,
+      }),
+      this.analyticsBuilder.buildGroupedDistinctCountExcludingQuery({
+        universe: { table: 'transactions', field: 'customer_id', filters: params.universeFilters },
+        exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
         groupBy,
       }),
     ]);
@@ -238,6 +253,7 @@ export class FestivalService {
         pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
         clientes_unicos: clientesByGroup.get(rawId) ?? 0,
         productos_unicos: productosByGroup.get(rawId) ?? 0,
+        clientes_sin_compra: sinCompraByGroup.get(rawId) ?? 0,
         presupuesto: budget > 0 ? budget : null,
         cumplimiento_ppto: meta > 0 ? (salesTotal / meta) * 100 : null,
       };
@@ -331,6 +347,32 @@ export class FestivalService {
   }
 
   /**
+   * Detail of the `clientes_sin_compra` count: the active-year customers that
+   * did not buy during the festival, with the seller of their latest invoiced
+   * sale of the year. Same universe/exclusion as the balance card, so the
+   * listing length always matches the card.
+   */
+  async getFestivalSinCompraList(params: {
+    currentFilters: FilterCondition[];
+    universeFilters: FilterCondition[];
+  }): Promise<FestivalSinCompraRow[]> {
+    const rows = await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
+      universe: { table: 'transactions', keyField: 'customer_id', filters: params.universeFilters },
+      attributes: ['customer_name', 'seller_id', 'seller_name'],
+      dateField: 'date',
+      exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
+      orderBy: 'customer_name',
+    });
+
+    return rows.map((r) => ({
+      customer_id: String(r['customer_id'] ?? ''),
+      customer_name: String(r['customer_name'] ?? ''),
+      seller_id: String(r['seller_id'] ?? ''),
+      seller_name: String(r['seller_name'] ?? ''),
+    }));
+  }
+
+  /**
    * Daily sales series (facturado + comprometido) over the event window:
    * transactions summed by order date, pedidos_retenidos by their row date.
    */
@@ -355,19 +397,19 @@ export class FestivalService {
    */
   async getFestivalBrandGroups(params: {
     currentFilters: FilterCondition[];
+    universeFilters: FilterCondition[];
   }): Promise<FestivalListRow[]> {
-    const exclusiveFilters: FilterCondition[] = [
-      ...params.currentFilters,
-      ...brandGroupFilters('exclusivas'),
-    ];
-    const alliedFilters: FilterCondition[] = [
-      ...params.currentFilters,
-      ...brandGroupFilters('aliadas'),
-    ];
+    const bucket = (b: 'exclusivas' | 'aliadas', name: string) =>
+      this.bucketRow(
+        b,
+        name,
+        [...params.currentFilters, ...brandGroupFilters(b)],
+        [...params.universeFilters, ...brandGroupFilters(b)]
+      );
 
     const [exclusivas, aliadas] = await Promise.all([
-      this.bucketRow('exclusivas', 'Marcas Exclusivas', exclusiveFilters),
-      this.bucketRow('aliadas', 'Marcas Aliadas', alliedFilters),
+      bucket('exclusivas', 'Marcas Exclusivas'),
+      bucket('aliadas', 'Marcas Aliadas'),
     ]);
 
     return [exclusivas, aliadas].sort((a, b) => b.sales_total - a.sales_total);
@@ -380,10 +422,19 @@ export class FestivalService {
    */
   async getFestivalRappelGroups(params: {
     currentFilters: FilterCondition[];
+    universeFilters: FilterCondition[];
   }): Promise<FestivalListRow[]> {
+    const bucket = (b: 'con_rappel' | 'sin_rappel', name: string) =>
+      this.bucketRow(
+        b,
+        name,
+        [...params.currentFilters, ...rappelGroupFilters(b)],
+        [...params.universeFilters, ...rappelGroupFilters(b)]
+      );
+
     const [conRappel, sinRappel] = await Promise.all([
-      this.bucketRow('con_rappel', 'Productos con Promoción', [...params.currentFilters, ...rappelGroupFilters('con_rappel')]),
-      this.bucketRow('sin_rappel', 'Productos sin Promoción', [...params.currentFilters, ...rappelGroupFilters('sin_rappel')]),
+      bucket('con_rappel', 'Productos con Promoción'),
+      bucket('sin_rappel', 'Productos sin Promoción'),
     ]);
 
     return [conRappel, sinRappel].sort((a, b) => b.sales_total - a.sales_total);
@@ -393,9 +444,10 @@ export class FestivalService {
   private async bucketRow(
     id: string,
     name: string,
-    filters: FilterCondition[]
+    filters: FilterCondition[],
+    universeFilters: FilterCondition[]
   ): Promise<FestivalListRow> {
-    const [result, clientesUnicos, productosUnicos] = await Promise.all([
+    const [result, clientesUnicos, productosUnicos, clientesSinCompra] = await Promise.all([
       this.analyticsBuilder.buildMultiTableYoYQuery({
         metrics: FESTIVAL_METRICS,
         currentPeriodFilters: filters,
@@ -407,6 +459,10 @@ export class FestivalService {
       this.analyticsBuilder.buildDistinctCountQuery({
         sources: distinctSources('product_id'),
         filters,
+      }),
+      this.analyticsBuilder.buildDistinctCountExcludingQuery({
+        universe: { table: 'transactions', field: 'customer_id', filters: universeFilters },
+        exclude: { sources: distinctSources('customer_id'), filters },
       }),
     ]);
     const sales = num(result['sales']);
@@ -427,6 +483,7 @@ export class FestivalService {
       pedido_promedio: pedidosCount > 0 ? salesTotal / pedidosCount : 0,
       clientes_unicos: clientesUnicos,
       productos_unicos: productosUnicos,
+      clientes_sin_compra: clientesSinCompra,
       // Virtual buckets are not budget-splittable; the scoped bucket filters
       // zero the budget table.
       presupuesto: null,

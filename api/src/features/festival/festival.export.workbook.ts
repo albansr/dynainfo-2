@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { toArgb, complianceColor } from '../list/list.export.heatmap.js';
-import type { FestivalListRow } from './festival.schemas.js';
+import type { FestivalListRow, FestivalSinCompraRow } from './festival.schemas.js';
 
 export interface FestivalWorkbookInput {
   rows: FestivalListRow[];
@@ -93,21 +93,110 @@ function buildColumns(input: FestivalWorkbookInput): FestivalExcelColumn[] {
       header: 'Pedido Promedio', format: 'currency', width: 16,
       value: (r) => r.pedido_promedio,
     },
-    input.hideNumerica
-      ? null
-      : {
-          header: 'Numérica', format: 'integer', width: 12,
-          value: (r) => r.clientes_unicos,
-        },
     input.hideItems
       ? null
       : {
           header: 'Items', format: 'integer', width: 12,
           value: (r) => r.productos_unicos,
         },
+    input.hideNumerica
+      ? null
+      : {
+          header: 'Numérica', format: 'integer', width: 12,
+          value: (r) => r.clientes_unicos,
+        },
+    input.hideNumerica
+      ? null
+      : {
+          header: 'Clientes sin compra', format: 'integer', width: 16,
+          value: (r) => r.clientes_sin_compra,
+        },
   ];
 
   return cols.filter((c): c is FestivalExcelColumn => c !== null);
+}
+
+export interface SinCompraWorkbookInput {
+  rows: FestivalSinCompraRow[];
+  reportTitle?: string;
+  periodLabel?: string;
+  generatedLabel?: string;
+}
+
+/**
+ * "Clientes sin compra" export: the active-year customers without a festival
+ * purchase, with their assigned seller. Same visual language as the listing
+ * export (title block, dark header, zebra rows, auto filter).
+ */
+export async function buildSinCompraExportWorkbook(input: SinCompraWorkbookInput): Promise<Buffer> {
+  const columns = [
+    { header: 'Código Cliente', width: 16, value: (r: FestivalSinCompraRow) => r.customer_id },
+    { header: 'Cliente', width: 46, value: (r: FestivalSinCompraRow) => r.customer_name },
+    { header: 'Código Vendedor', width: 16, value: (r: FestivalSinCompraRow) => r.seller_id },
+    { header: 'Vendedor', width: 34, value: (r: FestivalSinCompraRow) => r.seller_name },
+  ];
+  const lastCol = columns.length;
+
+  const hasTitle = Boolean(input.reportTitle || input.periodLabel);
+  const topOffset = hasTitle ? 3 : 0;
+  const headerRow = topOffset + 1;
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Clientes sin compra', {
+    views: [{ state: 'frozen', xSplit: 0, ySplit: headerRow }],
+  });
+
+  ws.columns = columns.map((c) => ({
+    width: c.width,
+    style: { alignment: { horizontal: 'left' as const }, font: { name: FONT, color: { argb: BODY_TEXT } } },
+  }));
+
+  if (hasTitle) {
+    const titleRow = ws.getRow(1);
+    ws.mergeCells(1, 1, 1, lastCol);
+    titleRow.getCell(1).value = input.reportTitle || 'Clientes sin compra';
+    titleRow.getCell(1).font = { name: FONT, bold: true, size: 15, color: { argb: HEADER_FILL } };
+    titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    titleRow.height = 24;
+
+    const periodRow = ws.getRow(2);
+    ws.mergeCells(2, 1, 2, lastCol);
+    const periodText = input.periodLabel ? `Evento: ${input.periodLabel}` : '';
+    const generatedText = input.generatedLabel ? `Generado el ${input.generatedLabel}` : '';
+    periodRow.getCell(1).value = [periodText, generatedText].filter(Boolean).join('    ·    ');
+    periodRow.getCell(1).font = { name: FONT, bold: true, size: 11, color: { argb: MUTED_TEXT } };
+    periodRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    periodRow.height = 18;
+  }
+
+  const header = ws.getRow(headerRow);
+  header.height = 26;
+  columns.forEach((c, i) => {
+    const cell = header.getCell(i + 1);
+    cell.value = c.header;
+    cell.font = { name: FONT, bold: true, size: 11, color: { argb: HEADER_TEXT } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    cell.border = { bottom: { style: 'thin', color: { argb: BORDER } } };
+  });
+
+  const zebraFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA_FILL } };
+  input.rows.forEach((row, index) => {
+    const excelRow = ws.addRow(columns.map((c) => c.value(row)));
+    if (index % 2 === 1) {
+      columns.forEach((_c, i) => {
+        excelRow.getCell(i + 1).fill = zebraFill;
+      });
+    }
+  });
+
+  ws.autoFilter = {
+    from: { row: headerRow, column: 1 },
+    to: { row: headerRow, column: lastCol },
+  };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer as ArrayBuffer);
 }
 
 export async function buildFestivalExportWorkbook(input: FestivalWorkbookInput): Promise<Buffer> {

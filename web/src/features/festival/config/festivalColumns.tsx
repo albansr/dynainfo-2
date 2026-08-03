@@ -20,6 +20,7 @@ import type { FestivalListRow } from '../hooks/useFestivalBalance';
  *   margin.previous → cumplimiento de presupuesto (%)
  *   sales.variation → numérica (clientes únicos)
  *   margin.variation → items (productos únicos)
+ *   retained.variation → clientes sin compra (activos del año sin compra en el festival)
  * `% sobre total` is computed here over the sum of the current listing.
  */
 export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalData[] {
@@ -30,7 +31,7 @@ export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalDat
     sales: { current: row.sales_total, previous: total > 0 ? (row.sales_total / total) * 100 : 0, variation: row.clientes_unicos },
     margin: { current: row.gross_margin_pct, previous: row.cumplimiento_ppto ?? 0, variation: row.productos_unicos, budget: row.presupuesto ?? 0 },
     budget: { amount: row.comprometido, compliance: row.rappel_pct },
-    retained: { amount: row.pedido_promedio, compliance: row.margen_rappel_pct },
+    retained: { amount: row.pedido_promedio, compliance: row.margen_rappel_pct, variation: row.clientes_sin_compra },
   }));
 }
 
@@ -148,6 +149,15 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
     sortKey: 'avgOrder',
   },
   {
+    id: 'items',
+    header: { label: 'ITEMS', sortable: true, align: 'right', rowSpan: 2 },
+    accessor: (d) => d.margin.variation,
+    cellRenderer: integerCell,
+    align: 'right',
+    sortable: true,
+    sortKey: 'items',
+  },
+  {
     id: 'numerica',
     header: { label: 'NUMÉRICA', sortable: true, align: 'right', rowSpan: 2 },
     accessor: (d) => d.sales.variation,
@@ -157,13 +167,13 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
     sortKey: 'numerica',
   },
   {
-    id: 'items',
-    header: { label: 'ITEMS', sortable: true, align: 'right', rowSpan: 2 },
-    accessor: (d) => d.margin.variation,
+    id: 'sinCompra',
+    header: { label: 'CLIENTES SIN COMPRA', sortable: true, align: 'right', rowSpan: 2 },
+    accessor: (d) => d.retained.variation ?? 0,
     cellRenderer: integerCell,
     align: 'right',
     sortable: true,
-    sortKey: 'items',
+    sortKey: 'sinCompra',
   },
 ];
 
@@ -207,7 +217,7 @@ export function getFestivalColumns(
     c.id === 'sales' && includeBudget ? [c, ...FESTIVAL_BUDGET_COLUMNS] : [c]
   ).filter(
     (c) =>
-      !(c.id === 'numerica' && groupBy === 'customer_id') &&
+      !((c.id === 'numerica' || c.id === 'sinCompra') && groupBy === 'customer_id') &&
       !(c.id === 'items' && groupBy === 'product_id')
   );
   return columns.map((c) =>

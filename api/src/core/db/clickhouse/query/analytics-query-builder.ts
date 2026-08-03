@@ -1042,6 +1042,223 @@ GROUP BY id
   }
 
   /**
+   * One `SELECT [trimBoth(groupBy) AS id,] field AS value FROM table WHERE …`
+   * per applicable source. A source whose applicable non-date filters
+   * reference columns it lacks — or that lacks the counted field / the group
+   * column — contributes nothing (consistent with the distinct-count zeroing).
+   */
+  private buildDistinctSourceSelects(
+    sources: Array<{ table: string; field: string }>,
+    filters: FilterCondition[],
+    columnMap: Map<string, Set<string>>,
+    queryParams: Record<string, string | string[]>,
+    paramPrefix: string,
+    groupBy?: string
+  ): string[] {
+    const selects: string[] = [];
+    for (const source of sources) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(source.field)) {
+        throw new Error(`Invalid field name format: ${source.field}`);
+      }
+
+      const tableName = `${this.tablePrefix}${source.table}`;
+      const tableColumns = columnMap.get(tableName) ?? new Set<string>();
+      const tableFilters = this.filtersForTable(filters, source.table);
+
+      const hasUnfilterableColumn = tableFilters
+        .filter((f) => f.field !== 'date')
+        .some((f) => !tableColumns.has(f.field));
+      if (
+        hasUnfilterableColumn ||
+        !tableColumns.has(source.field) ||
+        (groupBy && !tableColumns.has(groupBy))
+      ) {
+        continue;
+      }
+
+      const where = this.filterBuilder.buildWhereClauseForTable(
+        tableFilters,
+        queryParams,
+        `${paramPrefix}_${source.table}`,
+        tableName,
+        columnMap
+      );
+
+      const idCol = groupBy ? `trimBoth(${groupBy}) AS id, ` : '';
+      selects.push(`SELECT ${idCol}${source.field} AS value FROM ${tableName} ${where}`);
+    }
+    return selects;
+  }
+
+  /**
+   * Count distinct values of the universe source EXCLUDING values present in
+   * any of the exclusion sources (e.g. active-year customers who did NOT buy
+   * during an event window). Filters honour FilterCondition.table scoping; an
+   * exclusion source with inapplicable filters excludes nothing.
+   */
+  async buildDistinctCountExcludingQuery(config: {
+    universe: { table: string; field: string; filters: FilterCondition[] };
+    exclude: { sources: Array<{ table: string; field: string }>; filters: FilterCondition[] };
+  }): Promise<number> {
+    const { universe, exclude } = config;
+
+    const tableNames = [universe.table, ...exclude.sources.map((s) => s.table)].map(
+      (t) => `${this.tablePrefix}${t}`
+    );
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
+    const queryParams: Record<string, string | string[]> = {};
+
+    const [universeSelect] = this.buildDistinctSourceSelects(
+      [universe], universe.filters, columnMap, queryParams, 'universe'
+    );
+    if (!universeSelect) return 0;
+
+    const excludeSelects = this.buildDistinctSourceSelects(
+      exclude.sources, exclude.filters, columnMap, queryParams, 'exclude'
+    );
+    const exclusion = excludeSelects.length > 0
+      ? `WHERE value NOT IN (\n  SELECT value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
+      : '';
+
+    const query = `
+SELECT uniqExact(value) AS count
+FROM (${universeSelect})
+${exclusion}
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    const rows = await resultSet.json<{ count: number }>();
+    return Number(rows[0]?.count ?? 0);
+  }
+
+  /**
+   * Detail listing of the distinct universe values excluded by
+   * buildDistinctCountExcludingQuery: one row per key with its attribute
+   * columns resolved via argMax over `dateField` (the value on the key's
+   * latest universe row — e.g. a customer's current seller).
+   */
+  async buildDistinctDetailsExcludingQuery(config: {
+    universe: { table: string; keyField: string; filters: FilterCondition[] };
+    /** Attribute columns resolved per key from its most recent row. */
+    attributes: string[];
+    dateField: string;
+    exclude: { sources: Array<{ table: string; field: string }>; filters: FilterCondition[] };
+    /** Column to sort by (the key or one of the attributes). Defaults to the key. */
+    orderBy?: string;
+  }): Promise<Array<Record<string, string>>> {
+    const { universe, attributes, dateField, exclude } = config;
+    const orderBy = config.orderBy ?? universe.keyField;
+
+    for (const field of [universe.keyField, dateField, orderBy, ...attributes]) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field)) {
+        throw new Error(`Invalid field name format: ${field}`);
+      }
+    }
+
+    const tableNames = [universe.table, ...exclude.sources.map((s) => s.table)].map(
+      (t) => `${this.tablePrefix}${t}`
+    );
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
+    const queryParams: Record<string, string | string[]> = {};
+
+    const universeTable = `${this.tablePrefix}${universe.table}`;
+    const universeColumns = columnMap.get(universeTable) ?? new Set<string>();
+    const universeFilters = this.filtersForTable(universe.filters, universe.table);
+    const missingColumn = [universe.keyField, dateField, ...attributes].some((f) => !universeColumns.has(f))
+      || universeFilters.filter((f) => f.field !== 'date').some((f) => !universeColumns.has(f.field));
+    if (missingColumn) return [];
+
+    const where = this.filterBuilder.buildWhereClauseForTable(
+      universeFilters, queryParams, 'universe_detail', universeTable, columnMap
+    );
+
+    const excludeSelects = this.buildDistinctSourceSelects(
+      exclude.sources, exclude.filters, columnMap, queryParams, 'exclude_detail'
+    );
+    const exclusion = excludeSelects.length > 0
+      ? `${where ? 'AND' : 'WHERE'} ${universe.keyField} NOT IN (\n  SELECT value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
+      : '';
+
+    const attributeCols = attributes
+      .map((a) => `argMax(${a}, ${dateField}) AS ${a}`)
+      .join(',\n  ');
+
+    const query = `
+SELECT
+  ${universe.keyField},
+  ${attributeCols}
+FROM ${universeTable}
+${where}
+${exclusion}
+GROUP BY ${universe.keyField}
+ORDER BY ${orderBy} ASC
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    return resultSet.json<Record<string, string>>();
+  }
+
+  /**
+   * buildDistinctCountExcludingQuery grouped by a dimension column. Exclusion
+   * is per (group, value) pair: a customer who bought group A during the event
+   * is excluded from A but still counts in group B if they only bought B
+   * before it.
+   */
+  async buildGroupedDistinctCountExcludingQuery(config: {
+    universe: { table: string; field: string; filters: FilterCondition[] };
+    exclude: { sources: Array<{ table: string; field: string }>; filters: FilterCondition[] };
+    groupBy: string;
+  }): Promise<Map<string, number>> {
+    const { universe, exclude, groupBy } = config;
+
+    this.filterBuilder.validateFieldName(groupBy);
+
+    const tableNames = [universe.table, ...exclude.sources.map((s) => s.table)].map(
+      (t) => `${this.tablePrefix}${t}`
+    );
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
+    const queryParams: Record<string, string | string[]> = {};
+
+    const [universeSelect] = this.buildDistinctSourceSelects(
+      [universe], universe.filters, columnMap, queryParams, 'guniverse', groupBy
+    );
+    if (!universeSelect) return new Map();
+
+    const excludeSelects = this.buildDistinctSourceSelects(
+      exclude.sources, exclude.filters, columnMap, queryParams, 'gexclude', groupBy
+    );
+    const exclusion = excludeSelects.length > 0
+      ? `WHERE (id, value) NOT IN (\n  SELECT id, value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
+      : '';
+
+    const query = `
+SELECT id, uniqExact(value) AS count
+FROM (${universeSelect})
+${exclusion}
+GROUP BY id
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    const rows = await resultSet.json<{ id: string; count: number }>();
+    return new Map(rows.map((r) => [r.id, Number(r.count)]));
+  }
+
+  /**
    * Build query to get distinct values from a column
    * Returns array of unique string values sorted alphabetically A-Z
    *

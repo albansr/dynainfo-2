@@ -2,7 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { format, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Spinner, Select, SelectItem, Breadcrumbs, BreadcrumbItem } from '@heroui/react';
+import { Spinner, Select, SelectItem, Breadcrumbs, BreadcrumbItem, Tooltip } from '@heroui/react';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { NavBadge } from '@/core/components/NavBadge';
 import { PrimaryMetricCard } from '@/features/dashboard/components/PrimaryMetricCard';
 import { MetricCard } from '@/features/dashboard/components/MetricCard';
@@ -21,6 +22,7 @@ import {
 } from '../config/festival';
 import { FestivalTeaser } from '../components/FestivalTeaser';
 import { FestivalExportButton } from '../components/FestivalExportButton';
+import { FestivalSinCompraModal } from '../components/FestivalSinCompraModal';
 import { getFestivalColumns, festivalRowsToRegionalData } from '../config/festivalColumns';
 import { useFestivalBalance, useFestivalList, useFestivalDaily } from '../hooks/useFestivalBalance';
 
@@ -319,20 +321,49 @@ function FestivalDashboard() {
         </div>
       </div>
 
-      {/* Alcance del evento: numérica (clientes únicos) e items (productos únicos) */}
+      {/* Alcance del evento: items (productos únicos), numérica (clientes únicos)
+          y clientes sin compra (activos del año que no han comprado en el festival) */}
       <div className="mt-8 border border-gray-200 rounded-lg p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           <PrimaryMetricCard
-            label="NUMÉRICA"
-            mainValue={(b?.clientes_unicos ?? 0).toLocaleString('es-CO')}
-            secondaryLabel="Clientes únicos atendidos"
+            label="ITEMS"
+            mainValue={(b?.productos_unicos ?? 0).toLocaleString('es-CO')}
+            secondaryLabel="Productos únicos vendidos"
             secondaryValue=""
             isLoading={isLoading}
           />
           <MetricCard
-            label="ITEMS"
-            value={(b?.productos_unicos ?? 0).toLocaleString('es-CO')}
-            description="Productos únicos vendidos"
+            label="NUMÉRICA"
+            value={(b?.clientes_unicos ?? 0).toLocaleString('es-CO')}
+            description="Clientes únicos atendidos"
+            isLoading={isLoading}
+            centered
+          />
+          <MetricCard
+            label={
+              <span className="inline-flex items-center gap-1">
+                CLIENTES SIN COMPRA
+                <Tooltip
+                  placement="top"
+                  className="max-w-72"
+                  content={`Clientes activos que han comprado en ${festival.startDate.getFullYear()} pero no han comprado durante el festival. El detalle muestra el vendedor de su última compra del año.`}
+                >
+                  <InformationCircleIcon className="h-4 w-4 text-gray-400" />
+                </Tooltip>
+              </span>
+            }
+            value={
+              <span className="inline-flex items-center gap-1.5">
+                {(b?.clientes_sin_compra ?? 0).toLocaleString('es-CO')}
+                <FestivalSinCompraModal
+                  startDate={festival.startDate}
+                  endDate={festival.endDate}
+                  filters={filters}
+                  reportTitle={[festival.name, ...trail].join(' · ')}
+                />
+              </span>
+            }
+            description="Durante el festival"
             isLoading={isLoading}
             centered
           />

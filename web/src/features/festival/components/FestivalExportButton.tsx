@@ -3,9 +3,8 @@ import { Button } from '@heroui/react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { API_URL } from '@/core/config/constants';
 import { useMergedFilters } from '../hooks/useFestivalBalance';
+import { downloadExcel, appendFilterParams } from '../utils/downloadExcel';
 
 interface FestivalExportButtonProps {
   /** Event window (comparison is irrelevant to the listing export). */
@@ -51,39 +50,9 @@ export function FestivalExportButton({
 
       const filename = `Festival_${dimensionLabel}_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
       params.append('filename', filename);
+      appendFilterParams(params, mergedFilters);
 
-      if (mergedFilters) {
-        for (const [key, value] of Object.entries(mergedFilters)) {
-          if (Array.isArray(value)) {
-            value.forEach((v) => params.append(key, String(v)));
-          } else if (value !== undefined && value !== null) {
-            params.append(key, String(value));
-          }
-        }
-      }
-
-      const response = await fetch(`${API_URL}/api/festival/list/export?${params.toString()}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        toast.error('No se pudo generar el archivo Excel');
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${filename}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success('Exportación completada');
-    } catch {
-      toast.error('No se pudo generar el archivo Excel');
+      await downloadExcel('/api/festival/list/export', params, filename);
     } finally {
       setIsExporting(false);
     }
