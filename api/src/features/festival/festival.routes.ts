@@ -60,6 +60,11 @@ const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
     pedidos_retenidos: 'Marca',
     [FESTIVAL_PPTO_TABLE]: 'Marca',
   },
+  Categoria: {
+    transactions: 'Categoria',
+    pedidos_retenidos: 'Categoria',
+    [FESTIVAL_PPTO_TABLE]: 'Categoria',
+  },
 };
 
 /**

@@ -121,8 +121,9 @@ export class FestivalService {
     const margenRappelPctCompare = hasComparison && salesCompare !== 0
       ? ((num(result['gross_margin_ly']) + num(result['rappel_ly'])) / salesCompare) * 100
       : null;
-    const margenRappelPctGrowth = margenRappelPctCompare !== null && margenRappelPctCompare > 0
-      ? ((margenRappelPct - margenRappelPctCompare) / margenRappelPctCompare) * 100
+    // Variación en puntos porcentuales (20% → 25% = +5), no crecimiento relativo.
+    const margenRappelPctGrowth = margenRappelPctCompare !== null
+      ? margenRappelPct - margenRappelPctCompare
       : null;
 
     // Pedidos: comprometido = valor pendiente de facturar; promedio =
@@ -328,7 +329,8 @@ export class FestivalService {
       growth = compareTotal > 0 ? ((num(growthResult['sales_total']) - compareTotal) / compareTotal) * 100 : null;
       const margenCur = margenPct(num(growthResult['sales']), num(growthResult['gross_margin']), num(growthResult['rappel']));
       const margenComp = margenPct(num(growthResult['sales_ly']), num(growthResult['gross_margin_ly']), num(growthResult['rappel_ly']));
-      margenGrowth = margenComp > 0 ? ((margenCur - margenComp) / margenComp) * 100 : null;
+      // Variación en puntos porcentuales, con base válida solo si hubo ventas comparadas.
+      margenGrowth = num(growthResult['sales_ly']) > 0 ? margenCur - margenComp : null;
     }
 
     return {
@@ -393,7 +395,7 @@ export class FestivalService {
 
   /**
    * Virtual "Marcas" listing: two aggregated rows (Marcas Exclusivas / Aliadas)
-   * by ProveedorComercial membership. Clicking a row drills into products.
+   * by ProveedorComercial membership. Clicking a row drills into its providers.
    */
   async getFestivalBrandGroups(params: {
     currentFilters: FilterCondition[];
