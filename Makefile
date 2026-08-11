@@ -532,25 +532,21 @@ deploy: ## 🚀 Full production deployment (checks + build + deploy + db setup +
 	@echo "$(BOLD)$(CYAN)║   🚀 PRODUCTION DEPLOYMENT STARTING...    ║$(RESET)"
 	@echo "$(BOLD)$(CYAN)╚════════════════════════════════════════════╝$(RESET)"
 	@echo ""
-	@echo "$(BOLD)$(CYAN)Step 1/6: Running pre-deployment checks...$(RESET)"
+	@echo "$(BOLD)$(CYAN)Step 1/5: Running pre-deployment checks...$(RESET)"
 	@$(MAKE) deploy-check
 	@echo ""
-	@echo "$(BOLD)$(CYAN)Step 2/6: Stopping existing containers...$(RESET)"
-	@cd api && docker compose -f docker-compose.production.yml down 2>/dev/null || true
-	@echo "$(GREEN)✓ Containers stopped$(RESET)"
-	@echo ""
-	@echo "$(BOLD)$(CYAN)Step 3/6: Building production image...$(RESET)"
-	@cd api && docker compose -f docker-compose.production.yml build --no-cache
+	@echo "$(BOLD)$(CYAN)Step 2/5: Building production image (service stays up)...$(RESET)"
+	@cd api && docker compose -f docker-compose.production.yml build $(if $(NOCACHE),--no-cache)
 	@echo "$(GREEN)✓ Production image built$(RESET)"
 	@echo ""
-	@echo "$(BOLD)$(CYAN)Step 4/6: Starting services (PostgreSQL + API)...$(RESET)"
+	@echo "$(BOLD)$(CYAN)Step 3/5: Swapping containers (only changed services restart)...$(RESET)"
 	@cd api && docker compose -f docker-compose.production.yml up -d
-	@echo "$(GREEN)✓ Services started$(RESET)"
+	@echo "$(GREEN)✓ Services running on the new image$(RESET)"
 	@echo ""
-	@echo "$(BOLD)$(CYAN)Step 5/6: Setting up database...$(RESET)"
+	@echo "$(BOLD)$(CYAN)Step 4/5: Setting up database...$(RESET)"
 	@$(MAKE) deploy-db
 	@echo ""
-	@echo "$(BOLD)$(CYAN)Step 6/6: Running health checks...$(RESET)"
+	@echo "$(BOLD)$(CYAN)Step 5/5: Running health checks...$(RESET)"
 	@echo "$(YELLOW)Waiting for API to be ready...$(RESET)"
 	@sleep 5
 	@MAX_ATTEMPTS=30; \
