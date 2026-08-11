@@ -275,7 +275,7 @@ function FestivalDashboard() {
             isLoading={isLoading}
           />
           <MetricCard
-            label={eventFinished ? 'CRECIMIENTO MARGEN TOTAL' : 'CREC. MARGEN A MISMO DÍA'}
+            label={eventFinished ? 'VARIACIÓN DEL MARGEN TOTAL' : 'VAR. MARGEN A MISMO DÍA'}
             value={b ? growth(eventFinished ? b.margen_rappel_pct_growth : b.margen_rappel_pct_growth_to_date) : <span>0%</span>}
             description={
               eventFinished

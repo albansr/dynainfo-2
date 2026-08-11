@@ -37,7 +37,8 @@ function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalDat
   const marginPrevious = totals.salesPrevious !== 0
     ? data.reduce((acc, item) => acc + item.margin.previous * item.sales.previous, 0) / totals.salesPrevious : 0;
   const marginBudget = totals.budgetAmount !== 0 ? totals.budgetMargin / totals.budgetAmount : 0;
-  const marginVariation = marginPrevious !== 0 ? ((marginCurrent - marginPrevious) / marginPrevious) * 100 : 0;
+  // Variación en puntos porcentuales (20% → 25% = +5), no crecimiento relativo.
+  const marginVariation = totals.salesPrevious !== 0 ? marginCurrent - marginPrevious : 0;
   const retainedCompliance = totals.budgetAmount !== 0 ? (totals.retainedAmount / totals.budgetAmount) * 100 : 0;
   return {
     id: 'totals',

@@ -78,7 +78,7 @@ export function StandardMetrics({ balanceData, endDate, preset, isLoading }: Sta
           />
 
           <MetricCard
-            label="CRECIMIENTO MARGEN"
+            label="VARIACIÓN DEL MARGEN"
             value={
               balanceData
                 ? (() => {
@@ -87,10 +87,8 @@ export function StandardMetrics({ balanceData, endDate, preset, isLoading }: Sta
                     }
                     const marginPct = balanceData.gross_margin_pct;
                     const marginPctLastYear = (balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100;
-                    if (marginPctLastYear <= 0) {
-                      return <span className="text-gray-500">N/A</span>;
-                    }
-                    const variation = ((marginPct - marginPctLastYear) / marginPctLastYear) * 100;
+                    // Variación en puntos porcentuales (20% → 25% = +5), no crecimiento relativo.
+                    const variation = marginPct - marginPctLastYear;
                     return (
                       <span className={variation >= 0 ? 'text-green-600' : 'text-red-600'}>
                         {formatPercentageWithSign(variation)}%

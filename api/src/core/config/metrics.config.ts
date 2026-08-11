@@ -159,10 +159,12 @@ export const CALCULATED_METRICS = [
     formula: 'if({sales_last_year} > 0, ({gross_margin_last_year} / {sales_last_year}) * 100, NULL)',
   },
   {
+    // Variation in percentage POINTS, not relative growth: 20% → 25% reads +5.
+    // NULL propagates from gross_margin_pct_last_year when there is no base.
     name: 'gross_margin_pct_vs_last_year',
-    description: 'YoY variance % for gross margin percentage',
+    description: 'YoY variation in percentage points for gross margin percentage',
     dependencies: ['gross_margin_pct', 'gross_margin_pct_last_year'],
-    formula: 'if({gross_margin_pct_last_year} > 0, (({gross_margin_pct} - {gross_margin_pct_last_year}) / {gross_margin_pct_last_year}) * 100, NULL)',
+    formula: '{gross_margin_pct} - {gross_margin_pct_last_year}',
   },
   {
     name: 'cartera_compliance_pct',

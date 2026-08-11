@@ -112,8 +112,8 @@ export const FestivalBalanceSchema = Type.Object(
     margen_rappel: Type.Number({ description: 'Margen bruto + rappel (valor absoluto)' }),
     margen_rappel_pct: Type.Number({ description: '(Margen bruto + rappel) sobre ventas, %' }),
     margen_rappel_pct_compare: NullableNumber, // null sin comparativa
-    margen_rappel_pct_growth: NullableNumber, // % vs comparación (evento completo)
-    margen_rappel_pct_growth_to_date: NullableNumber, // "a mismo día" (días cerrados)
+    margen_rappel_pct_growth: NullableNumber, // puntos porcentuales vs comparación (evento completo)
+    margen_rappel_pct_growth_to_date: NullableNumber, // puntos "a mismo día" (días cerrados)
     margen_rappel_pct_compare_to_date: NullableNumber, // margen del anterior hasta el día en curso
 
     // Pedidos

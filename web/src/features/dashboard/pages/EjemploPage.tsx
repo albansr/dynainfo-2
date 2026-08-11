@@ -75,13 +75,14 @@ export function EjemploPage() {
           />
 
           <MetricCard
-            label="CRECIMIENTO MARGEN"
+            label="VARIACIÓN DEL MARGEN"
             value={
               balanceData
                 ? (() => {
                     const marginPct = balanceData.sales !== 0 ? (balanceData.gross_margin / balanceData.sales) * 100 : 0;
                     const marginPctLastYear = balanceData.sales_last_year !== 0 ? (balanceData.gross_margin_last_year / balanceData.sales_last_year) * 100 : 0;
-                    const variation = marginPctLastYear !== 0 ? ((marginPct - marginPctLastYear) / marginPctLastYear) * 100 : 0;
+                    // Variación en puntos porcentuales (20% → 25% = +5), no crecimiento relativo.
+                    const variation = balanceData.sales_last_year !== 0 ? marginPct - marginPctLastYear : 0;
                     return (
                       <span className={variation >= 0 ? 'text-green-600' : 'text-red-600'}>
                         {formatPercentageWithSign(variation)}%
