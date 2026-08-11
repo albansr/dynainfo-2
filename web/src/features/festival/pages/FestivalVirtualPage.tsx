@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { format, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -17,10 +17,7 @@ import {
   FESTIVAL_DIM_LABEL,
   FESTIVAL_DRILL_TARGET,
   FESTIVAL_DEFAULT_GROUP_BY,
-  FESTIVAL_ACCESS_CODE,
-  FESTIVAL_ACCESS_STORAGE_KEY,
 } from '../config/festival';
-import { FestivalTeaser } from '../components/FestivalTeaser';
 import { FestivalExportButton } from '../components/FestivalExportButton';
 import { FestivalSinCompraModal } from '../components/FestivalSinCompraModal';
 import { getFestivalColumns, festivalRowsToRegionalData } from '../config/festivalColumns';
@@ -49,26 +46,7 @@ function growth(value: number | null): ReactNode {
   );
 }
 
-/**
- * Validation gate: while FESTIVAL_ACCESS_CODE is set, visitors see the FV2
- * teaser and only reviewers with the code reach the dashboard. Setting the
- * code to null in config/festival.ts removes the gate entirely.
- */
 export function FestivalVirtualPage() {
-  const [unlocked, setUnlocked] = useState(
-    () =>
-      FESTIVAL_ACCESS_CODE === null ||
-      localStorage.getItem(FESTIVAL_ACCESS_STORAGE_KEY) === FESTIVAL_ACCESS_CODE
-  );
-
-  if (!unlocked) {
-    return <FestivalTeaser onUnlock={() => setUnlocked(true)} />;
-  }
-
-  return <FestivalDashboard />;
-}
-
-function FestivalDashboard() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 

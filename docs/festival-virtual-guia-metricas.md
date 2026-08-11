@@ -133,8 +133,6 @@ Cambia entre Festival Virtual 1 (marzo) y Festival Virtual 2 (agosto). El 2 se c
 
 Todo el dashboard se actualiza solo cada 2 minutos mientras esté abierto. Pensado para dejarlo en pantalla durante el evento, sin tocar nada.
 
-**Acceso durante la validación.**
+**Acceso.**
 
-De momento, quien entra ve el anuncio del Festival Virtual 2 con la cuenta atrás. Solo quien tiene el código de acceso ve el dashboard completo.
-
-Cuando el equipo lo valide, se abre para todos con un solo cambio.
+El dashboard está abierto para todos los usuarios y arranca en el Festival Virtual 2. El Festival Virtual 1 sigue disponible desde el selector de edición.

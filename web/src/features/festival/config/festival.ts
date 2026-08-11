@@ -33,18 +33,7 @@ export const FESTIVALS: FestivalDef[] = [
   },
 ];
 
-export const DEFAULT_FESTIVAL_ID: FestivalDef['id'] = 'fv1';
-
-/**
- * Validation-phase gate (frontend only). While set, visitors see a teaser
- * announcing FV2 and only whoever types this code unlocks the dashboard
- * (remembered in localStorage). Set to `null` to open it to everyone —
- * that single change removes the gate.
- */
-export const FESTIVAL_ACCESS_CODE: string | null = 'FV2-2026';
-
-/** localStorage key remembering an unlocked browser. */
-export const FESTIVAL_ACCESS_STORAGE_KEY = 'festival-access-code';
+export const DEFAULT_FESTIVAL_ID: FestivalDef['id'] = 'fv2';
 
 /** Resolve a festival by id, falling back to the default edition. */
 export function getFestival(id: string | null | undefined): FestivalDef {
