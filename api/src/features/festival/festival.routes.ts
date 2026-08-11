@@ -47,7 +47,8 @@ const FESTIVAL_FIXED_FILTERS: FilterCondition[] = [
  * Their filters are expanded into one scoped copy per table: a scoped copy
  * referencing a missing column excludes that table's metrics entirely (0),
  * instead of silently leaving it unfiltered in grouped listings. That is the
- * desired behaviour — e.g. the budget is not splittable by provider/brand.
+ * desired behaviour — e.g. the budget is not splittable by brand/category
+ * (it does split by provider, where the scoped copy applies normally).
  */
 const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
   ProveedorComercial: {

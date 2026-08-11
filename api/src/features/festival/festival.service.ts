@@ -486,8 +486,8 @@ export class FestivalService {
       clientes_unicos: clientesUnicos,
       productos_unicos: productosUnicos,
       clientes_sin_compra: clientesSinCompra,
-      // Virtual buckets are not budget-splittable; the scoped bucket filters
-      // zero the budget table.
+      // Bucket rows omit budget/cumplimiento (proration needs the event
+      // window); the bucket's own budget shows up in its drill-down balance.
       presupuesto: null,
       cumplimiento_ppto: null,
     };

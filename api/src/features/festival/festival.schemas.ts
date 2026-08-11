@@ -12,11 +12,11 @@ import type { FilterCondition } from '../../core/db/clickhouse/query/filter-buil
  */
 
 /**
- * Festival budget table: one row per regional × seller per edition, keyed by
- * `periodo` (yyyyMM of the event month, e.g. 202608) with `date` at month
- * start — outside the event window, so it is selected via periodo, never via
- * the window date filters. Only IdRegional/seller_id dimensions exist (no
- * channel/product/customer/brand).
+ * Festival budget table: one row per regional × seller × commercial provider
+ * per edition, keyed by `periodo` (yyyyMM of the event month, e.g. 202608)
+ * with `date` at month start — outside the event window, so it is selected via
+ * periodo, never via the window date filters. Only IdRegional/seller_id/
+ * ProveedorComercial dimensions exist (no channel/product/customer/brand).
  */
 export const FESTIVAL_PPTO_TABLE = 'ppto_festival';
 
@@ -49,10 +49,10 @@ export const FESTIVAL_METRICS = [
   // don't overlap). Feed `pedidos_count` and `pedido_promedio`.
   { table: 'transactions', field: 'Pedido', aggregation: 'uniqExact', alias: 'invoiced_orders' },
   { table: 'pedidos_retenidos', field: 'pedidoId', aggregation: 'uniqExact', alias: 'retained_orders' },
-  // Event budget (dyna_ppto_festival): one row per regional × seller per
-  // edition, selected via `periodo`. The table only has IdRegional/seller_id
-  // dimensions — any other filter or grouping zeroes it, and the frontend
-  // hides the compliance metric when budget comes back 0.
+  // Event budget (dyna_ppto_festival): one row per regional × seller ×
+  // commercial provider per edition, selected via `periodo`. Any filter or
+  // grouping outside those dimensions zeroes it, and the frontend hides the
+  // compliance metric when budget comes back 0.
   { table: FESTIVAL_PPTO_TABLE, field: 'valor', aggregation: 'sum', alias: 'budget' },
 ] as const satisfies readonly MetricConfig[];
 
@@ -181,25 +181,21 @@ export function activeCustomerUniverseFilters(startDate: string): FilterConditio
  * provider column is named differently per table (`ProveedorComercial` in
  * transactions, `proveedorComercial` in pedidos_retenidos), so each condition
  * is scoped to its table — otherwise pedidos would either be zeroed (balance)
- * or silently left unfiltered (grouped listing).
+ * or silently left unfiltered (grouped listing). The budget table carries the
+ * provider too, so each bucket keeps its own budget share in drill-downs.
  */
 export function brandGroupFilters(bucket: 'exclusivas' | 'aliadas'): FilterCondition[] {
   const brandFieldByTable = {
     transactions: 'ProveedorComercial',
     pedidos_retenidos: 'proveedorComercial',
+    [FESTIVAL_PPTO_TABLE]: 'ProveedorComercial',
   } as const;
 
-  const brandConditions = Object.entries(brandFieldByTable).flatMap(([table, field]): FilterCondition[] =>
+  return Object.entries(brandFieldByTable).flatMap(([table, field]): FilterCondition[] =>
     bucket === 'exclusivas'
       ? [{ field, operator: 'in', value: EXCLUSIVE_BRANDS, table }]
       : EXCLUSIVE_BRANDS.map((b) => ({ field, operator: 'neq', value: b, table }))
   );
-  return [
-    ...brandConditions,
-    // The budget has no brand column → this scoped condition cannot be applied
-    // and the engine zeroes the table (budget is not splittable by brand).
-    { field: 'ProveedorComercial', operator: 'in', value: EXCLUSIVE_BRANDS, table: FESTIVAL_PPTO_TABLE },
-  ];
 }
 
 /**
