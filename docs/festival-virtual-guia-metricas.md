@@ -108,6 +108,7 @@ Es la misma información del evento, troceada por lo que necesites mirar:
 - **Marcas** → dos filas: Exclusivas (VERA y FORTE) y Aliadas (todas las demás).
 - **Promoción** → las ventas de productos con promoción frente a las de productos sin promoción.
 - **Categoría** → las familias de producto (Cerrajería, Griferia, Herramientas…), cada una con sus marcas dentro.
+- **Canales** → por dónde entró la venta: Vendedores, Tienda Virtual o Call Center. Solo cuenta lo facturado (el comprometido no informa canal).
 - **Regionales y Vendedores** → cada uno con sus ventas, su presupuesto del festival y su % de cumplimiento en verde o rojo. El ranking del evento.
 - **Productos y Clientes** → el detalle fino: qué referencias se venden y quién las compra.
 

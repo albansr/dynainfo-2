@@ -66,6 +66,13 @@ const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
     pedidos_retenidos: 'Categoria',
     [FESTIVAL_PPTO_TABLE]: 'Categoria',
   },
+  // Festival sales channel (Vendedores / Tienda Virtual / Call Center):
+  // only invoiced sales carry it, so comprometido and budget are excluded.
+  segmentacion_ventas_festival: {
+    transactions: 'segmentacion_ventas_festival',
+    pedidos_retenidos: 'segmentacion_ventas_festival',
+    [FESTIVAL_PPTO_TABLE]: 'segmentacion_ventas_festival',
+  },
 };
 
 /**

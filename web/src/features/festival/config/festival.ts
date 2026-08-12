@@ -53,6 +53,7 @@ export const FESTIVAL_DIMENSIONS: { key: string; label: string }[] = [
   { key: 'ProveedorComercial', label: 'Proveedores' },
   { key: 'Categoria', label: 'Categoría' },
   { key: 'Marca', label: 'Marca' },
+  { key: 'segmentacion_ventas_festival', label: 'Canales' },
   { key: 'IdRegional', label: 'Regionales' },
   { key: 'seller_id', label: 'Vendedores' },
   { key: 'product_id', label: 'Productos' },
@@ -66,6 +67,7 @@ export const FESTIVAL_DIM_LABEL: Record<string, string> = {
   ProveedorComercial: 'Proveedor',
   Categoria: 'Categoría',
   Marca: 'Marca',
+  segmentacion_ventas_festival: 'Canal',
   IdRegional: 'Regional',
   seller_id: 'Vendedor',
   product_id: 'Producto',
@@ -77,6 +79,7 @@ export const FESTIVAL_DIM_LABEL: Record<string, string> = {
  * concept chains, regardless of where you enter them:
  *   Marcas (Exclusivas/Aliadas) → Proveedor → Producto
  *   Regional → Vendedor ────────↗
+ *   Canal → Vendedor ───────────↗
  *   Cliente ────────────────────↗
  *   Categoría → Marca → Producto
  * The virtual "Promoción" buckets drill straight into products, and a product
@@ -85,6 +88,7 @@ export const FESTIVAL_DIM_LABEL: Record<string, string> = {
 export const FESTIVAL_DRILL_TARGET: Record<string, string> = {
   [FESTIVAL_BRAND_GROUP]: 'ProveedorComercial',
   [FESTIVAL_RAPPEL_GROUP]: 'product_id',
+  segmentacion_ventas_festival: 'seller_id',
   IdRegional: 'seller_id',
   seller_id: 'ProveedorComercial',
   customer_id: 'ProveedorComercial',
