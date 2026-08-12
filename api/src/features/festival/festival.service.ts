@@ -3,6 +3,7 @@ import {
   FESTIVAL_METRICS,
   FESTIVAL_DEFAULT_GROUP_BY,
   FESTIVAL_DATE_FIELDS,
+  FESTIVAL_UNIVERSE_TABLE,
   brandGroupFilters,
   rappelGroupFilters,
   type FestivalBalance,
@@ -105,7 +106,7 @@ export class FestivalService {
         filters: params.currentFilters,
       }),
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: 'transactions', field: 'customer_id', filters: params.universeFilters },
+        universe: { table: FESTIVAL_UNIVERSE_TABLE, field: 'customer_id', filters: params.universeFilters },
         exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
       }),
       this.salesGrowthToDate(params),
@@ -228,7 +229,7 @@ export class FestivalService {
         groupBy,
       }),
       this.analyticsBuilder.buildGroupedDistinctCountExcludingQuery({
-        universe: { table: 'transactions', field: 'customer_id', filters: params.universeFilters },
+        universe: { table: FESTIVAL_UNIVERSE_TABLE, field: 'customer_id', filters: params.universeFilters },
         exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
         groupBy,
       }),
@@ -354,19 +355,20 @@ export class FestivalService {
   }
 
   /**
-   * Detail of the `clientes_sin_compra` count: the active-year customers that
-   * did not buy during the festival, with the seller of their latest invoiced
-   * sale of the year. Same universe/exclusion as the balance card, so the
-   * listing length always matches the card.
+   * Detail of the `clientes_sin_compra` count: the master-universe customers
+   * that did not buy during the festival, with the seller ASSIGNED in the
+   * master (argMax over updated_at picks the latest snapshot row). Same
+   * universe/exclusion as the balance card, so the listing length always
+   * matches the card.
    */
   async getFestivalSinCompraList(params: {
     currentFilters: FilterCondition[];
     universeFilters: FilterCondition[];
   }): Promise<FestivalSinCompraRow[]> {
     const rows = await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
-      universe: { table: 'transactions', keyField: 'customer_id', filters: params.universeFilters },
+      universe: { table: FESTIVAL_UNIVERSE_TABLE, keyField: 'customer_id', filters: params.universeFilters },
       attributes: ['customer_name', 'seller_id', 'seller_name'],
-      dateField: 'date',
+      dateField: 'updated_at',
       exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
       orderBy: 'customer_name',
     });
@@ -468,7 +470,7 @@ export class FestivalService {
         filters,
       }),
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: 'transactions', field: 'customer_id', filters: universeFilters },
+        universe: { table: FESTIVAL_UNIVERSE_TABLE, field: 'customer_id', filters: universeFilters },
         exclude: { sources: distinctSources('customer_id'), filters },
       }),
     ]);

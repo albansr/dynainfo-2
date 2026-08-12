@@ -111,8 +111,9 @@ function dateRangeFilters(start: string, end: string): FilterCondition[] {
 
 /**
  * Build the event-window and (optional) comparison-window filter sets, plus
- * the active-year customer universe for `clientes_sin_compra` (same dynamic
- * filters, but bounded by the event's year instead of the event window).
+ * the customer-master universe for `clientes_sin_compra` (same dynamic
+ * filters — only those matching master columns apply — plus the master's
+ * active/not-blocked/commercial-regional conditions).
  * Dynamic filters (compare* dates are reserved) apply to both windows.
  * `comparisonFilters` is undefined when the query has no comparison window.
  */
@@ -133,7 +134,7 @@ function buildWindows(query: {
     ...dateRangeFilters(query.startDate, query.endDate),
     pptoPeriodoFilter(query.startDate),
   ]);
-  const universeFilters = combineFilters(dynamicFilters, activeCustomerUniverseFilters(query.startDate));
+  const universeFilters = combineFilters(dynamicFilters, activeCustomerUniverseFilters());
   if (query.compareStartDate && query.compareEndDate) {
     return {
       currentFilters,

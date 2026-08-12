@@ -1085,7 +1085,9 @@ GROUP BY id
       );
 
       const idCol = groupBy ? `trimBoth(${groupBy}) AS id, ` : '';
-      selects.push(`SELECT ${idCol}${source.field} AS value FROM ${tableName} ${where}`);
+      // trimBoth: pedidos_retenidos pads customer_id with spaces — untrimmed
+      // values would double-count in unions and never match in exclusions.
+      selects.push(`SELECT ${idCol}trimBoth(${source.field}) AS value FROM ${tableName} ${where}`);
     }
     return selects;
   }
@@ -1212,7 +1214,8 @@ ORDER BY ${orderBy} ASC
    * buildDistinctCountExcludingQuery grouped by a dimension column. Exclusion
    * is per (group, value) pair: a customer who bought group A during the event
    * is excluded from A but still counts in group B if they only bought B
-   * before it.
+   * before it. When the universe table lacks the group column, each group
+   * falls back to the whole universe minus that group's buyers.
    */
   async buildGroupedDistinctCountExcludingQuery(config: {
     universe: { table: string; field: string; filters: FilterCondition[] };
@@ -1232,21 +1235,41 @@ ORDER BY ${orderBy} ASC
     const [universeSelect] = this.buildDistinctSourceSelects(
       [universe], universe.filters, columnMap, queryParams, 'guniverse', groupBy
     );
-    if (!universeSelect) return new Map();
 
     const excludeSelects = this.buildDistinctSourceSelects(
       exclude.sources, exclude.filters, columnMap, queryParams, 'gexclude', groupBy
     );
-    const exclusion = excludeSelects.length > 0
-      ? `WHERE (id, value) NOT IN (\n  SELECT id, value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
-      : '';
 
-    const query = `
+    let query: string;
+    if (universeSelect) {
+      const exclusion = excludeSelects.length > 0
+        ? `WHERE (id, value) NOT IN (\n  SELECT id, value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
+        : '';
+      query = `
 SELECT id, uniqExact(value) AS count
 FROM (${universeSelect})
 ${exclusion}
 GROUP BY id
 `;
+    } else {
+      // The universe table lacks the group column (e.g. a customer master
+      // grouped by provider): each group counts the WHOLE universe minus the
+      // universe members that bought that group. Groups only exist where the
+      // exclusion sources saw activity — which is exactly the listing's rows.
+      const [flatUniverse] = this.buildDistinctSourceSelects(
+        [universe], universe.filters, columnMap, queryParams, 'guniverse'
+      );
+      if (!flatUniverse || excludeSelects.length === 0) return new Map();
+      query = `
+SELECT id,
+  (SELECT uniqExact(value) FROM (${flatUniverse})) - uniqExact(value) AS count
+FROM (
+  ${excludeSelects.join('\n  UNION ALL\n  ')}
+)
+WHERE value IN (SELECT value FROM (${flatUniverse}))
+GROUP BY id
+`;
+    }
 
     const resultSet = await this.client.query({
       query,

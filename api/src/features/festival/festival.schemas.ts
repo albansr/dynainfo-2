@@ -126,7 +126,7 @@ export const FestivalBalanceSchema = Type.Object(
     clientes_unicos: Type.Number({ description: 'Clientes únicos atendidos durante el evento' }),
     productos_unicos: Type.Number({ description: 'Productos únicos vendidos durante el evento' }),
     clientes_sin_compra: Type.Number({
-      description: 'Clientes activos con compra en el año del evento que no han comprado durante el festival',
+      description: 'Clientes del maestro (activos, no bloqueados, regionales comerciales) sin compra durante el festival',
     }),
 
     // Presupuesto del festival. Null cuando los filtros activos no son
@@ -164,15 +164,32 @@ export const FESTIVAL_DATE_FIELDS = {
 } as const;
 
 /**
- * Universe for "clientes sin compra": active customers (customer_active) with
- * invoiced sales in the event's year. Scoped to transactions — the retained
- * orders table has no activity/year columns. The festival buyers subtracted
- * from this universe come from the same sources as `clientes_unicos`.
+ * Universe for "clientes sin compra": the SIESA customer master (dyna_clientes,
+ * one row per NIT × sucursal with the CURRENT assignment), not the sales
+ * history — active, not blocked, assigned to a commercial regional. The
+ * festival buyers subtracted from this universe come from the same sources as
+ * `clientes_unicos`. Regionals outside this list (castigo, cobro jurídico,
+ * retail, empleados, canales muertos…) are not festival targets.
  */
-export function activeCustomerUniverseFilters(startDate: string): FilterCondition[] {
+export const FESTIVAL_UNIVERSE_TABLE = 'clientes';
+
+export const FESTIVAL_UNIVERSE_REGIONALS = [
+  '0001', // Costa Atlántica
+  '0002', // Andina (Medellín)
+  '0003', // Costa Pacífica (Cali)
+  '0004', // Bogotá Ciudad
+  '0015', // Canal Alternativo (Contact Center)
+  '0018', // Territorio Especial
+  '0019', // Centro
+  '0026', // Oriente
+  '0033', // Eje Centro
+];
+
+export function activeCustomerUniverseFilters(): FilterCondition[] {
   return [
-    { field: 'year', operator: 'eq', value: startDate.slice(0, 4), table: 'transactions' },
-    { field: 'customer_active', operator: 'eq', value: 'true', table: 'transactions' },
+    { field: 'activo', operator: 'eq', value: 'true', table: FESTIVAL_UNIVERSE_TABLE },
+    { field: 'bloqueado', operator: 'eq', value: 'false', table: FESTIVAL_UNIVERSE_TABLE },
+    { field: 'IdRegional', operator: 'in', value: FESTIVAL_UNIVERSE_REGIONALS, table: FESTIVAL_UNIVERSE_TABLE },
   ];
 }
 
@@ -283,7 +300,7 @@ export const FestivalListRowSchema = Type.Object(
     clientes_unicos: Type.Number({ description: 'Numérica: clientes únicos del grupo durante el evento' }),
     productos_unicos: Type.Number({ description: 'Items: productos únicos del grupo durante el evento' }),
     clientes_sin_compra: Type.Number({
-      description: 'Clientes activos con compra del grupo en el año del evento y sin compra del grupo durante el festival',
+      description: 'Clientes del maestro sin compra del grupo durante el festival (en dimensiones del maestro, acotado a los clientes del grupo)',
     }),
     presupuesto: NullableNumber, // presupuesto del evento para el grupo; null si no aplica
     cumplimiento_ppto: NullableNumber, // ventas / meta prorrateada, %
@@ -296,9 +313,9 @@ export type FestivalListRow = Static<typeof FestivalListRowSchema>;
 export const FestivalListSchema = Type.Array(FestivalListRowSchema);
 
 /**
- * One client of the "clientes sin compra" detail listing: an active customer
- * with invoiced sales in the event's year and no purchase during the festival.
- * The seller is the one on the customer's latest invoiced sale of the year.
+ * One client of the "clientes sin compra" detail listing: an active,
+ * non-blocked customer of the commercial-regional master (dyna_clientes) with
+ * no purchase during the festival, with the seller ASSIGNED in the master.
  */
 export const FestivalSinCompraRowSchema = Type.Object(
   {

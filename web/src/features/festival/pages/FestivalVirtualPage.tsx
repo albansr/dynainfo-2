@@ -324,7 +324,7 @@ export function FestivalVirtualPage() {
                 <Tooltip
                   placement="top"
                   className="max-w-72"
-                  content={`Clientes activos que han comprado en ${festival.startDate.getFullYear()} pero no han comprado durante el festival. El detalle muestra el vendedor de su última compra del año.`}
+                  content="Clientes activos y no bloqueados del maestro comercial (regionales de venta) que no han comprado durante el festival. El detalle muestra el vendedor asignado a cada cliente."
                 >
                   <InformationCircleIcon className="h-4 w-4 text-gray-400" />
                 </Tooltip>
