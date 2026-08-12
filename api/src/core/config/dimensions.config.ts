@@ -27,6 +27,8 @@ export const ALLOWED_DIMENSIONS = [
   'SubCategoria',
   'FamiliaProducto',
   'Linea',
+  // Festival sales channel (Vendedores / Tienda Virtual / Call Center)
+  'segmentacion_ventas_festival',
   'month',
   'quarter',
   'year',

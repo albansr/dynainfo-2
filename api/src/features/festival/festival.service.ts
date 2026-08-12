@@ -11,9 +11,14 @@ import {
   type FestivalSinCompraRow,
 } from './festival.schemas.js';
 
-/** Coalesce a possibly-null/undefined query value to a number. */
+/**
+ * Coalesce a possibly-null/undefined query value to a number. ClickHouse
+ * serializes UInt64 aggregates (uniqExact order counts) as JSON strings to
+ * avoid precision loss — coerce those too, or order counts read as 0.
+ */
 function num(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  const n = typeof value === 'string' && value !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) ? n : 0;
 }
 
 /** Keep null (no comparison base) distinct from 0 for growth fields. */
