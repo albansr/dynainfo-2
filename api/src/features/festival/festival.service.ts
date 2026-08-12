@@ -217,6 +217,9 @@ export class FestivalService {
         groupBy,
         orderBy: 'sales_total',
         orderDirection: 'desc',
+        // A group with only committed orders (or only budget) must still get a
+        // row — on day 1 most sellers have nothing invoiced yet.
+        includeAllGroups: true,
       }),
       this.analyticsBuilder.buildGroupedDistinctCountQuery({
         sources: distinctSources('customer_id'),

@@ -150,6 +150,11 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
     orderDirection?: OrderDirection;
     facturadoOnly?: boolean;
     search?: string;
+    /**
+     * Also emit groups with no rows in the first table's current period (e.g.
+     * sellers with only committed orders). Not compatible with `search`.
+     */
+    includeAllGroups?: boolean;
   }): Promise<Array<Record<string, number | string>>> {
     const {
       metrics,
@@ -162,6 +167,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       orderDirection = 'desc',
       facturadoOnly = false,
       search,
+      includeAllGroups = false,
     } = config;
 
     // Validate groupBy field
@@ -191,7 +197,8 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       columnMap,
       groupBy,
       includeTotalCount,
-      search
+      search,
+      includeAllGroups
     );
 
     // Add calculated metrics (pass skipped tables so formulas use literal aliases instead of CTE refs)
@@ -206,7 +213,8 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       limit,
       offset,
       orderBy,
-      orderDirection
+      orderDirection,
+      includeAllGroups
     );
 
     const resultSet = await this.client.query({
@@ -362,7 +370,8 @@ ${previousWhere}
     columnMap: Map<string, Set<string>>,
     groupBy: string,
     includeTotalCount = false,
-    search?: string
+    search?: string,
+    includeAllGroups = false
   ): { ctes: string[]; finalSelects: string[]; tablesWithDimension: string[]; skippedTables: Set<string> } {
     const ctes: string[] = [];
     const finalSelects: string[] = [];
@@ -412,20 +421,33 @@ ${previousWhere}
       `${table}_current.${idField}`,
       `${table}_previous.${idField}`,
     ]);
-    finalSelects.push(
-      `COALESCE(${idCoalesceArgs.join(', ')}) AS id`
-    );
 
     // Build COALESCE for name field (only from tables that carry it)
     const nameCoalesceArgs = tablesWithName.flatMap((table) => [
       `${table}_current.${nameField}`,
       `${table}_previous.${nameField}`,
     ]);
-    finalSelects.push(
-      nameCoalesceArgs.length > 0
-        ? `COALESCE(${nameCoalesceArgs.join(', ')}) AS name`
-        : `COALESCE(${idCoalesceArgs.join(', ')}) AS name`
-    );
+
+    if (includeAllGroups) {
+      // Spine mode: rows come from the all_ids union, so joins that miss fill
+      // strings with '' (join_use_nulls=0) — take the id from the spine and
+      // the name from the first NON-EMPTY candidate.
+      finalSelects.push(`all_ids.${idField} AS id`);
+      finalSelects.push(
+        nameCoalesceArgs.length > 0
+          ? `COALESCE(${nameCoalesceArgs.map((a) => `nullIf(${a}, '')`).join(', ')}, all_ids.${idField}) AS name`
+          : `all_ids.${idField} AS name`
+      );
+    } else {
+      finalSelects.push(
+        `COALESCE(${idCoalesceArgs.join(', ')}) AS id`
+      );
+      finalSelects.push(
+        nameCoalesceArgs.length > 0
+          ? `COALESCE(${nameCoalesceArgs.join(', ')}) AS name`
+          : `COALESCE(${idCoalesceArgs.join(', ')}) AS name`
+      );
+    }
 
     // Add total count as window function if pagination is needed
     if (includeTotalCount) {
@@ -664,31 +686,56 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
     limit?: number,
     offset?: number,
     orderBy: string = 'sales',
-    orderDirection: OrderDirection = 'desc'
+    orderDirection: OrderDirection = 'desc',
+    includeAllGroups = false
   ): string {
     // Validate ordering parameters
     this.validateOrderByField(orderBy);
     const validatedDirection = this.validateOrderDirection(orderDirection);
     const firstTable = tablesWithDimension[0]; // Always 'transactions' due to groupMetricsByTable sorting
-    const fromClause = `${firstTable}_current`;
     const joinClauses: string[] = [];
 
     // Get field mapping to know which field to use for JOINs
     const { idField } = getFieldPair(groupBy);
 
-    // First LEFT JOIN the previous year of the first table
-    joinClauses.push(
-      `LEFT JOIN ${firstTable}_previous ON ${firstTable}_current.${idField} = ${firstTable}_previous.${idField}`
-    );
+    let fromClause: string;
+    if (includeAllGroups) {
+      // Spine mode: drive from the union of every table's current-period ids,
+      // so groups that only exist outside the first table (e.g. a seller with
+      // committed orders but no invoiced sales yet) still get a row. Note the
+      // `search` predicate only lives in the driving table's CTE, so spine
+      // mode does not support search.
+      ctes.push(`all_ids AS (
+  SELECT DISTINCT ${idField} FROM (
+  ${tablesWithDimension.map((t) => `SELECT ${idField} FROM ${t}_current`).join('\n  UNION ALL\n  ')}
+  )
+)`);
+      fromClause = 'all_ids';
+      for (const table of tablesWithDimension) {
+        joinClauses.push(
+          `LEFT JOIN ${table}_current ON all_ids.${idField} = ${table}_current.${idField}`
+        );
+        joinClauses.push(
+          `LEFT JOIN ${table}_previous ON all_ids.${idField} = ${table}_previous.${idField}`
+        );
+      }
+    } else {
+      fromClause = `${firstTable}_current`;
 
-    // Then LEFT JOIN other tables that have the dimension column
-    for (const table of tablesWithDimension.slice(1)) {
+      // First LEFT JOIN the previous year of the first table
       joinClauses.push(
-        `LEFT JOIN ${table}_current ON ${firstTable}_current.${idField} = ${table}_current.${idField}`
+        `LEFT JOIN ${firstTable}_previous ON ${firstTable}_current.${idField} = ${firstTable}_previous.${idField}`
       );
-      joinClauses.push(
-        `LEFT JOIN ${table}_previous ON ${firstTable}_current.${idField} = ${table}_previous.${idField}`
-      );
+
+      // Then LEFT JOIN other tables that have the dimension column
+      for (const table of tablesWithDimension.slice(1)) {
+        joinClauses.push(
+          `LEFT JOIN ${table}_current ON ${firstTable}_current.${idField} = ${table}_current.${idField}`
+        );
+        joinClauses.push(
+          `LEFT JOIN ${table}_previous ON ${firstTable}_current.${idField} = ${table}_previous.${idField}`
+        );
+      }
     }
 
     // Build pagination clause if limit is provided

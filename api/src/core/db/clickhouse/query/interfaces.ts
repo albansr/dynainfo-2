@@ -42,6 +42,8 @@ export interface IAnalyticsQueryBuilder {
     orderDirection?: 'asc' | 'desc';
     facturadoOnly?: boolean;
     search?: string;
+    /** Also emit groups absent from the first table's current period. */
+    includeAllGroups?: boolean;
   }): Promise<Array<Record<string, number | string>>>;
 
   /**

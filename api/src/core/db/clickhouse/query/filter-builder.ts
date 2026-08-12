@@ -15,6 +15,12 @@ export interface FilterCondition {
    * pedidos_retenidos by `date` (that table has no order date column).
    */
   table?: string;
+  /**
+   * Compare against trimBoth(field) instead of the raw column. For tables
+   * that pad identifiers with spaces (pedidos_retenidos stores IdRegional
+   * as '0002      ') — a raw equality would silently match nothing.
+   */
+  trim?: boolean;
 }
 
 /**
@@ -205,33 +211,34 @@ export class FilterBuilder {
     // Build WHERE clause using only applicable filters
     const conditions = applicableFilters.map((f, index) => {
       const paramName = `${prefix}_${f.field}_${index}`;
+      const column = f.trim ? `trimBoth(${f.field})` : f.field;
 
       switch (f.operator) {
         case 'gte':
           queryParams[paramName] = String(f.value);
-          return `${f.field} >= {${paramName}:String}`;
+          return `${column} >= {${paramName}:String}`;
         case 'lte':
           queryParams[paramName] = String(f.value);
-          return `${f.field} <= {${paramName}:String}`;
+          return `${column} <= {${paramName}:String}`;
         case 'eq':
           queryParams[paramName] = String(f.value);
-          return `${f.field} = {${paramName}:String}`;
+          return `${column} = {${paramName}:String}`;
         case 'in':
           const values = Array.isArray(f.value) ? f.value : [f.value];
           queryParams[paramName] = values.map(String);
-          return `${f.field} IN {${paramName}:Array(String)}`;
+          return `${column} IN {${paramName}:Array(String)}`;
         case 'gt':
           queryParams[paramName] = String(f.value);
-          return `${f.field} > {${paramName}:String}`;
+          return `${column} > {${paramName}:String}`;
         case 'lt':
           queryParams[paramName] = String(f.value);
-          return `${f.field} < {${paramName}:String}`;
+          return `${column} < {${paramName}:String}`;
         case 'neq':
           queryParams[paramName] = String(f.value);
-          return `${f.field} != {${paramName}:String}`;
+          return `${column} != {${paramName}:String}`;
         default:
           queryParams[paramName] = String(f.value);
-          return `${f.field} = {${paramName}:String}`;
+          return `${column} = {${paramName}:String}`;
       }
     });
 

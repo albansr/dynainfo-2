@@ -17,6 +17,7 @@ import {
   FESTIVAL_RAPPEL_GROUP,
   FESTIVAL_DATE_FIELDS,
   FESTIVAL_PPTO_TABLE,
+  FESTIVAL_UNIVERSE_TABLE,
   brandGroupFilters,
   rappelGroupFilters,
   pptoPeriodoFilter,
@@ -73,6 +74,22 @@ const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
     pedidos_retenidos: 'segmentacion_ventas_festival',
     [FESTIVAL_PPTO_TABLE]: 'segmentacion_ventas_festival',
   },
+  // Same-named everywhere, but scoping still matters: the trim flag rescues
+  // pedidos' padded identifiers, the universe copy keeps regional/customer
+  // drills narrowing the customer master, and the ppto copy stops a customer
+  // drill from silently showing the whole (per-customer-less) budget.
+  IdRegional: {
+    transactions: 'IdRegional',
+    pedidos_retenidos: 'IdRegional',
+    [FESTIVAL_PPTO_TABLE]: 'IdRegional',
+    [FESTIVAL_UNIVERSE_TABLE]: 'IdRegional',
+  },
+  customer_id: {
+    transactions: 'customer_id',
+    pedidos_retenidos: 'customer_id',
+    [FESTIVAL_PPTO_TABLE]: 'customer_id',
+    [FESTIVAL_UNIVERSE_TABLE]: 'customer_id',
+  },
 };
 
 /**
@@ -91,7 +108,10 @@ function expandVirtualGroups(filters: FilterCondition[]): FilterCondition[] {
     }
     const scoped = SCOPED_DRILL_FIELDS[f.field];
     if (scoped && !f.table) {
-      return Object.entries(scoped).map(([table, field]) => ({ ...f, field, table }));
+      // trim: pedidos_retenidos pads identifiers with spaces (IdRegional,
+      // customer_id) — comparing trimBoth(column) keeps the drill filters
+      // matching. Harmless on the tables that store them clean.
+      return Object.entries(scoped).map(([table, field]) => ({ ...f, field, table, trim: true }));
     }
     return [f];
   });
