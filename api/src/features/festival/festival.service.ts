@@ -62,17 +62,6 @@ function distinctSources(field: string): Array<{ table: string; field: string }>
 }
 
 /**
- * Budget proration factor: the target grows day by day during the event
- * (día 3 de 5 → 3/5 of the budget) and is the full budget before the event
- * starts (the complete goal is the reference) and after it ends.
- */
-function budgetProrateFactor(window?: { startDate: string; endDate: string }): number {
-  if (!window) return 1;
-  const { currentDay, total } = closedEventDays(window.startDate, window.endDate);
-  return currentDay > 0 && total > 0 ? currentDay / total : 1;
-}
-
-/**
  * Service for the Festival Virtual dashboard.
  *
  * Reuses the analytics engine (single CTE query) but with an explicit static
@@ -181,12 +170,11 @@ export class FestivalService {
         // Budget 0 means "not applicable under the active filters" (the engine
         // zeroes the table) or simply no data → the frontend hides compliance.
         const budgetTotal = num(result['budget']);
-        if (budgetTotal <= 0) return { presupuesto: null, presupuesto_meta: null, cumplimiento_ppto: null };
-        const meta = budgetTotal * budgetProrateFactor(params.window);
+        if (budgetTotal <= 0) return { presupuesto: null, cumplimiento_ppto: null };
         return {
           presupuesto: budgetTotal,
-          presupuesto_meta: meta,
-          cumplimiento_ppto: meta > 0 ? (salesTotal / meta) * 100 : null,
+          // Cumplimiento sobre el presupuesto total del evento (no prorrateado al día).
+          cumplimiento_ppto: (salesTotal / budgetTotal) * 100,
         };
       })(),
     };
@@ -203,8 +191,6 @@ export class FestivalService {
     /** Active-year customer universe for `clientes_sin_compra`. */
     universeFilters: FilterCondition[];
     groupBy?: string;
-    /** Event window, used to prorate the budget target to the running day. */
-    window?: { startDate: string; endDate: string };
   }): Promise<FestivalListRow[]> {
     const groupBy = params.groupBy || FESTIVAL_DEFAULT_GROUP_BY;
 
@@ -238,8 +224,6 @@ export class FestivalService {
       }),
     ]);
 
-    const prorate = budgetProrateFactor(params.window);
-
     return rows.map((row) => {
       const sales = num(row['sales']);
       const rappel = num(row['rappel']);
@@ -248,7 +232,6 @@ export class FestivalService {
       const salesTotal = num(row['sales_total']);
       const pedidosCount = num(row['invoiced_orders']) + num(row['retained_orders']);
       const budget = num(row['budget']);
-      const meta = budget * prorate;
       const rawId = String(row['id'] ?? '').trim();
       const rawName = String(row['name'] ?? '').trim();
 
@@ -265,7 +248,7 @@ export class FestivalService {
         productos_unicos: productosByGroup.get(rawId) ?? 0,
         clientes_sin_compra: sinCompraByGroup.get(rawId) ?? 0,
         presupuesto: budget > 0 ? budget : null,
-        cumplimiento_ppto: meta > 0 ? (salesTotal / meta) * 100 : null,
+        cumplimiento_ppto: budget > 0 ? (salesTotal / budget) * 100 : null,
       };
     });
   }

@@ -196,7 +196,7 @@ export function festivalRoutes(
         universeFilters: windows.universeFilters,
       });
     }
-    return service.getFestivalList({ ...windows, window: query, ...(groupBy && { groupBy }) });
+    return service.getFestivalList({ ...windows, ...(groupBy && { groupBy }) });
   };
 
   /**

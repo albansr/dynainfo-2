@@ -31,11 +31,11 @@ Cuando el festival termina, la tarjeta pasa sola a mostrar el crecimiento final:
 
 Responde a la otra pregunta clave: ¿estamos cumpliendo la meta?
 
-El presupuesto del festival se reparte entre sus días. En el día 3 de 5, "tocaría" llevar 3/5 de la meta — y el porcentaje dice cuánto llevamos de esa parte. Así el dato es útil desde el primer día, sin esperar al final.
+Mide las ventas contra el presupuesto total del festival: el porcentaje dice cuánto llevamos de la meta completa del evento. No se prorratea por día — durante el evento irá subiendo hacia el 100% a medida que entran ventas.
 
-Verde: al 100% o más de lo que tocaría hoy. Rojo: por debajo.
+Verde: al 100% o más del presupuesto total. Rojo: por debajo.
 
-Antes de empezar muestra la meta completa del festival, para tenerla presente. Al cierre, el cumplimiento definitivo sobre todo el presupuesto.
+Debajo se muestra siempre el presupuesto completo del festival, la meta a la que apuntamos.
 
 ## Bloque de Margen
 

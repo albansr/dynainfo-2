@@ -227,11 +227,7 @@ export function FestivalVirtualPage() {
                   {formatPercentage(b.cumplimiento_ppto)}%
                 </span>
               }
-              description={
-                !eventFinished && b.current_day > 0 && b.presupuesto_meta != null && b.presupuesto != null && b.presupuesto_meta < b.presupuesto
-                  ? `Meta día ${b.current_day}: $ ${formatCurrency(b.presupuesto_meta)}`
-                  : `Presupuesto: $ ${formatCurrency(b.presupuesto ?? 0)}`
-              }
+              description={`Presupuesto: $ ${formatCurrency(b.presupuesto ?? 0)}`}
               isLoading={isLoading}
               centered
             />

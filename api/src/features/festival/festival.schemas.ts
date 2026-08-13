@@ -132,8 +132,7 @@ export const FestivalBalanceSchema = Type.Object(
     // Presupuesto del festival. Null cuando los filtros activos no son
     // aplicables al presupuesto (producto, cliente, marca, promoción…).
     presupuesto: NullableNumber, // presupuesto completo del evento
-    presupuesto_meta: NullableNumber, // meta prorrateada al día en curso (completa antes/después del evento)
-    cumplimiento_ppto: NullableNumber, // ventas totales / meta, %
+    cumplimiento_ppto: NullableNumber, // ventas totales / presupuesto total, %
   },
   { $id: 'FestivalBalance', description: 'Métricas del dashboard Festival Virtual' }
 );
@@ -303,7 +302,7 @@ export const FestivalListRowSchema = Type.Object(
       description: 'Clientes del maestro sin compra del grupo durante el festival (en dimensiones del maestro, acotado a los clientes del grupo)',
     }),
     presupuesto: NullableNumber, // presupuesto del evento para el grupo; null si no aplica
-    cumplimiento_ppto: NullableNumber, // ventas / meta prorrateada, %
+    cumplimiento_ppto: NullableNumber, // ventas / presupuesto total, %
   },
   { $id: 'FestivalListRow' }
 );

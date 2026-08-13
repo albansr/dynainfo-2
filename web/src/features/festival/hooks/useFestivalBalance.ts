@@ -35,7 +35,6 @@ export interface FestivalBalance {
   clientes_sin_compra: number;
   /** Null cuando los filtros activos no aplican al presupuesto. */
   presupuesto: number | null;
-  presupuesto_meta: number | null;
   cumplimiento_ppto: number | null;
 }
 
