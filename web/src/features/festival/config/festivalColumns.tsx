@@ -178,6 +178,21 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
 ];
 
 /**
+ * Product id column, shown only when grouping by product. The id slot already
+ * carries the `product_id` (aliased as `id` by the backend query), so no extra
+ * data is needed — it just surfaces the code next to the product name.
+ */
+const FESTIVAL_PRODUCT_ID_COLUMN: ColumnDefinition = {
+  id: 'productId',
+  header: { label: 'COD. PRODUCTO', sortable: true, align: 'left', rowSpan: 2 },
+  accessor: (d) => d.id,
+  cellRenderer: textCell,
+  align: 'left',
+  sortable: true,
+  sortKey: 'id',
+};
+
+/**
  * Budget columns, shown only when the current grouping/filters are
  * budget-applicable (the rows carry a non-null presupuesto).
  */
@@ -213,9 +228,11 @@ export function getFestivalColumns(
   includeBudget: boolean,
   groupBy?: string
 ): ColumnDefinition[] {
-  const columns = FESTIVAL_COLUMNS.flatMap((c) =>
-    c.id === 'sales' && includeBudget ? [c, ...FESTIVAL_BUDGET_COLUMNS] : [c]
-  ).filter(
+  const columns = FESTIVAL_COLUMNS.flatMap((c) => {
+    if (c.id === 'name' && groupBy === 'product_id') return [c, FESTIVAL_PRODUCT_ID_COLUMN];
+    if (c.id === 'sales' && includeBudget) return [c, ...FESTIVAL_BUDGET_COLUMNS];
+    return [c];
+  }).filter(
     (c) =>
       !((c.id === 'numerica' || c.id === 'sinCompra') && groupBy === 'customer_id') &&
       !(c.id === 'items' && groupBy === 'product_id')
