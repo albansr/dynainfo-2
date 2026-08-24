@@ -194,8 +194,18 @@ export class FestivalService {
   }): Promise<FestivalListRow[]> {
     const groupBy = params.groupBy || FESTIVAL_DEFAULT_GROUP_BY;
 
+    // When listing products, surface the item code (IdItem) next to product_id.
+    const codeByGroupPromise = groupBy === 'product_id'
+      ? this.analyticsBuilder.buildGroupedAttributeQuery({
+          table: 'transactions',
+          attribute: 'IdItem',
+          filters: params.currentFilters,
+          groupBy,
+        })
+      : Promise.resolve(new Map<string, string>());
+
     // Comparison is irrelevant to the listing (only current-period metrics are shown).
-    const [rows, clientesByGroup, productosByGroup, sinCompraByGroup] = await Promise.all([
+    const [rows, clientesByGroup, productosByGroup, sinCompraByGroup, codeByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
         metrics: FESTIVAL_METRICS,
         currentPeriodFilters: params.currentFilters,
@@ -222,6 +232,7 @@ export class FestivalService {
         exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
         groupBy,
       }),
+      codeByGroupPromise,
     ]);
 
     return rows.map((row) => {
@@ -235,9 +246,12 @@ export class FestivalService {
       const rawId = String(row['id'] ?? '').trim();
       const rawName = String(row['name'] ?? '').trim();
 
+      const code = codeByGroup.get(rawId);
+
       return {
         id: rawId,
         name: rawName === '' ? 'Sin Determinar' : rawName,
+        ...(code ? { code } : {}),
         sales_total: salesTotal,
         gross_margin_pct: grossMarginPct,
         rappel_pct: rappelPct,

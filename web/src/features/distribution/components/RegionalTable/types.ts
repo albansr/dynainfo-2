@@ -1,6 +1,8 @@
 export interface RegionalData {
   id: string;
   name: string;
+  /** Optional secondary code shown next to the name (festival product listing: IdItem). */
+  code?: string;
   sales: {
     current: number;
     previous: number;

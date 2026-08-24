@@ -97,6 +97,18 @@ export interface IAnalyticsQueryBuilder {
   }): Promise<Map<string, number>>;
 
   /**
+   * For each value of `groupBy`, a representative value of `attribute` from a
+   * single table (e.g. the item code `IdItem` next to `product_id`). Keys are
+   * trimBoth-normalized to merge onto listing rows by id.
+   */
+  buildGroupedAttributeQuery(config: {
+    table: string;
+    attribute: string;
+    filters: import('./filter-builder.js').FilterCondition[];
+    groupBy: string;
+  }): Promise<Map<string, string>>;
+
+  /**
    * Distinct count over a universe source EXCLUDING values present in any of
    * the exclusion sources (e.g. active-year customers who did NOT buy during
    * an event). Filters honour FilterCondition.table scoping.

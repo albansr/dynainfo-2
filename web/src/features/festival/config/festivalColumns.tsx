@@ -28,6 +28,7 @@ export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalDat
   return rows.map((row, index) => ({
     id: row.id || `row-${index}`, // fall back keeps React keys unique
     name: row.name,
+    ...(row.code ? { code: row.code } : {}),
     sales: { current: row.sales_total, previous: total > 0 ? (row.sales_total / total) * 100 : 0, variation: row.clientes_unicos },
     margin: { current: row.gross_margin_pct, previous: row.cumplimiento_ppto ?? 0, variation: row.productos_unicos, budget: row.presupuesto ?? 0 },
     budget: { amount: row.comprometido, compliance: row.rappel_pct },
@@ -178,18 +179,18 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
 ];
 
 /**
- * Product id column, shown only when grouping by product. The id slot already
- * carries the `product_id` (aliased as `id` by the backend query), so no extra
- * data is needed — it just surfaces the code next to the product name.
+ * Product code column, shown only when grouping by product. Surfaces the item
+ * code (IdItem, carried in `code`) next to the product name; falls back to the
+ * grouped id (product_id) if no code is available.
  */
 const FESTIVAL_PRODUCT_ID_COLUMN: ColumnDefinition = {
   id: 'productId',
   header: { label: 'COD. PRODUCTO', sortable: true, align: 'left', rowSpan: 2 },
-  accessor: (d) => d.id,
+  accessor: (d) => d.code ?? d.id,
   cellRenderer: textCell,
   align: 'left',
   sortable: true,
-  sortKey: 'id',
+  sortKey: 'code',
 };
 
 /**

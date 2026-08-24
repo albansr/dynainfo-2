@@ -1089,6 +1089,63 @@ GROUP BY id
   }
 
   /**
+   * For each value of `groupBy`, pick a representative value of `attribute`
+   * (`any`) from a single table — used to surface a secondary code (e.g. the
+   * item code `IdItem` next to `product_id`) without threading it through the
+   * grouped metrics query. Keys are `trimBoth`-normalized to merge onto listing
+   * rows by id. Returns an empty map if the table lacks either column or a
+   * scoped filter references a column it doesn't have.
+   */
+  async buildGroupedAttributeQuery(config: {
+    table: string;
+    attribute: string;
+    filters: FilterCondition[];
+    groupBy: string;
+  }): Promise<Map<string, string>> {
+    const { table, attribute, filters, groupBy } = config;
+
+    this.filterBuilder.validateFieldName(groupBy);
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(attribute)) {
+      throw new Error(`Invalid field name format: ${attribute}`);
+    }
+
+    const tableName = `${this.tablePrefix}${table}`;
+    const columnMap = await this.columnDiscoveryService.getColumnsForTables([tableName]);
+    const tableColumns = columnMap.get(tableName) ?? new Set<string>();
+    const tableFilters = this.filtersForTable(filters, table);
+    const hasUnfilterableColumn = tableFilters
+      .filter((f) => f.field !== 'date')
+      .some((f) => !tableColumns.has(f.field));
+    if (hasUnfilterableColumn || !tableColumns.has(attribute) || !tableColumns.has(groupBy)) {
+      return new Map();
+    }
+
+    const queryParams: Record<string, string | string[]> = {};
+    const where = this.filterBuilder.buildWhereClauseForTable(
+      tableFilters,
+      queryParams,
+      `gattr_${table}`,
+      tableName,
+      columnMap
+    );
+
+    const query = `
+SELECT trimBoth(${groupBy}) AS id, any(${attribute}) AS value
+FROM ${tableName} ${where}
+GROUP BY id
+`;
+
+    const resultSet = await this.client.query({
+      query,
+      query_params: queryParams,
+      format: 'JSONEachRow',
+    });
+
+    const rows = await resultSet.json<{ id: string; value: string | null }>();
+    return new Map(rows.map((r) => [r.id, String(r.value ?? '').trim()]));
+  }
+
+  /**
    * One `SELECT [trimBoth(groupBy) AS id,] field AS value FROM table WHERE …`
    * per applicable source. A source whose applicable non-date filters
    * reference columns it lacks — or that lacks the counted field / the group

@@ -41,6 +41,8 @@ export interface FestivalBalance {
 export interface FestivalListRow {
   id: string;
   name: string;
+  /** Código de artículo (IdItem), presente solo al agrupar por producto. */
+  code?: string;
   sales_total: number;
   gross_margin_pct: number;
   rappel_pct: number;

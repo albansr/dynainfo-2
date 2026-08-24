@@ -289,6 +289,9 @@ export const FestivalListRowSchema = Type.Object(
   {
     id: Type.String({ description: 'Raw value of the grouped dimension (for drill-down filtering)' }),
     name: Type.String({ description: 'Display value of the grouped dimension' }),
+    code: Type.Optional(
+      Type.String({ description: 'Código de artículo (IdItem) cuando se agrupa por producto' })
+    ),
     sales_total: Type.Number({ description: 'Ventas del evento (facturado + comprometido)' }),
     gross_margin_pct: Type.Number({ description: 'Margen bruto %' }),
     rappel_pct: Type.Number({ description: 'Rappel %' }),
