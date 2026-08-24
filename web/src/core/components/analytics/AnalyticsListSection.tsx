@@ -9,6 +9,7 @@ import {
   getColumnsWithDynamicLabel,
   getColumnGroupsWithoutBudget,
   getColumnGroups,
+  getProductCodeColumns,
 } from '@/features/distribution/components/RegionalTable/config/columns';
 import type { ColumnDefinition, ColumnGroup } from '@/features/distribution/components/RegionalTable/config/types';
 import { getSalesMetric, type SalesMetricPreset } from '@/core/utils/salesMetric';
@@ -150,6 +151,7 @@ export function AnalyticsListSection({
       return {
         id: item.id,
         name: item.name,
+        ...(item.code ? { code: item.code } : {}),
         sales: { current: sales.current, previous: sales.lastYear, variation: sales.vsLastYear },
         budget: { amount: item.budget, compliance: item.budget_achievement_pct },
         margin: {
@@ -169,10 +171,12 @@ export function AnalyticsListSection({
       const data = mapApiToRegionalData(item);
       let name = data.name;
       if (nameOverrides && name in nameOverrides) name = nameOverrides[name]!;
-      if (showIdInName && data.id && data.id !== name) name = `${data.id} - ${name}`;
+      // Product listings surface product_id in its own REFERENCIA column, so the
+      // id-in-name prefix would be redundant there.
+      if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
       return { ...data, name };
     }),
-    [listData, nameOverrides, showIdInName, mapApiToRegionalData]
+    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
   );
 
   const totals = useMemo(
@@ -193,6 +197,8 @@ export function AnalyticsListSection({
         col.id === 'regional' ? { ...col, header: { ...col.header, label: dimensionLabel } } : col
       );
     }
+    // Product listings lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id).
+    if (groupBy === 'product_id') cols = [...getProductCodeColumns(), ...cols];
     return cols;
   }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel]);
 

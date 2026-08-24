@@ -14,6 +14,8 @@ export interface BuildWorkbookInput {
   totals: ExportRow;
   hideBudgetColumns: boolean;
   hideRetainedColumn: boolean;
+  /** Lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id) — product listings only. */
+  showProductCode?: boolean;
   dimensionLabel: string;
   billingLabel: string;
   totalsLabel: string;
@@ -64,10 +66,26 @@ const GROUP_MARGIN_LABEL = 'MARGEN VS PRESUPUESTO';
  * Every multi-value on-screen cell is split into its own column.
  */
 function buildColumns(input: BuildWorkbookInput): ExcelColumn[] {
-  const { hideBudgetColumns, hideRetainedColumn, dimensionLabel, currentYear, previousYear } = input;
+  const { hideBudgetColumns, hideRetainedColumn, showProductCode, dimensionLabel, currentYear, previousYear } = input;
   const finite = (v: number): number | null => (Number.isFinite(v) ? v : null);
 
+  // Product listings lead with the item code (IdItem) and reference (product_id),
+  // blank on the TOTAL row (identified by the 'totals' sentinel id).
+  const productCodeCols: ExcelColumn[] = showProductCode
+    ? [
+        {
+          id: 'itemCode', header: 'CÓDIGO ITEM', group: null, format: 'text', width: 16,
+          value: (r) => (r.id === 'totals' ? null : (r.code ?? r.id)),
+        },
+        {
+          id: 'reference', header: 'REFERENCIA', group: null, format: 'text', width: 16,
+          value: (r) => (r.id === 'totals' ? null : r.id),
+        },
+      ]
+    : [];
+
   const cols: ExcelColumn[] = [
+    ...productCodeCols,
     {
       id: 'dimension', header: dimensionLabel, group: null, format: 'text', width: 30,
       value: (r) => r.name,

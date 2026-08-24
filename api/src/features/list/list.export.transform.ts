@@ -8,6 +8,8 @@ import type { ListItemResponse } from './list.schemas.js';
 export interface ExportRow {
   id: string;
   name: string;
+  /** Item code (IdItem) surfaced when listing products; absent otherwise. */
+  code?: string;
   sales: { current: number; previous: number; variation: number };
   budget: { amount: number; compliance: number };
   margin: { current: number; previous: number; variation: number; budget: number };
@@ -50,10 +52,12 @@ export function mapListItemToExportRow(
 
   const rawName = str(item, 'name');
   const name = nameOverrides && rawName in nameOverrides ? nameOverrides[rawName]! : rawName;
+  const code = str(item, 'code');
 
   return {
     id: str(item, 'id'),
     name,
+    ...(code ? { code } : {}),
     sales: {
       current: salesCurrent,
       previous: salesPrevious,

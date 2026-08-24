@@ -163,6 +163,35 @@ export function getColumnsWithDynamicLabel(groupBy: GroupByDimension): ColumnDef
 }
 
 /**
+ * Leading product-identity columns shown whenever products are listed:
+ * "CÓDIGO ITEM" (the internal item code, IdItem, carried in `code`) followed by
+ * "REFERENCIA" (the manufacturer SKU / product_id, carried in `id`). Both span
+ * the two header rows since they sit outside any column group.
+ */
+export function getProductCodeColumns(): ColumnDefinition[] {
+  return [
+    {
+      id: 'itemCode',
+      header: { label: 'CÓDIGO ITEM', sortable: true, align: 'left', rowSpan: 2 },
+      accessor: (data) => data.code ?? '',
+      cellRenderer: textCellRenderer,
+      align: 'left',
+      sortable: true,
+      sortKey: 'code',
+    },
+    {
+      id: 'reference',
+      header: { label: 'REFERENCIA', sortable: true, align: 'left', rowSpan: 2 },
+      accessor: (data) => data.id,
+      cellRenderer: textCellRenderer,
+      align: 'left',
+      sortable: true,
+      sortKey: 'reference',
+    },
+  ];
+}
+
+/**
  * Get columns without budget-related columns
  * Filters out 'budget' and 'marginBudget' columns
  * All remaining columns get rowSpan: 2 since there are no column groups

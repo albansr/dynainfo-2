@@ -10,6 +10,8 @@ export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'cus
 export interface ListItemResponse {
   id: string;
   name: string;
+  /** Item code (IdItem) surfaced when grouping by product_id. */
+  code?: string;
   budget: number;
   budget_last_year: number;
   budget_vs_last_year: number;

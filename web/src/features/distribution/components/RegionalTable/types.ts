@@ -40,5 +40,5 @@ export interface HeatmapThresholds {
   margin: { excellent: number; good: number; neutral: number };
 }
 
-export type SortKey = 'name' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder' | 'ppto' | 'pptoCumpl' | 'numerica' | 'items' | 'sinCompra';
+export type SortKey = 'name' | 'code' | 'reference' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder' | 'ppto' | 'pptoCumpl' | 'numerica' | 'items' | 'sinCompra';
 export type SortDirection = 'asc' | 'desc';

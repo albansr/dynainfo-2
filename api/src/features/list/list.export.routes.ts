@@ -71,6 +71,7 @@ export function listExportRoutes(fastify: FastifyInstance, dbClient: DatabaseCli
           totals,
           hideBudgetColumns: query.hideBudgetColumns === true,
           hideRetainedColumn: query.hideRetainedColumn === true,
+          showProductCode: parsed.groupBy === 'product_id',
           dimensionLabel: query.dimensionLabel || parsed.groupBy,
           billingLabel: query.billingLabel || 'Ventas VS Presupuesto',
           totalsLabel,

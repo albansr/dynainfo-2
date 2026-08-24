@@ -12,6 +12,8 @@ export interface FestivalWorkbookInput {
   hideNumerica: boolean;
   /** Hide Items (grouping by product → always 1). */
   hideItems: boolean;
+  /** Lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id) — product listings only. */
+  showProductCode?: boolean;
   reportTitle?: string;
   periodLabel?: string;
   generatedLabel?: string;
@@ -48,6 +50,18 @@ function buildColumns(input: FestivalWorkbookInput): FestivalExcelColumn[] {
   const total = input.rows.reduce((sum, r) => sum + r.sales_total, 0);
 
   const cols: (FestivalExcelColumn | null)[] = [
+    input.showProductCode
+      ? {
+          header: 'CÓDIGO ITEM', format: 'text', width: 16,
+          value: (r) => r.code ?? r.id,
+        }
+      : null,
+    input.showProductCode
+      ? {
+          header: 'REFERENCIA', format: 'text', width: 16,
+          value: (r) => r.id,
+        }
+      : null,
     {
       header: input.dimensionLabel, format: 'text', width: 34,
       value: (r) => r.name,

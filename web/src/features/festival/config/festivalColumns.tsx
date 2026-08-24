@@ -179,19 +179,31 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
 ];
 
 /**
- * Product code column, shown only when grouping by product. Surfaces the item
- * code (IdItem, carried in `code`) next to the product name; falls back to the
- * grouped id (product_id) if no code is available.
+ * Product identity columns, shown only when grouping by product: "CÓDIGO ITEM"
+ * (the internal item code, IdItem, carried in `code`; falls back to product_id
+ * when no code is available) followed by "REFERENCIA" (the SKU / product_id,
+ * carried in the grouped id). Mirrors the app-wide product listing layout.
  */
-const FESTIVAL_PRODUCT_ID_COLUMN: ColumnDefinition = {
-  id: 'productId',
-  header: { label: 'COD. PRODUCTO', sortable: true, align: 'left', rowSpan: 2 },
-  accessor: (d) => d.code ?? d.id,
-  cellRenderer: textCell,
-  align: 'left',
-  sortable: true,
-  sortKey: 'code',
-};
+const FESTIVAL_PRODUCT_CODE_COLUMNS: ColumnDefinition[] = [
+  {
+    id: 'itemCode',
+    header: { label: 'CÓDIGO ITEM', sortable: true, align: 'left', rowSpan: 2 },
+    accessor: (d) => d.code ?? d.id,
+    cellRenderer: textCell,
+    align: 'left',
+    sortable: true,
+    sortKey: 'code',
+  },
+  {
+    id: 'reference',
+    header: { label: 'REFERENCIA', sortable: true, align: 'left', rowSpan: 2 },
+    accessor: (d) => d.id,
+    cellRenderer: textCell,
+    align: 'left',
+    sortable: true,
+    sortKey: 'reference',
+  },
+];
 
 /**
  * Budget columns, shown only when the current grouping/filters are
@@ -230,7 +242,7 @@ export function getFestivalColumns(
   groupBy?: string
 ): ColumnDefinition[] {
   const columns = FESTIVAL_COLUMNS.flatMap((c) => {
-    if (c.id === 'name' && groupBy === 'product_id') return [FESTIVAL_PRODUCT_ID_COLUMN, c];
+    if (c.id === 'name' && groupBy === 'product_id') return [...FESTIVAL_PRODUCT_CODE_COLUMNS, c];
     if (c.id === 'sales' && includeBudget) return [c, ...FESTIVAL_BUDGET_COLUMNS];
     return [c];
   }).filter(

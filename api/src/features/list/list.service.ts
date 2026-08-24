@@ -63,18 +63,23 @@ export class ListService {
     // Calculate offset for pagination
     const offset = (page - 1) * limit;
 
-    // Execute single query with pagination and total count via window function
-    const results = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-      metrics: BALANCE_METRICS,
-      currentPeriodFilters: filters,
-      groupBy,
-      limit,
-      offset,
-      orderBy,
-      orderDirection,
-      facturadoOnly,
-      ...(search && { search }),
-    });
+    // Execute the grouped metrics query and, when listing products, the item-code
+    // (IdItem) lookup concurrently. The code column surfaces the internal item
+    // code next to product_id without threading it through the metrics query.
+    const [results, codeByGroup] = await Promise.all([
+      this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+        metrics: BALANCE_METRICS,
+        currentPeriodFilters: filters,
+        groupBy,
+        limit,
+        offset,
+        orderBy,
+        orderDirection,
+        facturadoOnly,
+        ...(search && { search }),
+      }),
+      this.getCodeByGroup(groupBy, filters),
+    ]);
 
     // Extract total count from first row (window function returns same value in all rows)
     const total = results.length > 0 && '_total_count' in results[0]!
@@ -82,7 +87,7 @@ export class ListService {
       : results.length;
 
     // Build array of responses using shared utility
-    const items: ListItemResponse[] = results.map((result) => this.toListItemResponse(result));
+    const items: ListItemResponse[] = results.map((result) => this.toListItemResponse(result, codeByGroup));
 
     // Calculate total pages
     const totalPages = Math.ceil(total / limit);
@@ -118,32 +123,57 @@ export class ListService {
       facturadoOnly = false,
     } = params;
 
-    const results = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-      metrics: BALANCE_METRICS,
-      currentPeriodFilters: filters,
-      groupBy,
-      limit: EXPORT_ROW_HARD_CAP + 1,
-      orderBy,
-      orderDirection,
-      facturadoOnly,
-    });
+    const [results, codeByGroup] = await Promise.all([
+      this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+        metrics: BALANCE_METRICS,
+        currentPeriodFilters: filters,
+        groupBy,
+        limit: EXPORT_ROW_HARD_CAP + 1,
+        orderBy,
+        orderDirection,
+        facturadoOnly,
+      }),
+      this.getCodeByGroup(groupBy, filters),
+    ]);
 
     if (results.length > EXPORT_ROW_HARD_CAP) {
       throw new ExportTooLargeError(results.length);
     }
 
-    return results.map((result) => this.toListItemResponse(result));
+    return results.map((result) => this.toListItemResponse(result, codeByGroup));
+  }
+
+  /**
+   * When grouping by product, resolve each product_id to its item code (IdItem)
+   * so the listing can show the internal code sellers recognise next to the SKU.
+   * Returns undefined for non-product groupings (no code column is shown).
+   */
+  private getCodeByGroup(
+    groupBy: string,
+    filters: FilterCondition[]
+  ): Promise<Map<string, string> | undefined> {
+    if (groupBy !== 'product_id') return Promise.resolve(undefined);
+    return this.analyticsBuilder.buildGroupedAttributeQuery({
+      table: 'transactions',
+      attribute: 'IdItem',
+      filters,
+      groupBy,
+    });
   }
 
   /**
    * Map a raw grouped query row into a ListItemResponse.
    * Shared by the paginated list and the export path.
    */
-  private toListItemResponse(result: Record<string, number | string>): ListItemResponse {
+  private toListItemResponse(
+    result: Record<string, number | string>,
+    codeByGroup?: Map<string, string>
+  ): ListItemResponse {
     const rawId = result['id']?.toString() ?? '';
     const id = rawId.trim() === '' ? 'Sin Determinar' : rawId;
     const rawName = result['name']?.toString() ?? '';
     const name = rawName.trim() === '' ? 'Sin Determinar' : rawName;
+    const code = codeByGroup?.get(rawId.trim());
     const numericResult: Record<string, number> = {};
 
     // Filter out non-numeric values and internal fields for buildDynamicResponse
@@ -156,6 +186,7 @@ export class ListService {
     return {
       id,
       name,
+      ...(code ? { code } : {}),
       ...buildDynamicResponse(numericResult),
     } as unknown as ListItemResponse;
   }

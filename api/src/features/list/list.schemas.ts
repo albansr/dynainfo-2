@@ -65,6 +65,9 @@ export const ListItemResponseSchema = Type.Composite([
   Type.Object({
     id: Type.String({ description: 'ID of the groupBy dimension' }),
     name: Type.String({ description: 'Name/label of the groupBy dimension' }),
+    code: Type.Optional(
+      Type.String({ description: 'Item code (IdItem) surfaced when grouping by product_id' })
+    ),
   }),
   BalanceSheetResponseSchema,
 ], {

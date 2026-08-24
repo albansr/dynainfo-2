@@ -275,6 +275,7 @@ export function festivalRoutes(
         // Grouping by the counted entity itself would render a column of 1s.
         hideNumerica: groupBy === 'customer_id',
         hideItems: groupBy === 'product_id',
+        showProductCode: groupBy === 'product_id',
         ...(query.reportTitle && { reportTitle: query.reportTitle }),
         ...(query.periodLabel && { periodLabel: query.periodLabel }),
         ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
