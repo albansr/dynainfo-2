@@ -229,7 +229,7 @@ export function getFestivalColumns(
   groupBy?: string
 ): ColumnDefinition[] {
   const columns = FESTIVAL_COLUMNS.flatMap((c) => {
-    if (c.id === 'name' && groupBy === 'product_id') return [c, FESTIVAL_PRODUCT_ID_COLUMN];
+    if (c.id === 'name' && groupBy === 'product_id') return [FESTIVAL_PRODUCT_ID_COLUMN, c];
     if (c.id === 'sales' && includeBudget) return [c, ...FESTIVAL_BUDGET_COLUMNS];
     return [c];
   }).filter(
