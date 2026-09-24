@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input } from '@heroui/react';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { AVAILABLE_DATA_RANGE } from '@/core/config/dateRangeConfig';
@@ -32,13 +32,18 @@ export function CustomDateRangePicker({ isOpen, onClose }: CustomDateRangePicker
   const [tempEnd, setTempEnd] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      setTempStart(format(startDate, 'dd-MM-yyyy'));
-      setTempEnd(format(preset === 'custom' ? endDate : new Date(), 'dd-MM-yyyy'));
-      setError(null);
-    }
-  }, [isOpen, startDate, endDate, preset]);
+  // Seed the inputs from the current range each time the modal opens. This is a
+  // state reset on the open transition, so it's done during render (comparing a
+  // "was open" flag) instead of in an effect — see the state-reset rule.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (isOpen && !wasOpen) {
+    setWasOpen(true);
+    setTempStart(format(startDate, 'dd-MM-yyyy'));
+    setTempEnd(format(preset === 'custom' ? endDate : new Date(), 'dd-MM-yyyy'));
+    setError(null);
+  } else if (!isOpen && wasOpen) {
+    setWasOpen(false);
+  }
 
   const handleApply = () => {
     const startDateObj = parseDateInput(tempStart);

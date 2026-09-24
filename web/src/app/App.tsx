@@ -1,40 +1,30 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HeroUIProvider } from '@heroui/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { LoginPage } from '@/features/auth/pages/LoginPage';
-import { CodeVerifyPage } from '@/features/auth/pages/CodeVerifyPage';
-import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
-import { FestivalVirtualPage } from '@/features/festival/pages/FestivalVirtualPage';
-import { MaintenancePage } from '@/features/dashboard/pages/MaintenancePage';
-import { EjemploPage } from '@/features/dashboard/pages/EjemploPage';
-import { DistributionPage } from '@/features/distribution/pages/DistributionPage';
-import { DistribucionRegionalesPage } from '@/features/distribution/pages/DistribucionRegionalesPage';
-import { DistribucionComercialesPage } from '@/features/distribution/pages/DistribucionComercialesPage';
-import { DistribucionClientesPage } from '@/features/distribution/pages/DistribucionClientesPage';
-import { FilteredDetailPage } from '@/features/distribution/pages/FilteredDetailPage';
-import { DistribucionProductosPage } from '@/features/distribution/pages/DistribucionProductosPage';
-import { DistribucionMarcasPage } from '@/features/distribution/pages/DistribucionMarcasPage';
-import { DistribucionMarcasAliadasPage } from '@/features/distribution/pages/DistribucionMarcasAliadasPage';
-import { ExportacionesPage } from '@/features/exportaciones/pages/ExportacionesPage';
-import { CadenasPage } from '@/features/cadenas/pages/CadenasPage';
-import { RetailPage } from '@/features/retail/pages/RetailPage';
-import { BrandsPage } from '@/features/brands/pages/BrandsPage';
-import { BrandsExternalPage } from '@/features/brands/pages/BrandsExternalPage';
-import { PortafolioPage } from '@/features/portafolio/pages/PortafolioPage';
-import { ClientesPage } from '@/features/clientes/pages/ClientesPage';
-import { GmroiPage } from '@/features/gmroi/pages/GmroiPage';
-import { VeraPage } from '@/features/vera/pages/VeraPage';
-import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { AppLayout } from '@/core/layouts/AppLayout';
 import { RouteGuard } from '@/core/router/RouteGuard';
 import { AuthProvider } from '@/core/router/AuthProvider';
+import { LoadingSkeleton } from '@/core/components/LoadingSkeleton';
+
+// Route-level code-splitting: each page is its own chunk, loaded on demand.
+const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const CodeVerifyPage = lazy(() => import('@/features/auth/pages/CodeVerifyPage').then((m) => ({ default: m.CodeVerifyPage })));
+const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const FestivalVirtualPage = lazy(() => import('@/features/festival/pages/FestivalVirtualPage').then((m) => ({ default: m.FestivalVirtualPage })));
+const FilteredDetailPage = lazy(() => import('@/features/dashboard/pages/FilteredDetailPage').then((m) => ({ default: m.FilteredDetailPage })));
+const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 min
+      // Keep the previous data while a query with changed params refetches, so
+      // switching view/temporality/page doesn't blank the UI into a loading flash.
+      placeholderData: keepPreviousData,
     },
   },
 });
@@ -45,248 +35,70 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
+            <Suspense fallback={<LoadingSkeleton />}>
             <Routes>
-            <Route
-              path="/login"
-              element={
-                <RouteGuard requireAuth={false}>
-                  <LoginPage />
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/code-verify"
-              element={
-                <RouteGuard requireAuth={false}>
-                  <CodeVerifyPage />
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DashboardPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/festival-virtual"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <FestivalVirtualPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/canales/distribucion"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistributionPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/regionales"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistribucionRegionalesPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/comerciales"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistribucionComercialesPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/clientes"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistribucionClientesPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/productos"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistribucionProductosPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/marcas"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistribucionMarcasPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/marcas-aliadas"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <DistribucionMarcasAliadasPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/distribucion/detalle"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <FilteredDetailPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/canales/exportaciones"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <ExportacionesPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/canales/cadenas"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <CadenasPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/canales/retail"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <RetailPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/proveedor-comercial/marcas"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <BrandsPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/proveedor-comercial/marcas-detalle"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <BrandsExternalPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/multivariados/portafolio"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <PortafolioPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/multivariados/clientes"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <ClientesPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/ejemplo"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <EjemploPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/mantenimiento"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <MaintenancePage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/inventarios/gmroi"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <GmroiPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/compania-vinculada/vera"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <VeraPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route
-              path="/configuracion"
-              element={
-                <RouteGuard requireAuth={true}>
-                  <AppLayout>
-                    <SettingsPage />
-                  </AppLayout>
-                </RouteGuard>
-              }
-            />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-      <Toaster position="top-right" theme="dark" />
+              <Route
+                path="/login"
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <LoginPage />
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/code-verify"
+                element={
+                  <RouteGuard requireAuth={false}>
+                    <CodeVerifyPage />
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <DashboardPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/festival-virtual"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <FestivalVirtualPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/distribucion/detalle"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <FilteredDetailPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/configuracion"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <SettingsPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+            </Suspense>
+          </AuthProvider>
+        </BrowserRouter>
+        <Toaster position="top-right" theme="dark" />
       </QueryClientProvider>
     </HeroUIProvider>
   );

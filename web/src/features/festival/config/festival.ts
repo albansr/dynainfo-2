@@ -74,29 +74,5 @@ export const FESTIVAL_DIM_LABEL: Record<string, string> = {
   customer_id: 'Cliente',
 };
 
-/**
- * Dimension a row drills into when clicked. Festival analysis follows fixed
- * concept chains, regardless of where you enter them:
- *   Marcas (Exclusivas/Aliadas) → Proveedor → Producto
- *   Regional → Vendedor ────────↗
- *   Canal → Vendedor ───────────↗
- *   Cliente ────────────────────↗
- *   Categoría → Marca → Producto
- * The virtual "Promoción" buckets drill straight into products, and a product
- * still crosses over to its customers.
- */
-export const FESTIVAL_DRILL_TARGET: Record<string, string> = {
-  [FESTIVAL_BRAND_GROUP]: 'ProveedorComercial',
-  [FESTIVAL_RAPPEL_GROUP]: 'product_id',
-  segmentacion_ventas_festival: 'seller_id',
-  IdRegional: 'seller_id',
-  seller_id: 'ProveedorComercial',
-  customer_id: 'ProveedorComercial',
-  ProveedorComercial: 'product_id',
-  Categoria: 'Marca',
-  Marca: 'product_id',
-  product_id: 'customer_id',
-};
-
 /** Default listing dimension. */
 export const FESTIVAL_DEFAULT_GROUP_BY = FESTIVAL_BRAND_GROUP;

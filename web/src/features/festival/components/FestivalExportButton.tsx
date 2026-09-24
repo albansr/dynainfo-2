@@ -4,7 +4,9 @@ import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useMergedFilters } from '../hooks/useFestivalBalance';
-import { downloadExcel, appendFilterParams } from '../utils/downloadExcel';
+import { downloadExcel, appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
+import { useAuthStore } from '@/core/store/authStore';
+import { canExport } from '@/core/config/access';
 
 interface FestivalExportButtonProps {
   /** Event window (comparison is irrelevant to the listing export). */
@@ -14,7 +16,7 @@ interface FestivalExportButtonProps {
   /** First-column header, e.g. "Proveedor". */
   dimensionLabel: string;
   /** Accumulated drill filters (role filters are merged automatically). */
-  filters: Record<string, unknown>;
+  filters: FilterMap;
   /** Report title shown at the top of the file (festival + drill context). */
   reportTitle: string;
   disabled?: boolean;
@@ -34,6 +36,7 @@ export function FestivalExportButton({
 }: FestivalExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const mergedFilters = useMergedFilters(filters);
+  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -57,6 +60,8 @@ export function FestivalExportButton({
       setIsExporting(false);
     }
   };
+
+  if (!canExport(dynaRole)) return null;
 
   return (
     <Button

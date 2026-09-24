@@ -2,51 +2,31 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 import { usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
-import { useAuthStore } from '@/core/store/authStore';
-import { getRoleDataFilter } from '@/core/config/access';
+import { useMergedFilters } from './useMergedFilters';
+import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
 import type { BalanceSheetResponse, BalanceQueryParams } from '../types';
 
 async function fetchBalance(
   params: BalanceQueryParams,
   facturadoOnly: boolean,
-  filters?: Record<string, any>
+  filters?: FilterMap
 ): Promise<BalanceSheetResponse> {
-  const queryParams = new URLSearchParams();
-
-  if (params.startDate) {
-    queryParams.append('startDate', params.startDate);
-  }
-
-  if (params.endDate) {
-    queryParams.append('endDate', params.endDate);
-  }
-
+  const q = new URLSearchParams();
+  if (params.startDate) q.append('startDate', params.startDate);
+  if (params.endDate) q.append('endDate', params.endDate);
   // Closed periods exclude comprometido from budget-relative metrics
-  if (facturadoOnly) {
-    queryParams.append('facturadoOnly', 'true');
-  }
+  if (facturadoOnly) q.append('facturadoOnly', 'true');
+  appendFilterParams(q, filters);
 
-  // Add additional filters
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        // For arrays, append each value separately
-        value.forEach(v => queryParams.append(key, String(v)));
-      } else {
-        queryParams.append(key, String(value));
-      }
-    });
-  }
-
-  const endpoint = `/api/balance${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  return apiClient<BalanceSheetResponse>(endpoint);
+  const qs = q.toString();
+  return apiClient<BalanceSheetResponse>(`/api/balance${qs ? `?${qs}` : ''}`);
 }
 
 export function useBalance(
   startDate: Date,
   endDate: Date,
   preset: SalesMetricPreset,
-  filters?: Record<string, any>
+  filters?: FilterMap
 ) {
   const params: BalanceQueryParams = {
     startDate: format(startDate, 'yyyy-MM-dd'),
@@ -54,15 +34,11 @@ export function useBalance(
   };
   const facturadoOnly = usesFacturadoOnly(preset);
 
-  // Channel roles get their data filtered by channel automatically
-  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
-  const roleFilter = getRoleDataFilter(dynaRole);
-  const mergedFilters = roleFilter ? { ...filters, ...roleFilter } : filters;
+  // Channel/scope roles get their data filtered automatically
+  const mergedFilters = useMergedFilters(filters);
 
   return useQuery({
     queryKey: ['balance', params.startDate, params.endDate, facturadoOnly, mergedFilters],
     queryFn: () => fetchBalance(params, facturadoOnly, mergedFilters),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false,
   });
 }

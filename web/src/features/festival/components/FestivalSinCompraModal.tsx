@@ -15,14 +15,16 @@ import { EyeIcon, ArrowDownTrayIcon, MagnifyingGlassIcon } from '@heroicons/reac
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useFestivalSinCompra, useMergedFilters } from '../hooks/useFestivalBalance';
-import { downloadExcel, appendFilterParams } from '../utils/downloadExcel';
+import { downloadExcel, appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
+import { useAuthStore } from '@/core/store/authStore';
+import { canExport } from '@/core/config/access';
 
 interface FestivalSinCompraModalProps {
   /** Event window (the comparison window is irrelevant to this listing). */
   startDate: Date;
   endDate: Date;
   /** Accumulated drill filters (role filters are merged automatically). */
-  filters: Record<string, unknown>;
+  filters: FilterMap;
   /** Festival + drill context, shown in the modal and the export title. */
   reportTitle: string;
 }
@@ -43,6 +45,7 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
   const [search, setSearch] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const mergedFilters = useMergedFilters(filters);
+  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
 
   const { data, isLoading } = useFestivalSinCompra({ startDate, endDate }, filters, isOpen);
   const rows = useMemo(() => {
@@ -88,7 +91,7 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
           aria-label="Ver quiénes son los clientes sin compra"
           onPress={onOpen}
         >
-          <EyeIcon className="h-4 w-4 text-gray-500" />
+          <EyeIcon className="h-4 w-4 text-zinc-500" />
         </Button>
       </Tooltip>
 
@@ -98,7 +101,7 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
             <>
               <ModalHeader className="flex flex-col gap-1">
                 Clientes sin compra
-                <span className="text-sm font-normal text-gray-500">
+                <span className="text-sm font-normal text-zinc-500">
                   {reportTitle} · activos con compra en {startDate.getFullYear()} sin compra en el festival
                 </span>
               </ModalHeader>
@@ -115,25 +118,25 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
                         className="max-w-xs"
                         placeholder="Buscar por código, cliente o vendedor"
                         aria-label="Buscar cliente"
-                        startContent={<MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />}
+                        startContent={<MagnifyingGlassIcon className="h-4 w-4 text-zinc-400" />}
                         value={search}
                         onValueChange={setSearch}
                         isClearable
                       />
-                      <span className="text-sm text-gray-500 shrink-0">
+                      <span className="text-sm text-zinc-500 shrink-0">
                         {rows.length.toLocaleString('es-CO')} clientes
                       </span>
                     </div>
                     {rows.length === 0 ? (
-                      <div className="text-sm text-gray-400 py-10 text-center">Sin resultados</div>
+                      <div className="text-sm text-zinc-400 py-10 text-center">Sin resultados</div>
                     ) : (
                       // The table scrolls in its own container so the sticky
                       // header sits flush at the top — sticking to the padded
                       // ModalBody left a gap where rows showed through.
                       <div className="overflow-y-auto max-h-[65vh]">
                         <table className="w-full text-left">
-                          <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.gray.200)]">
-                            <tr className="text-xs font-semibold text-gray-600 tracking-wider">
+                          <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.zinc.200)]">
+                            <tr className="text-xs font-semibold text-zinc-600 tracking-wider">
                               <th className="py-2 pr-4">NIT</th>
                               <th className="py-2 pr-4">CLIENTE</th>
                               <th className="py-2">VENDEDOR</th>
@@ -141,10 +144,10 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
                           </thead>
                           <tbody>
                             {rows.slice(0, MAX_VISIBLE_ROWS).map((r) => (
-                              <tr key={r.customer_id} className="border-b border-gray-100 text-[13px]">
-                                <td className="py-1.5 pr-4 font-mono text-gray-500">{r.customer_id}</td>
+                              <tr key={r.customer_id} className="border-b border-zinc-100 text-[13px]">
+                                <td className="py-1.5 pr-4 font-mono text-zinc-500">{r.customer_id}</td>
                                 <td className="py-1.5 pr-4 font-medium text-zinc-900">{r.customer_name}</td>
-                                <td className="py-1.5 text-gray-600">{r.seller_name}</td>
+                                <td className="py-1.5 text-zinc-600">{r.seller_name}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -152,7 +155,7 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
                       </div>
                     )}
                     {rows.length > MAX_VISIBLE_ROWS && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-zinc-400">
                         Mostrando {MAX_VISIBLE_ROWS} de {rows.length.toLocaleString('es-CO')} — usa el buscador o
                         exporta a Excel para ver el listado completo.
                       </p>
@@ -164,16 +167,18 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
                 <Button variant="light" onPress={onClose}>
                   Cerrar
                 </Button>
-                <Button
-                  color="primary"
-                  variant="flat"
-                  startContent={!isExporting && <ArrowDownTrayIcon className="h-4 w-4" />}
-                  isLoading={isExporting}
-                  isDisabled={isLoading || (data?.data ?? []).length === 0}
-                  onPress={handleExport}
-                >
-                  Exportar a Excel
-                </Button>
+                {canExport(dynaRole) && (
+                  <Button
+                    color="primary"
+                    variant="flat"
+                    startContent={!isExporting && <ArrowDownTrayIcon className="h-4 w-4" />}
+                    isLoading={isExporting}
+                    isDisabled={isLoading || (data?.data ?? []).length === 0}
+                    onPress={handleExport}
+                  >
+                    Exportar a Excel
+                  </Button>
+                )}
               </ModalFooter>
             </>
           )}

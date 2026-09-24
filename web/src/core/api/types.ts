@@ -74,6 +74,7 @@ export interface VerifyOTPResponse {
     name: string;
     image: string | null;
     dynaRole: string | null;
+    scope: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -92,6 +93,7 @@ export interface GetSessionResponse {
     name: string;
     image: string | null;
     dynaRole: string | null;
+    scope: string | null;
     createdAt: string;
     updatedAt: string;
   };

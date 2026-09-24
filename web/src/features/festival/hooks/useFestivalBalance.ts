@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '@/core/api/client';
-import { useAuthStore } from '@/core/store/authStore';
-import { getRoleDataFilter } from '@/core/config/access';
+import { useMergedFilters } from '@/core/api/hooks/useMergedFilters';
+import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
+
+// Re-exported so festival components keep importing it from the feature.
+export { useMergedFilters };
 
 export interface FestivalBalance {
   sales_total: number;
@@ -71,7 +74,7 @@ interface FestivalRange {
   compareEndDate?: Date;
 }
 
-function buildParams(range: FestivalRange, filters?: Record<string, unknown>): string {
+function buildParams(range: FestivalRange, filters?: FilterMap): string {
   const params = new URLSearchParams({
     startDate: format(range.startDate, 'yyyy-MM-dd'),
     endDate: format(range.endDate, 'yyyy-MM-dd'),
@@ -82,24 +85,9 @@ function buildParams(range: FestivalRange, filters?: Record<string, unknown>): s
     params.set('compareEndDate', format(range.compareEndDate, 'yyyy-MM-dd'));
   }
 
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        value.forEach((v) => params.append(key, String(v)));
-      } else {
-        params.append(key, String(value));
-      }
-    });
-  }
+  appendFilterParams(params, filters);
 
   return params.toString();
-}
-
-/** Channel roles get their data filtered by channel automatically (parity with useBalance). */
-export function useMergedFilters(filters?: Record<string, unknown>): Record<string, unknown> | undefined {
-  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
-  const roleFilter = getRoleDataFilter(dynaRole);
-  return roleFilter ? { ...filters, ...roleFilter } : filters;
 }
 
 function rangeKey(range: FestivalRange): string[] {
@@ -114,7 +102,7 @@ function rangeKey(range: FestivalRange): string[] {
 /** "En Vivo" dashboard: keep data fresh while the page stays open on screen. */
 const LIVE_REFETCH_INTERVAL = 1000 * 60 * 2;
 
-export function useFestivalBalance(range: FestivalRange, filters?: Record<string, unknown>) {
+export function useFestivalBalance(range: FestivalRange, filters?: FilterMap) {
   const mergedFilters = useMergedFilters(filters);
 
   return useQuery({
@@ -137,7 +125,7 @@ export interface FestivalSinCompraRow {
  * Detail of the `clientes_sin_compra` metric (fetched on demand when the
  * modal opens). Same window/filters contract as the balance.
  */
-export function useFestivalSinCompra(range: FestivalRange, filters: Record<string, unknown> | undefined, enabled: boolean) {
+export function useFestivalSinCompra(range: FestivalRange, filters: FilterMap | undefined, enabled: boolean) {
   const mergedFilters = useMergedFilters(filters);
 
   return useQuery({
@@ -154,7 +142,7 @@ export interface FestivalDailyPoint {
 }
 
 /** Daily sales series (facturado + comprometido) over the event window. */
-export function useFestivalDaily(range: FestivalRange, filters?: Record<string, unknown>) {
+export function useFestivalDaily(range: FestivalRange, filters?: FilterMap) {
   const mergedFilters = useMergedFilters(filters);
 
   return useQuery({
@@ -167,7 +155,7 @@ export function useFestivalDaily(range: FestivalRange, filters?: Record<string, 
 }
 
 /** Festival listing grouped by `groupBy` (e.g. 'ProveedorComercial'). */
-export function useFestivalList(range: FestivalRange, groupBy: string, filters?: Record<string, unknown>) {
+export function useFestivalList(range: FestivalRange, groupBy: string, filters?: FilterMap) {
   const mergedFilters = useMergedFilters(filters);
   const query = buildParams(range, mergedFilters) + `&groupBy=${encodeURIComponent(groupBy)}`;
 

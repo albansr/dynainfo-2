@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { FilterMap } from '@/core/api/downloadExcel';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useList, type GroupByDimension } from './useList';
 
@@ -17,7 +18,7 @@ export interface DimensionValue {
  */
 export function useDimensionValues(
   dimension: GroupByDimension,
-  contextFilters: Record<string, any> | undefined,
+  contextFilters: FilterMap | undefined,
   search: string
 ) {
   const { startDate, endDate, preset } = useDateRange();

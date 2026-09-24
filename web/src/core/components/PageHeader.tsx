@@ -1,4 +1,3 @@
-import { Chip } from '@heroui/react';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { PRESET_LABELS } from '@/core/config/dateRangeConfig';
 import { DateRangeFilter } from '@/features/dashboard/components/DateRangeFilter';
@@ -6,13 +5,24 @@ import { DateRangeFilter } from '@/features/dashboard/components/DateRangeFilter
 interface PageHeaderProps {
   title: string;
   showDateFilter?: boolean;
-  /** Optional chip shown next to the title (e.g. the user's channel). */
+  /** Optional view/scope name shown next to the title. */
   chip?: string;
+  /** Render the chip as muted text (default) or dark like the title. */
+  chipMuted?: boolean;
   /** Optional breadcrumbs rendered above the title. */
   breadcrumbs?: React.ReactNode;
+  /** Optional control rendered before the date filter (e.g. a view selector). */
+  leadingControl?: React.ReactNode;
+  /** Optional element rendered inline after the title (e.g. a live badge). */
+  titleAccessory?: React.ReactNode;
+  /**
+   * Overrides the date-derived subtitle line. Use when the page has its own
+   * date window (e.g. the festival event range) instead of the global range.
+   */
+  subtitle?: React.ReactNode;
 }
 
-export function PageHeader({ title, showDateFilter = true, chip, breadcrumbs }: PageHeaderProps) {
+export function PageHeader({ title, showDateFilter = true, chip, chipMuted = true, breadcrumbs, leadingControl, titleAccessory, subtitle }: PageHeaderProps) {
   const { preset, formattedRange, endDate } = useDateRange();
   const currentYear = endDate.getFullYear();
 
@@ -35,18 +45,24 @@ export function PageHeader({ title, showDateFilter = true, chip, breadcrumbs }: 
               </h1>
             )}
             {chip && (
-              <Chip size="sm" variant="flat" color="primary" className="font-medium">
-                {chip}
-              </Chip>
+              <span className={`text-xl sm:text-2xl ${chipMuted ? 'font-light text-zinc-400' : 'font-bold text-zinc-900'}`}>
+                {chipMuted ? `· ${chip}` : chip}
+              </span>
             )}
+            {titleAccessory}
           </div>
           <p className="text-sm text-zinc-500 mt-1">
-            {periodLabel || `Año ${currentYear}`} · {formattedRange}
+            {subtitle ?? `${periodLabel || `Año ${currentYear}`} · ${formattedRange}`}
           </p>
         </div>
-        {showDateFilter && (
-          <div className="w-full sm:w-64">
-            <DateRangeFilter />
+        {(leadingControl || showDateFilter) && (
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {leadingControl && <div className="w-full sm:w-64">{leadingControl}</div>}
+            {showDateFilter && (
+              <div className="w-full sm:w-64">
+                <DateRangeFilter />
+              </div>
+            )}
           </div>
         )}
       </div>

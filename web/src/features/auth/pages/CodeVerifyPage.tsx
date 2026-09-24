@@ -26,8 +26,8 @@ export function CodeVerifyPage() {
       // If we get here, verification was successful
       const from = (location.state as { from?: string })?.from || '/dashboard';
       navigate(from, { replace: true });
-    } catch (error) {
-      // Error is already set in state by useApiMutation, just catch to prevent unhandled rejection
+    } catch {
+      // Error is already set in state by useApiMutation; swallow to avoid an unhandled rejection.
     }
   };
 
@@ -51,7 +51,7 @@ export function CodeVerifyPage() {
         <CardBody className="flex flex-col gap-6">
           <div className="">
             <h1 className="text-2xl font-bold">Verificar código</h1>
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-zinc-600">
               Ingresa el código de 6 dígitos enviado a <span className="font-semibold">{email}</span>
             </p>
           </div>

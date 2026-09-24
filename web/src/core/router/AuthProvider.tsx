@@ -2,41 +2,48 @@ import { useEffect } from 'react';
 import { useAuthStore } from '@/core/store/authStore';
 import { authApi } from '@/core/api/authApi';
 import { normalizeAuthResponse } from '@/core/utils/normalizeAuthResponse';
+import { DEMO_ROLE_EMAIL } from '@/core/config/constants';
 
 interface AuthProviderProps {
   children: React.ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUserAndSession, setLoading, clearAuth, isAuthenticated } = useAuthStore();
+  const { setUserAndSession, setLoading, clearAuth } = useAuthStore();
 
+  // Validate the session once on mount. Store actions are stable, so this runs
+  // a single time — do NOT depend on isAuthenticated (a successful login would
+  // otherwise retrigger the whole session fetch).
   useEffect(() => {
     async function checkSession() {
       setLoading(true);
       try {
         const response = await authApi.getSession();
-        // Check if response has the expected structure
         if (response && response.user && response.session) {
           const { user, session } = normalizeAuthResponse(response);
-          setUserAndSession(user, session);
+          // Demo role override: apply the persisted override over the real session.
+          const { demoRole, demoScope } = useAuthStore.getState();
+          const finalUser =
+            demoRole && user.email === DEMO_ROLE_EMAIL
+              ? { ...user, dynaRole: demoRole, scope: demoScope }
+              : user;
+          setUserAndSession(finalUser, session);
         }
-        // If response is empty but we have persisted state, keep it
-        // The server will return empty if no active session, but we trust localStorage
-      } catch (error: any) {
-        // Only clear auth if session is explicitly invalid (401/403)
-        // This means the server confirmed the session is bad
-        if (error?.status === 401 || error?.status === 403) {
+        // Empty response but persisted state → keep it (trust localStorage).
+      } catch (error: unknown) {
+        // Only clear auth if the server confirmed the session is invalid.
+        const status = (error as { status?: number } | null)?.status;
+        if (status === 401 || status === 403) {
           clearAuth();
         }
-        // For network errors or other issues, keep the persisted session
-        // The user might be offline or there might be a temporary issue
+        // Network/other errors: keep the persisted session (offline/transient).
       } finally {
         setLoading(false);
       }
     }
 
     checkSession();
-  }, [setUserAndSession, setLoading, clearAuth, isAuthenticated]);
+  }, [setUserAndSession, setLoading, clearAuth]);
 
   return <>{children}</>;
 }

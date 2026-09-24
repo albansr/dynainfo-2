@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FilterMap } from '@/core/api/downloadExcel';
 import { Pagination, Input } from '@heroui/react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useAnalyticsData } from './hooks/useAnalyticsData';
-import { RegionalTable, type RegionalData } from '@/features/distribution/components/RegionalTable';
+import { RegionalTable, type RegionalData } from '@/core/components/RegionalTable';
 import {
   getColumnsWithoutBudget,
   getColumnsWithDynamicLabel,
   getColumnGroupsWithoutBudget,
   getColumnGroups,
   getProductCodeColumns,
-} from '@/features/distribution/components/RegionalTable/config/columns';
-import type { ColumnDefinition, ColumnGroup } from '@/features/distribution/components/RegionalTable/config/types';
+} from '@/core/components/RegionalTable/config/columns';
+import type { ColumnDefinition, ColumnGroup } from '@/core/components/RegionalTable/config/types';
 import { getSalesMetric, type SalesMetricPreset } from '@/core/utils/salesMetric';
 import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
-import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/features/distribution/components/FacetedFilterBar';
+import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
 
 /** Totals row from the current page's mapped rows. */
@@ -71,7 +72,7 @@ function buildTotalsFromBalance(balance: BalanceSheetData, preset: SalesMetricPr
 
 export interface AnalyticsListSectionProps {
   groupBy: GroupByDimension;
-  filters?: Record<string, any>;
+  filters?: FilterMap;
   totalsLabel?: string;
   tableColumns?: ColumnDefinition[];
   tableColumnGroups?: ColumnGroup[];
@@ -89,13 +90,13 @@ export interface AnalyticsListSectionProps {
   /** Show the faceted multi-select filter bar. */
   enableFilters?: boolean;
   /** Context (e.g. channel) that scopes the filter value options. */
-  filterContext?: Record<string, any>;
+  filterContext?: FilterMap;
 }
 
 /**
  * Headless analytics list: data fetch + search + export + table + pagination
- * + totals. Rendered by AnalyticsPage (below the header/metrics) and reused by
- * the drill-down breakdown.
+ * + totals. Reused by the dimension breakdown table on the dashboard and the
+ * detail explorer.
  */
 export function AnalyticsListSection({
   groupBy,
@@ -120,7 +121,7 @@ export function AnalyticsListSection({
   // Faceted filters (dimension → selected values); merged into the base filters
   const [applied, setApplied] = useState<AppliedFilters>({});
   const effectiveFilters = useMemo(() => {
-    const merged: Record<string, any> = { ...filters };
+    const merged: FilterMap = { ...filters };
     for (const [dim, values] of Object.entries(applied)) {
       if (values.length) merged[dim] = values.map((v) => v.id);
     }
@@ -134,10 +135,16 @@ export function AnalyticsListSection({
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Reset to page 1 whenever the dataset identity changes (group/dates/preset/
+  // size/search/filters). Adjust state during render instead of in an effect to
+  // avoid the cascading-render smell.
   const [page, setPage] = useState(1);
-  useEffect(() => {
+  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${JSON.stringify(effectiveFilters)}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey);
     setPage(1);
-  }, [groupBy, startDate, endDate, preset, pageSize, debouncedSearch, effectiveFilters]);
+  }
 
   const { balanceData, listData, listMeta, isLoading } = useAnalyticsData(
     groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch
@@ -220,12 +227,12 @@ export function AnalyticsListSection({
       )}
 
       {/* Search + (Add filter + Export) */}
-      <div className={`${hasChips ? 'mt-3' : 'mt-8'} flex items-center justify-between gap-3`}>
+      <div className={`${hasChips ? 'mt-3' : 'mt-8'} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
         {showSearch ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Input
               size="sm"
-              className="w-80"
+              className="w-full sm:w-80"
               placeholder="Buscar por nombre o ID..."
               value={searchInput}
               onValueChange={setSearchInput}
@@ -242,7 +249,7 @@ export function AnalyticsListSection({
         ) : (
           <div />
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:justify-end">
           {enableFilters && (
             <FacetedFilterAddButton value={applied} onChange={setApplied} contextFilters={filterContext} />
           )}

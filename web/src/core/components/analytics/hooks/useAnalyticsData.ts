@@ -1,7 +1,8 @@
 import { useBalance } from '@/core/api/hooks/useBalance';
+import type { FilterMap } from '@/core/api/downloadExcel';
 import { useList } from '@/core/api/hooks/useList';
 import type { SalesMetricPreset } from '@/core/utils/salesMetric';
-import type { GroupByDimension } from '../types';
+import type { GroupByDimension } from '@/core/api/hooks/useList';
 
 /**
  * Generic hook for fetching analytics data
@@ -28,7 +29,7 @@ export function useAnalyticsData(
   startDate: Date,
   endDate: Date,
   preset: SalesMetricPreset,
-  filters?: Record<string, any>,
+  filters?: FilterMap,
   page: number = 1,
   limit: number = 50,
   search?: string

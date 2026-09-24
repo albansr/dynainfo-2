@@ -1,4 +1,5 @@
 import { API_URL } from '@/core/config/constants';
+import { useAuthStore } from '@/core/store/authStore';
 
 export class APIError extends Error {
   status: number;
@@ -32,6 +33,11 @@ export async function apiClient<T>(
   });
 
   if (!response.ok) {
+    // 401 = the session is invalid → treat the user as logged out. RouteGuard
+    // then redirects to /login (the real gate is the API, not the client store).
+    if (response.status === 401) {
+      useAuthStore.getState().clearAuth();
+    }
     const errorData = await response.json().catch(() => null);
     throw new APIError(
       errorData?.detail || `HTTP error ${response.status}`,

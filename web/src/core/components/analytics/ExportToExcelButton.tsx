@@ -3,18 +3,19 @@ import { Button } from '@heroui/react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { API_URL } from '@/core/config/constants';
 import type { GroupByDimension } from '@/core/api/hooks/useList';
 import { getSalesOrderByField, usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
 import { getDimensionLabel } from '@/core/utils/dimensionLabels';
+import { useAuthStore } from '@/core/store/authStore';
+import { canExport } from '@/core/config/access';
+import { downloadExcel, appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
 
 interface ExportToExcelButtonProps {
   groupBy: GroupByDimension;
   startDate: Date;
   endDate: Date;
   preset: SalesMetricPreset;
-  filters?: Record<string, any>;
+  filters?: FilterMap;
   totalsLabel: string;
   hideBudgetColumns: boolean;
   hideRetainedColumn: boolean;
@@ -61,6 +62,7 @@ export function ExportToExcelButton({
   disabled,
 }: ExportToExcelButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -90,50 +92,15 @@ export function ExportToExcelButton({
       const filename = `${dimensionLabel}_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
       params.append('filename', filename);
 
-      // Dynamic filters (mirrors useList's fetchList spreading)
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (Array.isArray(value)) {
-            value.forEach((v) => params.append(key, String(v)));
-          } else if (value !== undefined && value !== null) {
-            params.append(key, String(value));
-          }
-        }
-      }
+      appendFilterParams(params, filters);
 
-      const response = await fetch(`${API_URL}/api/list/export?${params.toString()}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        let message = 'No se pudo generar el archivo Excel';
-        try {
-          const body = await response.json();
-          if (body?.message) message = body.message;
-        } catch {
-          // non-JSON error body — keep default message
-        }
-        toast.error(message);
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${filename}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success('Exportación completada');
-    } catch {
-      toast.error('No se pudo generar el archivo Excel');
+      await downloadExcel('/api/list/export', params, filename);
     } finally {
       setIsExporting(false);
     }
   };
+
+  if (!canExport(dynaRole)) return null;
 
   return (
     <Button

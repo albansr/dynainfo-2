@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { apiClient } from '../client';
 import { getSalesOrderByField, usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
-import { useAuthStore } from '@/core/store/authStore';
-import { getRoleDataFilter } from '@/core/config/access';
+import { useMergedFilters } from './useMergedFilters';
+import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
 
 export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'customer_city' | 'customer_department' | 'ClasifRiesgo' | 'Categoria' | 'SubCategoria' | 'FamiliaProducto' | 'Linea' | 'month' | 'quarter' | 'year';
 
@@ -59,61 +59,30 @@ interface ListQueryParams {
   groupBy: GroupByDimension;
   startDate?: string;
   endDate?: string;
-  page?: number;
-  limit?: number;
-  orderBy?: string;
-  orderDirection?: 'asc' | 'desc';
-  [key: string]: any;
+  page: number;
+  limit: number;
+  orderBy: string;
+  orderDirection: 'asc' | 'desc';
+  facturadoOnly: boolean;
+  search?: string;
 }
 
-async function fetchList(params: ListQueryParams): Promise<ListResponse> {
-  const queryParams = new URLSearchParams();
-
-  queryParams.append('groupBy', params.groupBy);
-
-  if (params.startDate) {
-    queryParams.append('startDate', params.startDate);
-  }
-  if (params.endDate) {
-    queryParams.append('endDate', params.endDate);
-  }
-  if (params.page) {
-    queryParams.append('page', params.page.toString());
-  }
-  if (params.limit) {
-    queryParams.append('limit', params.limit.toString());
-  }
-  if (params.orderBy) {
-    queryParams.append('orderBy', params.orderBy);
-  }
-  if (params.orderDirection) {
-    queryParams.append('orderDirection', params.orderDirection);
-  }
-
+async function fetchList(params: ListQueryParams, filters?: FilterMap): Promise<ListResponse> {
+  const q = new URLSearchParams();
+  q.append('groupBy', params.groupBy);
+  if (params.startDate) q.append('startDate', params.startDate);
+  if (params.endDate) q.append('endDate', params.endDate);
+  q.append('page', String(params.page));
+  q.append('limit', String(params.limit));
+  q.append('orderBy', params.orderBy);
+  q.append('orderDirection', params.orderDirection);
   // Closed periods exclude comprometido from budget-relative metrics
-  if (params.facturadoOnly) {
-    queryParams.append('facturadoOnly', 'true');
-  }
-
+  if (params.facturadoOnly) q.append('facturadoOnly', 'true');
   // Case-insensitive search on the dimension id/name
-  if (params.search) {
-    queryParams.append('search', String(params.search));
-  }
+  if (params.search) q.append('search', params.search);
+  appendFilterParams(q, filters);
 
-  // Add dynamic filters
-  for (const [key, value] of Object.entries(params)) {
-    if (!['groupBy', 'startDate', 'endDate', 'page', 'limit', 'orderBy', 'orderDirection', 'facturadoOnly', 'search'].includes(key)) {
-      if (Array.isArray(value)) {
-        // For arrays, append each value separately
-        value.forEach(v => queryParams.append(key, String(v)));
-      } else {
-        queryParams.append(key, String(value));
-      }
-    }
-  }
-
-  const endpoint = `/api/list?${queryParams.toString()}`;
-  return apiClient<ListResponse>(endpoint);
+  return apiClient<ListResponse>(`/api/list?${q.toString()}`);
 }
 
 export function useList(
@@ -121,15 +90,13 @@ export function useList(
   startDate: Date | undefined,
   endDate: Date | undefined,
   preset: SalesMetricPreset,
-  filters?: Record<string, any>,
+  filters?: FilterMap,
   page: number = 1,
   limit: number = 50,
   search?: string
 ) {
-  // Channel roles get their data filtered by channel automatically
-  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
-  const roleFilter = getRoleDataFilter(dynaRole);
-  const mergedFilters = roleFilter ? { ...filters, ...roleFilter } : filters;
+  // Channel/scope roles get their data filtered automatically
+  const mergedFilters = useMergedFilters(filters);
   const trimmedSearch = search?.trim() || undefined;
 
   const params: ListQueryParams = {
@@ -142,13 +109,10 @@ export function useList(
     orderDirection: 'desc',
     facturadoOnly: usesFacturadoOnly(preset),
     ...(trimmedSearch && { search: trimmedSearch }),
-    ...mergedFilters,
   };
 
   return useQuery({
     queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, mergedFilters, preset, trimmedSearch],
-    queryFn: () => fetchList(params),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false,
+    queryFn: () => fetchList(params, mergedFilters),
   });
 }

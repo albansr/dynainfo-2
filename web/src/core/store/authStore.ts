@@ -8,6 +8,7 @@ export interface User {
   name: string;
   image: string | null;
   dynaRole: string | null;
+  scope: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +26,9 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  /** Demo-only role override (applied over the real session for the demo user). */
+  demoRole: string | null;
+  demoScope: string | null;
 }
 
 interface AuthActions {
@@ -36,6 +40,8 @@ interface AuthActions {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearAuth: () => void;
+  /** Apply a demo role override; patches the current user immediately. */
+  setDemoRole: (demoRole: string | null, demoScope: string | null) => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -47,6 +53,8 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  demoRole: null,
+  demoScope: null,
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -86,6 +94,16 @@ export const useAuthStore = create<AuthStore>()(
 
       clearAuth: () =>
         set(initialState),
+
+      setDemoRole: (demoRole, demoScope) =>
+        set((state) => ({
+          demoRole,
+          demoScope,
+          user:
+            state.user && demoRole
+              ? { ...state.user, dynaRole: demoRole, scope: demoScope }
+              : state.user,
+        })),
     }),
     {
       name: 'auth-storage',
@@ -95,6 +113,8 @@ export const useAuthStore = create<AuthStore>()(
         session: state.session,
         isAuthenticated: state.isAuthenticated,
         email: state.email,
+        demoRole: state.demoRole,
+        demoScope: state.demoScope,
       }),
     }
   )

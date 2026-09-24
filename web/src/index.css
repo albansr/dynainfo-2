@@ -1,3 +1,14 @@
 @import "tailwindcss";
 
 @config "../tailwind.config.ts";
+
+/*
+ * Dyna brand tokens (from the logo). Use these utilities (bg-dyna, text-dyna,
+ * bg-dyna-orange…) for brand accents instead of hardcoding hex. Neutral grays
+ * still use Tailwind's default scale for now — migrating those to semantic
+ * tokens is a follow-up.
+ */
+@theme {
+  --color-dyna: #e2231a;         /* Dyna red (wordmark) */
+  --color-dyna-orange: #f5871f;  /* Dyna orange (star) */
+}

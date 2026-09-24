@@ -2,7 +2,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Chip } from '@heroui/react';
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
-import { canAccessPath, getRoleChannelLabel, getMenuSections } from '@/core/config/access';
+import { getMenuSections } from '@/core/config/access';
 import { NavBadge } from '@/core/components/NavBadge';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLogout } from '@/features/auth/hooks/useLogout';
@@ -11,12 +11,16 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
-// Human-readable labels for Dyna profile roles; empty/'MANAGER' and unknown values show nothing
+// Human-readable labels for Dyna profile roles shown as a chip in the sidebar;
+// unknown values show nothing.
 const DYNA_ROLE_LABELS: Record<string, string> = {
-  MANAGER_DISTRIBUTION: 'Distribución',
-  MANAGER_CADENAS: 'Cadenas',
-  MANAGER_EXPORTATION: 'Exportación',
-  MANAGER_RETAIL: 'Retail',
+  ADMIN: 'Gerencia General',
+  MANAGER: 'Gerencias',
+  BOARD: 'Junta General',
+  RETAIL: 'Dirección Retail',
+  NEW_CHANNELS: 'Dirección Nuevos Canales',
+  DISTRIBUTION: 'Directores',
+  SELLER: 'Vendedores',
 };
 
 function getDynaRoleLabel(dynaRole: string | null | undefined): string | null {
@@ -41,11 +45,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const dynaRoleLabel = getDynaRoleLabel(user?.dynaRole);
 
-  // Filter the sidebar by the user's role (MANAGER/empty sees all)
+  // Sidebar is the same for every role for now: Análisis (home) + Festival.
   const dynaRole = user?.dynaRole;
-  const canSeeDashboard = canAccessPath(dynaRole, '/dashboard');
-  // Channel roles see "Inicio"; MANAGER/full access keeps "Compañía General"
-  const dashboardLabel = getRoleChannelLabel(dynaRole) ? 'Inicio' : 'Compañía General';
+  const dashboardLabel = 'Análisis';
   const visibleSections = useMemo(() => getMenuSections(dynaRole), [dynaRole]);
 
   const handleLinkClick = () => {
@@ -57,10 +59,12 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen bg-[#f3f3f3] relative">
-      {/* Mobile overlay */}
+      {/* Mobile overlay (a real button so it's keyboard/screen-reader accessible) */}
       {isSidebarOpen && (
-        <div
-          className={`fixed inset-0 bg-black/50 z-40 ${isEmbedded ? '' : 'xl:hidden'}`}
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className={`fixed inset-0 bg-black/50 z-40 cursor-pointer ${isEmbedded ? '' : 'xl:hidden'}`}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -78,7 +82,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
         )}
 
-        <nav className="px-4 flex-1 overflow-y-auto py-4 border-t border-gray-200">
+        <nav className="px-4 flex-1 overflow-y-auto py-4 border-t border-zinc-200">
           <Listbox
             variant="light"
             aria-label="Navigation menu"
@@ -89,21 +93,19 @@ export function AppLayout({ children }: AppLayoutProps) {
             emptyContent={null}
           >
             <>
-              {/* Compañía General - sin sección */}
-              {canSeeDashboard ? (
-                <ListboxItem
-                  key="/dashboard"
-                  href="/dashboard"
-                  className="cursor-pointer mb-4"
-                  classNames={{
-                    base: "data-[selected=true]:bg-primary/10",
-                    title: "data-[selected=true]:text-primary data-[selected=true]:font-semibold",
-                  }}
-                  onPress={handleLinkClick}
-                >
-                  {dashboardLabel}
-                </ListboxItem>
-              ) : null}
+              {/* Análisis (home) */}
+              <ListboxItem
+                key="/dashboard"
+                href="/dashboard"
+                className="cursor-pointer mb-4"
+                classNames={{
+                  base: "data-[selected=true]:bg-primary/10",
+                  title: "data-[selected=true]:text-primary data-[selected=true]:font-semibold",
+                }}
+                onPress={handleLinkClick}
+              >
+                {dashboardLabel}
+              </ListboxItem>
 
               {/* Resto de secciones */}
               {visibleSections.map((section) => (
@@ -135,7 +137,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </Listbox>
         </nav>
 
-        <div className="mt-auto border-t border-gray-200 p-3">
+        <div className="mt-auto border-t border-zinc-200 p-3">
           {user && (
             <Dropdown placement="top-start">
               <DropdownTrigger>
@@ -240,7 +242,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <header className={`${isEmbedded ? '' : 'xl:hidden'} flex items-center gap-3 p-4 bg-[#f3f3f3]`}>
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+            className="p-2 rounded-lg hover:bg-zinc-200 transition-colors cursor-pointer"
             aria-label="Toggle menu"
           >
             {isSidebarOpen ? (

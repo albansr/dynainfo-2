@@ -29,7 +29,7 @@ export function LoginPage() {
         <CardBody className="gap-6">
           <div className="">
             <img src="/brand.png" alt="DynaInfo" className="w-[95px] h-auto mb-4" />
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-zinc-600">
               Ingresa tu email para recibir un código de verificación
             </p>
           </div>

@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Select, SelectItem, Tabs, Tab, Skeleton } from '@heroui/react';
+import type { FilterMap } from '@/core/api/downloadExcel';
+import { SelectItem, Tabs, Tab, Skeleton } from '@heroui/react';
+import { AppSelect } from '@/core/components/AppSelect';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useQube6Distribution } from '@/core/api/hooks/useQube6Distribution';
 import type { AnalysisType, SegmentDistributionItem } from '@/core/api/types';
@@ -90,11 +92,22 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
 
   const sorted = sortSegments(items, analysisType);
 
-  useEffect(() => {
+  // Replay the grow animation whenever the data changes: reset the flag during
+  // render (state reset on a data change, not in an effect), then let the effect
+  // flip it back on after paint via requestAnimationFrame.
+  const [prevItems, setPrevItems] = useState(items);
+  const [prevTotal, setPrevTotal] = useState(total);
+  if (items !== prevItems || total !== prevTotal) {
+    setPrevItems(items);
+    setPrevTotal(total);
     setAnimated(false);
+  }
+
+  useEffect(() => {
+    if (animated) return;
     const frame = requestAnimationFrame(() => setAnimated(true));
     return () => cancelAnimationFrame(frame);
-  }, [items, total]);
+  }, [animated]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent, item: SegmentDistributionItem, rawPct: number) => {
     const rect = barRef.current?.getBoundingClientRect();
@@ -111,11 +124,26 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
 
   const handleMouseLeave = useCallback(() => setTooltip(null), []);
 
+  // Keyboard focus shows the same tooltip, positioned at the segment's center
+  // (no mouse coords), so the distribution is reachable without a pointer.
+  const handleFocus = useCallback((e: React.FocusEvent<HTMLDivElement>, item: SegmentDistributionItem, rawPct: number) => {
+    const barRect = barRef.current?.getBoundingClientRect();
+    const segRect = e.currentTarget.getBoundingClientRect();
+    if (!barRect) return;
+    setTooltip({
+      name: item.short,
+      metricValue: metric === 'count' ? item.count : item.sales,
+      metricPct: rawPct,
+      x: segRect.left - barRect.left + segRect.width / 2,
+      y: segRect.top - barRect.top,
+    });
+  }, [metric]);
+
   if (total === 0) {
     return (
       <div className="mb-5">
-        <div className="text-xs text-gray-500 mb-1.5 font-medium">{label}</div>
-        <div className="h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xs text-gray-400">
+        <div className="text-xs text-zinc-500 mb-1.5 font-medium">{label}</div>
+        <div className="h-10 bg-zinc-100 rounded-xl flex items-center justify-center text-xs text-zinc-400">
           Sin datos
         </div>
       </div>
@@ -124,8 +152,8 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
 
   return (
     <div className="mb-5 relative">
-      <div className="text-xs text-gray-500 mb-1.5 font-medium">{label}</div>
-      <div ref={barRef} className="flex h-10 rounded-xl overflow-hidden">
+      <div className="text-xs text-zinc-500 mb-1.5 font-medium">{label}</div>
+      <div ref={barRef} role="group" aria-label={`Distribución: ${label}`} className="flex h-10 rounded-xl overflow-hidden">
         {sorted.map((item) => {
           const value = metric === 'count' ? item.count : item.sales;
           const rawPct = (value / total) * 100;
@@ -136,7 +164,10 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
           return (
             <div
               key={item.short}
-              className="relative flex items-center justify-center text-xs font-medium cursor-default hover:brightness-110 hover:saturate-110"
+              role="button"
+              tabIndex={0}
+              aria-label={`${item.short}: ${rawPct.toFixed(1)}%`}
+              className="relative flex items-center justify-center text-xs font-medium cursor-default hover:brightness-110 hover:saturate-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
               style={{
                 width: animated ? `${pct}%` : '0%',
                 backgroundColor: bgColor,
@@ -147,6 +178,8 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
               }}
               onMouseMove={(e) => handleMouseMove(e, item, rawPct)}
               onMouseLeave={handleMouseLeave}
+              onFocus={(e) => handleFocus(e, item, rawPct)}
+              onBlur={handleMouseLeave}
             >
               {rawPct >= 3 && (
                 <span className="truncate px-1 text-[11px]">
@@ -172,7 +205,7 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
                 style={{ width: `${pct}%` }}
               >
                 {rawPct > 8 && (
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-[10px] text-zinc-500">
                     MB: {marginPct.toFixed(1)}%
                   </span>
                 )}
@@ -183,7 +216,7 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
       )}
 
       <div
-        className="absolute z-20 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg px-3 py-2.5 text-xs pointer-events-none transition-all duration-150 ease-out"
+        className="absolute z-20 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-lg px-3 py-2.5 text-xs pointer-events-none transition-all duration-150 ease-out"
         style={{
           left: tooltip ? Math.min(Math.max(tooltip.x - 60, 0), 280) : 0,
           top: tooltip ? tooltip.y - 80 : 0,
@@ -193,11 +226,11 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
       >
         {tooltip && (
           <>
-            <div className="font-semibold text-gray-800 mb-1">{tooltip.name}</div>
-            <div className="text-gray-600">
+            <div className="font-semibold text-zinc-800 mb-1">{tooltip.name}</div>
+            <div className="text-zinc-600">
               {metric === 'count' ? `${label}: ${tooltip.metricValue.toLocaleString()}` : `Ventas: $ ${formatCurrency(tooltip.metricValue)}`}
             </div>
-            <div className="text-gray-600">
+            <div className="text-zinc-600">
               % {metric === 'count' ? label.toLowerCase() : 'ventas'} sobre total: {tooltip.metricPct.toFixed(1)}%
             </div>
           </>
@@ -208,7 +241,7 @@ function StackedBar({ label, items, total, metric, analysisType, showMarginBadge
 }
 
 interface SegmentDistributionChartProps {
-  filters?: Record<string, any>;
+  filters?: FilterMap;
   /** Restrict the entity selector to these keys (default: all). */
   entityOptions?: string[];
   /** Initially selected entity type. */
@@ -234,11 +267,10 @@ export function SegmentDistributionChart({ filters, entityOptions, defaultEntity
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-        <h3 className="text-sm font-semibold text-gray-700">Análisis IA Qube6</h3>
+        <h3 className="text-sm font-semibold text-zinc-700">Análisis IA Qube6</h3>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <Select
+          <AppSelect
             size="sm"
-            variant="bordered"
             aria-label="Tipo de análisis"
             selectedKeys={[analysisType]}
             onSelectionChange={(keys) => {
@@ -246,14 +278,6 @@ export function SegmentDistributionChart({ filters, entityOptions, defaultEntity
               if (selected) setAnalysisType(selected);
             }}
             className="w-full sm:w-52"
-            classNames={{
-              trigger: 'cursor-pointer !border',
-            }}
-            popoverProps={{
-              classNames: {
-                content: 'cursor-pointer z-50',
-              },
-            }}
             listboxProps={{
               itemClasses: {
                 base: 'cursor-pointer',
@@ -263,7 +287,7 @@ export function SegmentDistributionChart({ filters, entityOptions, defaultEntity
             {ANALYSIS_OPTIONS.map((opt) => (
               <SelectItem key={opt.key} className="!cursor-pointer" style={{ cursor: 'pointer' }}>{opt.label}</SelectItem>
             ))}
-          </Select>
+          </AppSelect>
           {visibleEntityOptions.length > 1 && (
             <Tabs
               size="sm"
@@ -284,7 +308,7 @@ export function SegmentDistributionChart({ filters, entityOptions, defaultEntity
           <Skeleton className="h-10 w-full rounded-xl" />
         </div>
       ) : items.length === 0 ? (
-        <div className="text-center text-sm text-gray-400 py-8">
+        <div className="text-center text-sm text-zinc-400 py-8">
           Sin datos para el periodo seleccionado
         </div>
       ) : (
@@ -309,7 +333,7 @@ export function SegmentDistributionChart({ filters, entityOptions, defaultEntity
 
           <div className="flex flex-wrap gap-4 mt-3">
             {sorted.map((item) => (
-              <div key={item.short} className="flex items-center gap-1.5 text-xs text-gray-600">
+              <div key={item.short} className="flex items-center gap-1.5 text-xs text-zinc-600">
                 <span
                   className="w-2.5 h-2.5 rounded-full inline-block"
                   style={{ backgroundColor: SEGMENT_COLORS[item.short] ?? '#d1d5db' }}

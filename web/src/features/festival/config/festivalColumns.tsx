@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { RegionalData, TableConfig } from '@/features/distribution/components/RegionalTable';
-import type { ColumnDefinition } from '@/features/distribution/components/RegionalTable/config/types';
+import type { RegionalData, TableConfig } from '@/core/components/RegionalTable';
+import type { ColumnDefinition } from '@/core/components/RegionalTable/config/types';
 import { formatCurrency, formatPercentage } from '@/core/utils/formatters';
 import type { FestivalListRow } from '../hooks/useFestivalBalance';
 
