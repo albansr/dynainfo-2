@@ -34,6 +34,11 @@ export const auth = betterAuth({
         required: false,
         input: false, // set by the Dyna SSO plugin only, not client-settable
       },
+      scope: {
+        type: 'string',
+        required: false,
+        input: false, // set by the Dyna SSO plugin only, not client-settable
+      },
     },
   },
 
@@ -70,13 +75,15 @@ export const auth = betterAuth({
     'http://localhost:4000', // Frontend dev server
   ].filter((origin): origin is string => Boolean(origin)),
 
-  // Advanced cookie configuration for cross-site iframe support
+  // Cookie config. Production keeps Secure + SameSite=None + Partitioned for the
+  // cross-site iframe embed; local dev (http, no TLS) uses Lax/insecure so the
+  // session cookie is actually stored — otherwise Secure cookies over http are
+  // dropped by some clients (e.g. Playwright), breaking login/E2E.
   advanced: {
-    defaultCookieAttributes: {
-      sameSite: 'none', // Allow cookies in cross-site contexts (iframes)
-      secure: true, // HTTPS only (required with sameSite: "none")
-      partitioned: true, // Modern browser privacy standard (CHIPS)
-    },
+    defaultCookieAttributes:
+      process.env['NODE_ENV'] === 'production'
+        ? { sameSite: 'none', secure: true, partitioned: true }
+        : { sameSite: 'lax', secure: false },
   },
 });
 

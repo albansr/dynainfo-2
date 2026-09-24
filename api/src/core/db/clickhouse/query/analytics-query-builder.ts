@@ -507,16 +507,19 @@ ${previousWhere}
 
           // Select both id and name fields. If idField === nameField (e.g.
           // month) or the table lacks the name column, only select the id.
+          // Group by the id only; the name is a display attribute picked with
+          // any() so one id (e.g. a NIT) with several name variants collapses to
+          // a single row instead of fanning out into one row per name.
           const selectName = idField !== nameField && tableHasName(table);
           const dimensionSelects = selectName
-            ? `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`
+            ? `trimBoth(${idField}) AS ${idField}, any(trimBoth(${nameField})) AS ${nameField}`
             : `trimBoth(${idField}) AS ${idField}`;
 
           ctes.push(`${currentCteName} AS (
   SELECT ${dimensionSelects}, ${currentMetrics}
   FROM ${tableName}
 ${currentWhere}
-  GROUP BY ${selectName ? '1, 2' : '1'}
+  GROUP BY 1
 )`);
 
           // Previous year CTE with GROUP BY
@@ -528,7 +531,7 @@ ${currentWhere}
   SELECT ${dimensionSelects}, ${previousMetrics}
   FROM ${tableName}
 ${previousWhere}
-  GROUP BY ${selectName ? '1, 2' : '1'}
+  GROUP BY 1
 )`);
         }
 
@@ -639,11 +642,13 @@ ${previousWhere}
     let groupByClause = '';
     if (groupByConfig) {
       const { idField, nameField } = groupByConfig;
+      // Group by the id only; take any() of the name so one id with several name
+      // variants collapses to a single row (see the metrics CTE above).
       const dimensionSelects = idField === nameField
         ? `trimBoth(${idField}) AS ${idField}`
-        : `trimBoth(${idField}) AS ${idField}, trimBoth(${nameField}) AS ${nameField}`;
+        : `trimBoth(${idField}) AS ${idField}, any(trimBoth(${nameField})) AS ${nameField}`;
       dimensionSelectsPart = `${dimensionSelects}, `;
-      groupByClause = `\n  GROUP BY ${idField === nameField ? '1' : '1, 2'}`;
+      groupByClause = `\n  GROUP BY 1`;
     }
 
     return `${cteName} AS (

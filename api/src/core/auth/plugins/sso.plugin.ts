@@ -13,6 +13,7 @@ interface DynaJWTPayload {
   email: string;
   nombre: string;
   role?: string;
+  scope?: string;
   iat: number;
   exp: number;
 }
@@ -22,6 +23,14 @@ interface DynaJWTPayload {
  */
 function normalizeDynaRole(role: string | undefined): string {
   return role?.trim() || 'MANAGER';
+}
+
+/**
+ * Per-user scope (regional group or seller_id). Empty/blank means "no scope",
+ * e.g. a DISTRIBUTION user without a regional group sees all regionals.
+ */
+function normalizeScope(scope: string | undefined): string | null {
+  return scope?.trim() || null;
 }
 
 /**
@@ -86,6 +95,7 @@ export const dynaSSO = (): BetterAuthPlugin => {
               .then((rows) => rows[0]);
 
             const dynaRole = normalizeDynaRole(decoded.role);
+            const scope = normalizeScope(decoded.scope);
 
             if (!user) {
               // Create new user with SSO data
@@ -99,14 +109,15 @@ export const dynaSSO = (): BetterAuthPlugin => {
                   role: 'user',
                   isActive: true,
                   dynaRole,
+                  scope,
                 })
                 .returning();
               user = newUser!;
-            } else if (user.name !== decoded.nombre || user.dynaRole !== dynaRole) {
-              // Keep name and Dyna profile role in sync on every login
+            } else if (user.name !== decoded.nombre || user.dynaRole !== dynaRole || user.scope !== scope) {
+              // Keep name and Dyna profile role/scope in sync on every login
               const [updated] = await db
                 .update(users)
-                .set({ name: decoded.nombre, dynaRole })
+                .set({ name: decoded.nombre, dynaRole, scope })
                 .where(eq(users.id, user.id))
                 .returning();
               user = updated!;
