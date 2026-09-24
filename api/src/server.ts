@@ -112,7 +112,7 @@ async function buildServer() {
 
   await fastify.register(cors, {
     origin: config.NODE_ENV === 'production'
-      ? (config.ORIGIN_URL || false)
+      ? (config.ORIGIN_URL && config.ORIGIN_URL.length > 0 ? config.ORIGIN_URL : false)
       : true,
     credentials: true,
   });

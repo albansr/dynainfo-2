@@ -71,7 +71,8 @@ export const auth = betterAuth({
   // Trust proxy headers for production
   trustedOrigins: [
     process.env['BETTER_AUTH_URL'],
-    process.env['ORIGIN_URL'], // Frontend Vercel/production URL
+    // Frontend origin(s), comma-separated (production + preview, e.g. dev.dynainfo.com.co)
+    ...(process.env['ORIGIN_URL']?.split(',').map((s) => s.trim()).filter(Boolean) ?? []),
     'http://localhost:4000', // Frontend dev server
   ].filter((origin): origin is string => Boolean(origin)),
 

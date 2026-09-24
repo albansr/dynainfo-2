@@ -19,12 +19,30 @@ const envSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('development'),
 
-  // CORS configuration
+  // CORS configuration. Accepts one or more comma-separated origins so the same
+  // API can serve production and a preview/staging front (e.g. dev.dynainfo.com.co).
   ORIGIN_URL: z
     .string()
-    .url('ORIGIN_URL must be a valid URL')
     .optional()
-    .describe('Allowed CORS origin in production (e.g., https://dynainfo.com.co)'),
+    .transform((val) =>
+      val ? val.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+    )
+    .refine(
+      (arr) =>
+        !arr ||
+        arr.every((u) => {
+          try {
+            new URL(u);
+            return true;
+          } catch {
+            return false;
+          }
+        }),
+      { message: 'ORIGIN_URL must be a comma-separated list of valid URLs' },
+    )
+    .describe(
+      'Allowed CORS origin(s) in production, comma-separated (e.g. https://dynainfo.com.co,https://dev.dynainfo.com.co)',
+    ),
 
   // ClickHouse configuration
   CLICKHOUSE_HOST: z
