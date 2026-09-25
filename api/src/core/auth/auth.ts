@@ -50,6 +50,10 @@ export const auth = betterAuth({
       },
       otpLength: 6,
       expiresIn: 600, // 10 minutes
+      // Users are provisioned through Dyna SSO (name/role/scope come from the JWT).
+      // OTP is a sign-in path for existing users only; never auto-create a bare,
+      // role-less account for an unknown email.
+      disableSignUp: true,
     }),
     dynaSSO(), // Dyna system SSO with JWT validation
   ],
