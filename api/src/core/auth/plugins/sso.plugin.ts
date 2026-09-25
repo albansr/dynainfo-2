@@ -155,10 +155,15 @@ export const dynaSSO = (): BetterAuthPlugin => {
               },
             });
 
-            // 5. Redirect to dashboard
+            // 5. Redirect to dashboard. ORIGIN_URL may carry several comma-separated
+            // origins (production + preview); use the first (production) one so the
+            // redirect target stays a single valid URL.
+            const primaryOrigin = process.env['ORIGIN_URL']
+              ?.split(',')[0]
+              ?.trim();
             const redirectUrl =
               process.env['NODE_ENV'] === 'production'
-                ? `${process.env['ORIGIN_URL']}/dashboard`
+                ? `${primaryOrigin}/dashboard`
                 : 'http://localhost:4000/dashboard';
 
             return new Response(null, {
