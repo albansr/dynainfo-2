@@ -104,6 +104,10 @@ export interface AnalyticsListSectionProps {
   filterContext?: FilterMap;
   /** Seller client-preset lens (drill from the Estado page). Adds a billing rank. */
   customerPreset?: CustomerPreset;
+  /** Fixed window override — Estado drills use a per-criterion window, not the global temporality. */
+  dateOverride?: { startDate: Date; endDate: Date; preset: SalesMetricPreset };
+  /** Hide the totals row (simple client lists with no meaningful aggregate). */
+  hideTotals?: boolean;
 }
 
 /**
@@ -129,9 +133,16 @@ export function AnalyticsListSection({
   enableFilters = false,
   filterContext,
   customerPreset = DEFAULT_CUSTOMER_PRESET,
+  dateOverride,
+  hideTotals = false,
 }: AnalyticsListSectionProps) {
-  const showRank = groupBy === 'customer_id' && customerPreset !== DEFAULT_CUSTOMER_PRESET;
-  const { startDate, endDate, preset } = useDateRange();
+  // Only the "peso" (80% of sales) list carries a rank — the client's ABC position
+  // by contribution. Other preset lists show no sequential count.
+  const showRank = customerPreset === 'peso';
+  const globalRange = useDateRange();
+  const startDate = dateOverride?.startDate ?? globalRange.startDate;
+  const endDate = dateOverride?.endDate ?? globalRange.endDate;
+  const preset = dateOverride?.preset ?? globalRange.preset;
 
   // Faceted filters (dimension → selected values); merged into the base filters
   const [applied, setApplied] = useState<AppliedFilters>({});
@@ -296,7 +307,7 @@ export function AnalyticsListSection({
       ) : (
         <RegionalTable
           data={mappedData}
-          totals={totals}
+          totals={hideTotals ? undefined : totals}
           columns={columns}
           columnGroups={columnGroups}
           onRowClick={onRowClick}

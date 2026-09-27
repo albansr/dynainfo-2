@@ -5,6 +5,8 @@ import { useMergedFilters } from '@/core/api/hooks/useMergedFilters';
 
 /** Headline figures for the seller Estado page (one per insight card). */
 export interface SellerStatus {
+  numerica: number;
+  activos: number;
   sinCompra: number;
   riesgo: number;
   riesgoSales: number;

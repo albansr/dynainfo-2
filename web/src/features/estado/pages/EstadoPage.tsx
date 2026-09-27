@@ -84,10 +84,36 @@ export function EstadoPage() {
   const { data, isLoading } = useSellerStatus();
 
   const cards = useMemo(() => (data ? buildCards(data) : []), [data]);
+  const coverage = data && data.activos > 0 ? Math.round((data.numerica / data.activos) * 100) : 0;
 
   return (
     <div>
       <PageHeader title="Estado" showDateFilter={false} subtitle="Tu cartera de clientes, dónde poner el foco" />
+
+      {/* Current-month coverage (always this month) */}
+      <section className="mb-6 border-b border-zinc-200 pb-6">
+        {isLoading || !data ? (
+          <Skeleton className="h-9 w-80 rounded-md" />
+        ) : (
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-semibold tracking-tight text-zinc-900">{num(data.numerica)}</span>
+              <span className="text-sm text-zinc-500">de {num(data.activos)} clientes activos te compraron este mes</span>
+            </div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+              <div className="h-full rounded-full bg-zinc-900" style={{ width: `${coverage}%` }} />
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/estado/sin_compra_mes')}
+              className="mt-3 inline-flex cursor-pointer items-center gap-1 text-sm text-zinc-500 transition-colors hover:text-zinc-900"
+            >
+              Ver los {num(data.activos - data.numerica)} que no te compraron este mes
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
+      </section>
 
       <p className="mb-3 mt-2 text-xs font-medium uppercase tracking-wide text-zinc-400">Dónde poner el foco</p>
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-zinc-200 bg-zinc-200 sm:grid-cols-2">

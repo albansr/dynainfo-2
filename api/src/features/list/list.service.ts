@@ -429,10 +429,14 @@ export class ListService {
       { field: 'date', operator: 'gte', value: fmt(start) },
       { field: 'date', operator: 'lte', value: fmt(now) },
     ];
+    const currentMonth = windowFrom(new Date(now.getFullYear(), now.getMonth(), 1));
     const last3m = windowFrom(monthsBack(3));
     const last12m = windowFrom(monthsBack(12));
 
-    const [sinCompra, riesgoStat, promesaStat, peso] = await Promise.all([
+    const [numerica, activos, sinCompra, riesgoStat, promesaStat, peso] = await Promise.all([
+      // Coverage: clients who bought this month, over the whole active base.
+      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: [...baseFilters, ...currentMonth] }),
+      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: baseFilters }),
       // Historical buyers minus those who bought in the last 3 months.
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
         universe: { table: 'transactions', field: 'customer_id', filters: baseFilters },
@@ -453,6 +457,8 @@ export class ListService {
     const decliningSales = declining.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
 
     return {
+      numerica,
+      activos,
       sinCompra,
       riesgo: riesgoStat.count,
       riesgoSales: riesgoStat.sales,
