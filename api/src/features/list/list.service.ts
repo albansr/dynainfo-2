@@ -368,59 +368,98 @@ export class ListService {
     };
   }
 
+  private static numField(row: Record<string, number | string>, key: string): number {
+    const value = row[key];
+    return typeof value === 'number' ? value : 0;
+  }
+
   /**
-   * Seller "Estado" headline counts, one per insight card. Every count is scoped
-   * to the seller + window via `filters`; "sin compra" excludes window buyers from
-   * the seller's historical buyers (filters without the date bounds), and "peso
-   * retrocediendo" counts the 80%-of-sales clients whose sales fell vs last year.
+   * Aggregate a classification lens over its window: clients (grouped) matching
+   * the evolution direction, with their billing and sales-weighted margin. Used
+   * for the Estado riesgo (declining) and promesa (growing) cards.
+   */
+  private async getClassificationStat(
+    filters: FilterCondition[],
+    evolution: 'declining' | 'growing'
+  ): Promise<{ count: number; sales: number; marginPct: number }> {
+    const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+      metrics: BALANCE_METRICS,
+      currentPeriodFilters: filters,
+      groupBy: 'customer_id',
+      limit: EXPORT_ROW_HARD_CAP,
+      orderBy: 'sales_total',
+      orderDirection: 'desc',
+      facturadoOnly: false,
+    });
+    const match = rows.filter((row) => {
+      const evo = ListService.numField(row, 'sales_total_vs_last_year');
+      return evolution === 'declining' ? evo < 0 : evo > 0;
+    });
+    const sales = match.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
+    const margin = match.reduce((sum, row) => sum + ListService.numField(row, 'gross_margin'), 0);
+    return { count: match.length, sales, marginPct: sales > 0 ? (margin / sales) * 100 : 0 };
+  }
+
+  /**
+   * Seller "Estado" figures. The Estado page does not react to the global
+   * temporality: each criterion has its own fixed rolling window (computed here).
+   * - sin compra: historical buyers with no purchase in the last 3 months.
+   * - riesgo: Riesgo-classified clients (last 12m) with negative evolution.
+   * - promesa: Promesa-classified clients (last 12m) with positive evolution.
+   * - peso: the 80%-of-sales clients (last 12m), how many are declining.
+   * Each figure carries the clients' billing (and margin) over its window.
    */
   async getSellerStatus(
-    params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
+    params: ListQueryParams & { filters?: FilterCondition[] }
   ): Promise<SellerStatus> {
-    const facturadoOnly = params.facturadoOnly ?? false;
-    const currentFilters = params.filters ?? parseQueryParamsToFilters(params);
-    // Historical buyers: same filters (seller scope, etc.) minus the date window.
-    const universeFilters = currentFilters.filter((f) => f.field !== 'date');
+    const requestFilters = params.filters ?? parseQueryParamsToFilters(params);
+    // Seller scope (and any non-date filter); the Estado windows are fixed here.
+    const baseFilters = requestFilters.filter((f) => f.field !== 'date');
     const sources = [{ table: 'transactions', field: 'customer_id' }];
 
-    const riesgoFilters = [...currentFilters, ...customerPresetFilters('riesgo')];
-    const promesaFilters = [...currentFilters, ...customerPresetFilters('promesa')];
+    const now = new Date();
+    const monthsBack = (n: number): Date => {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - n);
+      return d;
+    };
+    const fmt = (d: Date): string =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const windowFrom = (start: Date): FilterCondition[] => [
+      { field: 'date', operator: 'gte', value: fmt(start) },
+      { field: 'date', operator: 'lte', value: fmt(now) },
+    ];
+    const last3m = windowFrom(monthsBack(3));
+    const last12m = windowFrom(monthsBack(12));
 
-    const [numerica, sinCompra, riesgo, promesa, peso, riesgoYoY, promesaYoY] = await Promise.all([
-      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: currentFilters }),
+    const [sinCompra, riesgoStat, promesaStat, peso] = await Promise.all([
+      // Historical buyers minus those who bought in the last 3 months.
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: 'transactions', field: 'customer_id', filters: universeFilters },
-        exclude: { sources, filters: currentFilters },
+        universe: { table: 'transactions', field: 'customer_id', filters: baseFilters },
+        exclude: { sources, filters: [...baseFilters, ...last3m] },
       }),
-      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: riesgoFilters }),
-      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: promesaFilters }),
-      this.computePesoKeptRows(currentFilters, facturadoOnly),
-      this.analyticsBuilder.buildMultiTableYoYQuery({ metrics: BALANCE_METRICS, currentPeriodFilters: riesgoFilters, facturadoOnly }),
-      this.analyticsBuilder.buildMultiTableYoYQuery({ metrics: BALANCE_METRICS, currentPeriodFilters: promesaFilters, facturadoOnly }),
+      this.getClassificationStat([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], 'declining'),
+      this.getClassificationStat([...baseFilters, ...last12m, ...customerPresetFilters('promesa')], 'growing'),
+      this.computePesoKeptRows([...baseFilters, ...last12m], false),
     ]);
 
-    const numOf = (row: Record<string, number | string>, key: string): number => {
-      const value = row[key];
-      return typeof value === 'number' ? value : 0;
-    };
-
     // Declining key clients: of the 80%-of-sales set, those down vs last year.
-    const declining = peso.kept.filter((row) => numOf(row, 'sales_total_vs_last_year') < 0);
+    const declining = peso.kept.filter((row) => ListService.numField(row, 'sales_total_vs_last_year') < 0);
     const pesoDecline = declining.reduce(
-      (sum, row) => sum + Math.max(0, numOf(row, 'sales_total_last_year') - numOf(row, 'sales_total')),
+      (sum, row) =>
+        sum + Math.max(0, ListService.numField(row, 'sales_total_last_year') - ListService.numField(row, 'sales_total')),
       0
     );
-    const decliningSales = declining.reduce((sum, row) => sum + numOf(row, 'sales_total'), 0);
+    const decliningSales = declining.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
 
     return {
-      numerica,
       sinCompra,
-      riesgo,
-      riesgoSales: numOf(riesgoYoY, 'sales_total'),
-      riesgoMarginPct: numOf(riesgoYoY, 'gross_margin_pct'),
-      promesa,
-      promesaSales: numOf(promesaYoY, 'sales_total'),
-      promesaMarginPct: numOf(promesaYoY, 'gross_margin_pct'),
+      riesgo: riesgoStat.count,
+      riesgoSales: riesgoStat.sales,
+      riesgoMarginPct: riesgoStat.marginPct,
+      promesa: promesaStat.count,
+      promesaSales: promesaStat.sales,
+      promesaMarginPct: promesaStat.marginPct,
       pesoTotal: peso.kept.length,
       pesoRetrocediendo: declining.length,
       pesoDecline,

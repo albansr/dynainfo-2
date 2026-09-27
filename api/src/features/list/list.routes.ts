@@ -131,12 +131,13 @@ export function listRoutes(
         ...(typeof query['endDate'] === 'string' && { endDate: sanitizeDateString(query['endDate']) }),
       } as ListQueryParams;
 
+      // The Estado windows are fixed per criterion in the service; only the seller
+      // scope (and any non-date filter) is passed through.
       const dateFilters = parseQueryParamsToFilters(params);
       const dynamicFilters = parseDynamicFilters(query);
       const allFilters = combineFilters(dynamicFilters, dateFilters);
-      const facturadoOnly = query['facturadoOnly'] === true || query['facturadoOnly'] === 'true';
 
-      const status = await service.getSellerStatus({ ...params, filters: allFilters, facturadoOnly });
+      const status = await service.getSellerStatus({ ...params, filters: allFilters });
 
       return reply.code(200).send(status);
     }
