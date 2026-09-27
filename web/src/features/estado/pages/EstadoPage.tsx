@@ -73,7 +73,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
       value: s.pesoRetrocediendo,
       of: s.pesoTotal,
       headline: 'de tus clientes clave están cayendo',
-      detail: `Tus ${num(s.pesoTotal)} clientes clave concentran el 80% de tus ventas del último año. Estos ${num(s.pesoRetrocediendo)} retroceden frente al año anterior.`,
+      detail: `Tus ${num(s.pesoTotal)} clientes clave concentran el 80% de tus ventas de los últimos 12 meses. Estos ${num(s.pesoRetrocediendo)} retroceden frente al año anterior.`,
       stat: `Pesan el ${pct(s.pesoDeclineSharePct)} de tus ventas · caen ${money(s.pesoDecline)} vs. el año anterior`,
     },
   ];
