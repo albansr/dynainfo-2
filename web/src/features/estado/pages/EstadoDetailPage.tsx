@@ -6,6 +6,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { PageHeader } from '@/core/components/PageHeader';
 import { AnalyticsListSection } from '@/core/components/analytics/AnalyticsListSection';
 import type { ColumnDefinition } from '@/core/components/RegionalTable/config/types';
+import { textCellRenderer } from '@/core/components/RegionalTable/renderers/cellRenderers';
 import type { CustomerPreset } from '@/core/config/customerPresets';
 
 /** Identity-only columns (cédula/NIT + client) for lists with no relevant metrics. */
@@ -14,7 +15,7 @@ const CEDULA_COLUMNS: ColumnDefinition[] = [
     id: 'cedula',
     header: { label: 'CÉDULA / NIT', align: 'left', rowSpan: 2 },
     accessor: (d) => d.id,
-    cellRenderer: (_d, _c, v) => String(v ?? ''),
+    cellRenderer: textCellRenderer,
     align: 'left',
     sortable: true,
     sortKey: 'id',
@@ -23,7 +24,7 @@ const CEDULA_COLUMNS: ColumnDefinition[] = [
     id: 'cliente',
     header: { label: 'CLIENTE', align: 'left', rowSpan: 2 },
     accessor: (d) => d.name,
-    cellRenderer: (_d, _c, v) => String(v ?? ''),
+    cellRenderer: textCellRenderer,
     align: 'left',
     sortable: true,
     sortKey: 'name',
