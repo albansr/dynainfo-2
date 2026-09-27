@@ -350,20 +350,26 @@ export class ListService {
   ): Promise<ListResponse> {
     const { kept } = await this.computePesoKeptRows(filters, params.facturadoOnly);
 
+    // Rank every key client by billing (their ABC position within the 80%), then
+    // keep only the ones declining vs last year — carrying that ABC position.
+    const declining = kept
+      .map((row, index) => ({ row, abcRank: index + 1 }))
+      .filter(({ row }) => ListService.numField(row, 'sales_total_vs_last_year') < 0);
+
     const start = (params.page - 1) * params.limit;
-    const items = kept
+    const items = declining
       .slice(start, start + params.limit)
-      .map((row) => this.toListItemResponse(row));
+      .map(({ row, abcRank }) => ({ ...this.toListItemResponse(row), abcRank }));
 
     return {
       data: items,
       meta: {
         groupBy: 'customer_id',
-        total: kept.length,
+        total: declining.length,
         count: items.length,
         page: params.page,
         limit: params.limit,
-        totalPages: Math.ceil(kept.length / params.limit),
+        totalPages: Math.ceil(declining.length / params.limit),
       },
     };
   }

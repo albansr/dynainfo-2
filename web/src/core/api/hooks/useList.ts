@@ -13,6 +13,8 @@ export interface ListItemResponse {
   name: string;
   /** Item code (IdItem) surfaced when grouping by product_id. */
   code?: string;
+  /** ABC position within the seller's 80% key clients (peso list). */
+  abcRank?: number;
   budget: number;
   budget_last_year: number;
   budget_vs_last_year: number;

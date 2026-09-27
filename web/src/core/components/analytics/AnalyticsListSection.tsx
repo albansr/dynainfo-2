@@ -20,13 +20,14 @@ import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from 
 import { ExportToExcelButton } from './ExportToExcelButton';
 import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
 
-/** Leading billing-rank column (#) for seller customer-preset listings. */
+/** Leading ABC-position column (#) for the seller peso (80%) list. */
 const RANK_COLUMN: ColumnDefinition = {
   id: 'rank',
-  header: { label: '#', align: 'right', rowSpan: 2 },
+  header: { label: 'ABC', align: 'left', rowSpan: 2 },
   accessor: (data) => data.rank ?? '',
-  cellRenderer: (_data, _config, value) => (value === '' || value == null ? '' : String(value)),
-  align: 'right',
+  cellRenderer: (_data, _config, value) =>
+    value === '' || value == null ? '' : <div className="px-4 py-2.5 text-[12px] font-medium text-zinc-400">{String(value)}</div>,
+  align: 'left',
   sortable: false,
 };
 
@@ -200,17 +201,17 @@ export function AnalyticsListSection({
   );
 
   const mappedData = useMemo(
-    () => (listData || []).map((item, index) => {
+    () => (listData || []).map((item) => {
       const data = mapApiToRegionalData(item);
       let name = data.name;
       if (nameOverrides && name in nameOverrides) name = nameOverrides[name]!;
       // Product listings surface product_id in its own REFERENCIA column, so the
       // id-in-name prefix would be redundant there.
       if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
-      // Preset listings are billing-desc ordered; carry a 1-based rank.
-      return { ...data, name, ...(showRank ? { rank: (page - 1) * pageSize + index + 1 } : {}) };
+      // The peso list carries each client's ABC position (server-provided).
+      return { ...data, name, ...(item.abcRank != null ? { rank: item.abcRank } : {}) };
     }),
-    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData, showRank, page, pageSize]
+    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
   );
 
   const totals = useMemo(

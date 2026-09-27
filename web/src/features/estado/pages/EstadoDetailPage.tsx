@@ -34,10 +34,12 @@ const CEDULA_COLUMNS: ColumnDefinition[] = [
 interface PresetView {
   title: string;
   customerPreset: CustomerPreset;
-  /** Start of the fixed rolling window (end = now). */
+  /** Start of the fixed rolling window (end = now). Ignored when `temporality`. */
   start: (now: Date) => Date;
   /** Identity-only list (cédula + client), no metrics or totals. */
   simple?: boolean;
+  /** Keep the global temporality selector (peso) instead of a fixed window. */
+  temporality?: boolean;
 }
 
 const PRESET_VIEWS: Record<string, PresetView> = {
@@ -67,6 +69,7 @@ const PRESET_VIEWS: Record<string, PresetView> = {
     title: 'Clientes clave — el 80% de tus ventas',
     customerPreset: 'peso',
     start: (now) => subMonths(now, 12),
+    temporality: true,
   },
 };
 
@@ -75,15 +78,20 @@ export function EstadoDetailPage() {
   const navigate = useNavigate();
   const view = PRESET_VIEWS[preset];
 
+  // Peso keeps the global temporality; the rest use a fixed rolling window.
   const dateOverride = useMemo(() => {
-    if (!view) return undefined;
+    if (!view || view.temporality) return undefined;
     const now = new Date();
     return { startDate: view.start(now), endDate: now, preset: 'current-month' as const };
   }, [view]);
 
   return (
     <div>
-      <PageHeader title={view?.title ?? 'Clientes'} showDateFilter={false} subtitle="" />
+      <PageHeader
+        title={view?.title ?? 'Clientes'}
+        showDateFilter={!!view?.temporality}
+        {...(view?.temporality ? {} : { subtitle: '' })}
+      />
 
       <Button
         variant="light"
