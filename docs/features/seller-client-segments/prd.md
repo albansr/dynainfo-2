@@ -109,13 +109,17 @@ window:
 - Security: a seller only ever sees/counts their own clients in every segment and
   both metrics (the `seller_id = scope` filter is never bypassed).
 
+## Decisions resolved
+
+- **Risk/Promise column and values (was to-validate).** Confirmed against
+  ClickHouse: the field is **`aionsales_sales_short_customer`** (the "aionsales
+  ventas" customer analysis), whose values are `Top · Riesgo · Coste · Promesa ·
+  Nuevo`. Segment 4 = `aionsales_sales_short_customer IN ('Riesgo', 'Promesa')`.
+  The column exists in both `dyna_transactions` and `dyna_budget`.
+
 ## Decisions still to validate
 
-1. **Exact column and values.** Confirm against the ClickHouse schema
-   (`DESCRIBE dyna_transactions` + distinct values) the exact
-   `aionsales_value_short_customer*` column that holds the classification and the
-   exact string values for "en riesgo" and "promesa".
-2. **Metrics vs listing coupling.** Confirm the two counts sit in the seller
+1. **Metrics vs listing coupling.** Confirm the two counts sit in the seller
    overview cards above the table and are **independent of the selected segment**
    (they always reflect Numérica and Sin compra for the window), while the table
    reflects the chosen segment.

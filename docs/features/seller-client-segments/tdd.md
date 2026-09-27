@@ -38,10 +38,11 @@ Alternatives considered:
 
 ## Data model
 
-- Customer classification column: the `aionsales_value_short_customer*` family in
-  `dyna_transactions` (customer-side analogue of `aionsales_value_short_product`).
-  **To validate (PRD-1):** exact column name and the string values for "en riesgo"
-  and "promesa". Add the confirmed column to the allowed filter field list used by
+- Customer classification column: **`aionsales_sales_short_customer`** (confirmed
+  in ClickHouse; values `Top · Riesgo · Coste · Promesa · Nuevo`; present in both
+  `dyna_transactions` and `dyna_budget`). Segment 4 filters
+  `aionsales_sales_short_customer IN ('Riesgo', 'Promesa')`.
+- Add `aionsales_sales_short_customer` to the allowed filter field list used by
   `filter-builder` (it is filtered server-side).
 - No schema migration: existing ClickHouse columns; nothing is written.
 
@@ -53,7 +54,7 @@ Segment enum (querystring, `list.schemas.ts`), optional, default `'todos'`:
 Config (`api/src/core/config/client-segments.config.ts`, new), mirroring
 `brand-groups.config.ts`:
 - `riesgo_promesa` → `FilterCondition[]`:
-  `aionsales_value_short_customer IN [<riesgo>, <promesa>]`.
+  `aionsales_sales_short_customer IN ['Riesgo', 'Promesa']`.
 - Export segment ids/labels for reuse.
 
 Service dispatch (`list.service.ts`, alongside the existing `brand_group` branch,
@@ -187,5 +188,5 @@ Reuse, do not re-implement: `filter-builder`, `buildDistinctCountQuery`,
   no purchase in the window; shown as a count above and as a listing segment.
 - **Peso en cumplimiento**: clients that cumulatively make up 80% of the seller's
   budget.
-- **Riesgo / Promesa**: values of the customer `aionsales_value_short_customer*`
-  classification column.
+- **Riesgo / Promesa**: values ('Riesgo', 'Promesa') of the customer
+  `aionsales_sales_short_customer` classification column.

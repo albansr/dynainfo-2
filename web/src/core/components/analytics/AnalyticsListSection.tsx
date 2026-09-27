@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { FilterMap } from '@/core/api/downloadExcel';
-import { Pagination, Input } from '@heroui/react';
+import { Pagination, Input, SelectItem } from '@heroui/react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { AppSelect } from '@/core/components/AppSelect';
+import { useAuthStore } from '@/core/store/authStore';
+import {
+  CUSTOMER_PRESET_OPTIONS,
+  DEFAULT_CUSTOMER_PRESET,
+  toCustomerPreset,
+  type CustomerPreset,
+} from '@/core/config/customerPresets';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useAnalyticsData } from './hooks/useAnalyticsData';
 import { RegionalTable, type RegionalData } from '@/core/components/RegionalTable';
@@ -118,6 +127,24 @@ export function AnalyticsListSection({
 }: AnalyticsListSectionProps) {
   const { startDate, endDate, preset } = useDateRange();
 
+  // Customer preset lens — only for a seller listing their own clients. State is
+  // kept in the URL (?cp=) so it is shareable and survives reload.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
+  const showCustomerPresets = dynaRole === 'SELLER' && groupBy === 'customer_id';
+  const customerPreset = showCustomerPresets
+    ? toCustomerPreset(searchParams.get('cp'))
+    : DEFAULT_CUSTOMER_PRESET;
+  const setCustomerPreset = useCallback(
+    (next: CustomerPreset) => {
+      const params = new URLSearchParams(searchParams);
+      if (next === DEFAULT_CUSTOMER_PRESET) params.delete('cp');
+      else params.set('cp', next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+
   // Faceted filters (dimension → selected values); merged into the base filters
   const [applied, setApplied] = useState<AppliedFilters>({});
   const effectiveFilters = useMemo(() => {
@@ -139,7 +166,7 @@ export function AnalyticsListSection({
   // size/search/filters). Adjust state during render instead of in an effect to
   // avoid the cascading-render smell.
   const [page, setPage] = useState(1);
-  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${JSON.stringify(effectiveFilters)}`;
+  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${customerPreset}|${JSON.stringify(effectiveFilters)}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
@@ -147,7 +174,7 @@ export function AnalyticsListSection({
   }
 
   const { balanceData, listData, listMeta, isLoading } = useAnalyticsData(
-    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch
+    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch, customerPreset
   );
 
   const totalPages = listMeta?.totalPages ?? 1;
@@ -250,6 +277,24 @@ export function AnalyticsListSection({
           <div />
         )}
         <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+          {showCustomerPresets && (
+            <AppSelect
+              size="sm"
+              aria-label="Segmento de clientes"
+              label="Clientes"
+              selectedKeys={[customerPreset]}
+              disallowEmptySelection
+              onSelectionChange={(keys) => {
+                const key = Array.from(keys)[0] as CustomerPreset | undefined;
+                if (key) setCustomerPreset(key);
+              }}
+              className="w-full sm:w-48"
+            >
+              {CUSTOMER_PRESET_OPTIONS.map((o) => (
+                <SelectItem key={o.id} className="cursor-pointer">{o.label}</SelectItem>
+              ))}
+            </AppSelect>
+          )}
           {enableFilters && (
             <FacetedFilterAddButton value={applied} onChange={setApplied} contextFilters={filterContext} />
           )}

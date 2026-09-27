@@ -68,7 +68,8 @@ export function listRoutes(
         ...(query.page && { page: query.page }),
         ...(query.limit && { limit: query.limit }),
         ...(query.orderBy && { orderBy: sanitizeFieldName(query.orderBy) }),
-        ...(query.orderDirection && { orderDirection: query.orderDirection as 'asc' | 'desc' }),
+        ...(query.orderDirection ? { orderDirection: query.orderDirection } : {}),
+        ...(query.customerPreset ? { customerPreset: query.customerPreset } : {}),
       };
 
       // Parse date filters from startDate/endDate
@@ -97,6 +98,9 @@ export function listRoutes(
         ...(search && { search }),
       });
 
+      // Fastify's schema-inferred serializer type diverges from the TypeBox
+      // Static response type, so the payload needs a cast here.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return reply.code(200).send(listResponse as any);
     }
   );

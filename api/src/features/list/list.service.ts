@@ -13,6 +13,10 @@ import {
   brandGroupFilters,
   expandBrandGroupFilters,
 } from '../../core/config/brand-groups.config.js';
+import {
+  DEFAULT_CUSTOMER_PRESET,
+  customerPresetFilters,
+} from '../../core/config/customer-presets.config.js';
 
 /**
  * Hard cap on the number of rows an Excel export may contain.
@@ -54,10 +58,6 @@ export class ListService {
   async getBalanceList(
     params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean; search?: string }
   ): Promise<ListResponse> {
-    // Support both filter formats: direct filters or params to parse. A drilled
-    // brand bucket arrives as a `brand_group` filter — expand it into the real
-    // provider conditions the rest of the pipeline understands.
-    const filters = expandBrandGroupFilters(params.filters ?? parseQueryParamsToFilters(params));
     const {
       groupBy,
       page = 1,
@@ -66,7 +66,16 @@ export class ListService {
       orderDirection = 'desc',
       facturadoOnly = false,
       search,
+      customerPreset = DEFAULT_CUSTOMER_PRESET,
     } = params;
+
+    // Support both filter formats: direct filters or params to parse. A drilled
+    // brand bucket arrives as a `brand_group` filter — expand it into the real
+    // provider conditions; then apply the customer preset lens (Riesgo/Promesa).
+    const filters = [
+      ...expandBrandGroupFilters(params.filters ?? parseQueryParamsToFilters(params)),
+      ...customerPresetFilters(customerPreset),
+    ];
 
     // Virtual "Marcas" grouping: two provider buckets computed in the service.
     if (groupBy === BRAND_GROUP) {
@@ -129,13 +138,17 @@ export class ListService {
   async getBalanceListForExport(
     params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
   ): Promise<ListItemResponse[]> {
-    const filters = expandBrandGroupFilters(params.filters ?? parseQueryParamsToFilters(params));
     const {
       groupBy,
       orderBy = 'sales_total',
       orderDirection = 'desc',
       facturadoOnly = false,
+      customerPreset = DEFAULT_CUSTOMER_PRESET,
     } = params;
+    const filters = [
+      ...expandBrandGroupFilters(params.filters ?? parseQueryParamsToFilters(params)),
+      ...customerPresetFilters(customerPreset),
+    ];
 
     // Virtual "Marcas" grouping exports its two buckets (always within the cap).
     if (groupBy === BRAND_GROUP) {

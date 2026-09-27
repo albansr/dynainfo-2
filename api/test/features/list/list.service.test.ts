@@ -498,4 +498,50 @@ describe('ListService', () => {
       );
     });
   });
+
+  describe('customer preset lens', () => {
+    it('appends the risk classification filter for the riesgo preset, keeping the seller filter', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'Client A', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({
+        groupBy: 'customer_id',
+        customerPreset: 'riesgo',
+        filters: [{ field: 'seller_id', operator: 'eq', value: 'CL10' }],
+      });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.currentPeriodFilters).toContainEqual({
+        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Riesgo',
+      });
+      expect(call.currentPeriodFilters).toContainEqual({
+        field: 'seller_id', operator: 'eq', value: 'CL10',
+      });
+    });
+
+    it('appends the promise classification filter for the promesa preset', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'X', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'promesa' });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.currentPeriodFilters).toContainEqual({
+        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Promesa',
+      });
+    });
+
+    it('adds no preset filter for todos (default)', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'X', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({ groupBy: 'customer_id' });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.currentPeriodFilters.some((f) => f.field === 'aionsales_sales_short_customer')).toBe(false);
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { BalanceQueryStringSchema, BalanceSheetResponseSchema, type BalanceQueryParams } from '../balance/balance.schemas.js';
 import { ALLOWED_DIMENSIONS, type GroupByDimension } from '../../core/config/dimensions.config.js';
+import { CUSTOMER_PRESETS, type CustomerPreset } from '../../core/config/customer-presets.config.js';
 
 /**
  * TypeBox schemas and types for list endpoint
@@ -47,6 +48,12 @@ export const ListQueryStringSchema = Type.Composite(
       orderBy: Type.Optional(Type.String({ description: 'Field to order by (metric alias or "name"). Default: "sales"' })),
       orderDirection: Type.Optional(OrderDirectionSchema),
       search: Type.Optional(Type.String({ description: 'Case-insensitive substring search on the dimension id/name' })),
+      customerPreset: Type.Optional(
+        Type.Union(
+          CUSTOMER_PRESETS.map((p) => Type.Literal(p)),
+          { description: 'Customer preset lens (seller client listing). Default: todos' }
+        )
+      ),
     }),
   ],
   {
@@ -115,4 +122,5 @@ export interface ListQueryParams extends BalanceQueryParams {
   limit?: number;
   orderBy?: string;
   orderDirection?: OrderDirection;
+  customerPreset?: CustomerPreset;
 }
