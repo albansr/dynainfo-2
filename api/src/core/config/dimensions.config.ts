@@ -10,6 +10,7 @@
 export const ALLOWED_DIMENSIONS = [
   'seller_id',
   'IdRegional',
+  'channel',
   'customer_id',
   'customer_name',
   'customer_country',
@@ -29,6 +30,9 @@ export const ALLOWED_DIMENSIONS = [
   'Linea',
   // Festival sales channel (Vendedores / Tienda Virtual / Call Center)
   'segmentacion_ventas_festival',
+  // Virtual grouping (NOT a column): two provider buckets, resolved in
+  // list.service before the query builder. See core/config/brand-groups.config.
+  'brand_group',
   'month',
   'quarter',
   'year',

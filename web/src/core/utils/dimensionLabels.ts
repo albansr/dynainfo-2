@@ -6,12 +6,14 @@ import type { GroupByDimension } from '@/core/api/hooks/useList';
  */
 export const DIMENSION_LABELS: Record<GroupByDimension, string> = {
   IdRegional: 'REGIONAL',
+  channel: 'CANAL',
   customer_country: 'PAÍS',
   customer_name: 'CLIENTE',
   SegmentacionProducto: 'Segmentación Producto',
   CentroOperaciones: 'CENTRO OP.',
   SegmentacionCliente: 'SEGMENTO CLIENTE',
   Marca: 'MARCA',
+  brand_group: 'MARCA',
   ProveedorComercial: 'PROVEEDOR',
   seller_id: 'VENDEDOR',
   customer_id: 'ID CLIENTE',

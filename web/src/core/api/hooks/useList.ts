@@ -5,7 +5,7 @@ import { getSalesOrderByField, usesFacturadoOnly, type SalesMetricPreset } from 
 import { useMergedFilters } from './useMergedFilters';
 import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
 
-export type GroupByDimension = 'seller_id' | 'IdRegional' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'customer_city' | 'customer_department' | 'ClasifRiesgo' | 'Categoria' | 'SubCategoria' | 'FamiliaProducto' | 'Linea' | 'month' | 'quarter' | 'year';
+export type GroupByDimension = 'seller_id' | 'IdRegional' | 'channel' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'brand_group' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'customer_city' | 'customer_department' | 'ClasifRiesgo' | 'Categoria' | 'SubCategoria' | 'FamiliaProducto' | 'Linea' | 'month' | 'quarter' | 'year';
 
 export interface ListItemResponse {
   id: string;

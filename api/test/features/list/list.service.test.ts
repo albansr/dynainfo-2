@@ -434,4 +434,68 @@ describe('ListService', () => {
       });
     });
   });
+
+  describe('brand_group virtual grouping', () => {
+    it('returns two provider buckets via ungrouped aggregates, not the grouped query', async () => {
+      vi.mocked(mockBuilder.buildMultiTableYoYQuery)
+        .mockResolvedValueOnce(generateMockQueryResult({ sales_total: 50 })) // exclusivas
+        .mockResolvedValueOnce(generateMockQueryResult({ sales_total: 200 })); // aliadas
+
+      const result = await service.getBalanceList({ groupBy: 'brand_group' });
+
+      expect(mockBuilder.buildMultiTableYoYQuery).toHaveBeenCalledTimes(2);
+      expect(mockBuilder.buildGroupedMultiTableYoYQuery).not.toHaveBeenCalled();
+      expect(result.data).toHaveLength(2);
+      expect(result.meta.groupBy).toBe('brand_group');
+      expect(result.meta.total).toBe(2);
+      // Sorted by sales_total desc → aliadas (200) ahead of exclusivas (50).
+      expect(result.data.map((d) => d.name)).toEqual(['Marcas Aliadas', 'Marcas Exclusivas']);
+      expect(result.data.map((d) => d.id)).toEqual(['aliadas', 'exclusivas']);
+    });
+
+    it('filters each bucket by the Marcas provider definition', async () => {
+      vi.mocked(mockBuilder.buildMultiTableYoYQuery).mockResolvedValue(generateMockQueryResult());
+
+      await service.getBalanceList({ groupBy: 'brand_group' });
+
+      expect(mockBuilder.buildMultiTableYoYQuery).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          currentPeriodFilters: expect.arrayContaining([
+            { field: 'ProveedorComercial', operator: 'in', value: ['VERA', 'FORTE'] },
+          ]),
+        })
+      );
+      expect(mockBuilder.buildMultiTableYoYQuery).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          currentPeriodFilters: expect.arrayContaining([
+            { field: 'ProveedorComercial', operator: 'neq', value: 'VERA' },
+            { field: 'ProveedorComercial', operator: 'neq', value: 'FORTE' },
+          ]),
+        })
+      );
+    });
+
+    it('expands a brand_group drill filter into provider conditions for a real grouping', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'VERA', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({
+        groupBy: 'ProveedorComercial',
+        filters: [{ field: 'brand_group', operator: 'eq', value: 'exclusivas' }],
+      });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.groupBy).toBe('ProveedorComercial');
+      expect(call.currentPeriodFilters).toEqual([
+        { field: 'ProveedorComercial', operator: 'in', value: ['VERA', 'FORTE'] },
+      ]);
+      // The virtual brand_group condition must never reach the query builder.
+      expect(call.currentPeriodFilters).not.toContainEqual(
+        expect.objectContaining({ field: 'brand_group' })
+      );
+    });
+  });
 });

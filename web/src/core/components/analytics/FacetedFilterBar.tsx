@@ -6,7 +6,7 @@ import {
 import { PlusIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useDimensionValues, type DimensionValue } from '@/core/api/hooks/useDimensionValues';
 import type { GroupByDimension } from '@/core/api/hooks/useList';
-import { DIM_CATEGORIES, DIM_LABEL } from '@/core/config/breakdownDimensions';
+import { DIM_CATEGORIES, DIM_LABEL, NON_FACETABLE_DIMS } from '@/core/config/breakdownDimensions';
 
 /** Applied filters: dimension → selected values (id + name). */
 export type AppliedFilters = Record<string, DimensionValue[]>;
@@ -178,7 +178,10 @@ export function FacetedFilterAddButton({ value, onChange, contextFilters }: Face
   const availableCategories = useMemo(
     () =>
       DIM_CATEGORIES
-        .map((c) => ({ ...c, dims: c.dims.filter((d) => !appliedDims.includes(d.key)) }))
+        .map((c) => ({
+          ...c,
+          dims: c.dims.filter((d) => !appliedDims.includes(d.key) && !NON_FACETABLE_DIMS.has(d.key)),
+        }))
         .filter((c) => c.dims.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [appliedDims.join(',')]
@@ -214,7 +217,9 @@ export function FacetedFilterAddButton({ value, onChange, contextFilters }: Face
           <div className="w-56 max-h-72 overflow-y-auto py-1">
             {availableCategories.map((cat) => (
               <div key={cat.id} className="mb-1">
-                <div className="px-2 py-1 text-[10px] font-semibold uppercase text-default-400">{cat.label}</div>
+                {cat.label && (
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase text-default-400">{cat.label}</div>
+                )}
                 {cat.dims.map((d) => (
                   <button
                     key={d.key}

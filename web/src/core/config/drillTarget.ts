@@ -19,6 +19,7 @@ export const DRILL_TARGET: Record<string, string> = {
   rappel_group: 'product_id',
   segmentacion_ventas_festival: 'seller_id',
   // Entities & cross-overs
+  channel: 'customer_id',
   IdRegional: 'seller_id',
   seller_id: 'ProveedorComercial',
   customer_id: 'ProveedorComercial',

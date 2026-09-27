@@ -10,7 +10,8 @@ export interface DimOption {
 }
 
 export interface DimCategory {
-  id: 'cliente' | 'producto' | 'vendedor';
+  id: 'general' | 'cliente' | 'producto' | 'vendedor';
+  /** Section heading in the selector; empty string renders an untitled section. */
   label: string;
   dims: DimOption[];
 }
@@ -21,6 +22,16 @@ export interface DimCategory {
  */
 export const DIM_CATEGORIES: DimCategory[] = [
   {
+    // Headline cross-cutting groupings, shown first without a section heading.
+    id: 'general',
+    label: '',
+    dims: [
+      { key: 'channel', label: 'Canal' },
+      { key: 'IdRegional', label: 'Regional' },
+      { key: 'brand_group', label: 'Marcas (Aliadas y Exclusivas)' },
+    ],
+  },
+  {
     id: 'cliente',
     label: 'Cliente',
     dims: [
@@ -30,7 +41,6 @@ export const DIM_CATEGORIES: DimCategory[] = [
       { key: 'customer_city', label: 'Ciudad' },
       { key: 'customer_department', label: 'Departamento' },
       { key: 'customer_country', label: 'País' },
-      { key: 'IdRegional', label: 'Regional' },
     ],
   },
   {
@@ -57,8 +67,11 @@ export const DIM_CATEGORIES: DimCategory[] = [
 /** Entity dimensions (the "id" of each category). */
 export const ENTITY_DIMS: GroupByDimension[] = ['customer_id', 'product_id', 'seller_id'];
 
-/** Entity dimension of each category (also the qube6 segment chart entity keys). */
-export const CATEGORY_ENTITY: Record<DimCategory['id'], GroupByDimension> = {
+/**
+ * Entity dimension of each category (also the qube6 segment chart entity keys).
+ * Categories without a drillable entity (e.g. Canal) are omitted.
+ */
+export const CATEGORY_ENTITY: Partial<Record<DimCategory['id'], GroupByDimension>> = {
   cliente: 'customer_id',
   producto: 'product_id',
   vendedor: 'seller_id',
@@ -73,6 +86,13 @@ export const DIM_CATEGORY: Record<string, DimCategory['id']> = Object.fromEntrie
 export const DIM_LABEL: Record<string, string> = Object.fromEntries(
   DIM_CATEGORIES.flatMap((c) => c.dims.map((d) => [d.key, d.label]))
 );
+
+/**
+ * Dimensions that can group a listing but cannot be faceted as a filter — they
+ * are virtual buckets with no real column to enumerate values from. Excluded
+ * from the "Añadir filtro" selector (they only make sense in "Agrupar por").
+ */
+export const NON_FACETABLE_DIMS = new Set<GroupByDimension>(['brand_group']);
 
 export const DETAIL_PATH = '/distribucion/detalle';
 
@@ -108,7 +128,9 @@ export function getBreakdownDefault(filters: Record<string, string>): GroupByDim
  * categories (so the chart hides the "own" entity like the breakdown does).
  */
 export function getSegmentEntityOptions(filters: Record<string, string>): string[] {
-  return getBreakdownCategories(filters).map((c) => CATEGORY_ENTITY[c.id]);
+  return getBreakdownCategories(filters)
+    .map((c) => CATEGORY_ENTITY[c.id])
+    .filter((entity): entity is GroupByDimension => Boolean(entity));
 }
 
 /**

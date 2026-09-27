@@ -79,7 +79,7 @@ export function DimensionBreakdown({
           className="w-full sm:w-64"
         >
           {[...(extraSection ? [extraSection] : []), ...categories].map((cat) => (
-            <SelectSection key={cat.id} title={cat.label} showDivider>
+            <SelectSection key={cat.id} title={cat.label || undefined} showDivider>
               {cat.dims.map((d) => (
                 <SelectItem key={d.key} className="cursor-pointer">{d.label}</SelectItem>
               ))}

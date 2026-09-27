@@ -7,6 +7,12 @@ import type {
 import { parseQueryParamsToFilters } from '../balance/balance.schemas.js';
 import { BALANCE_METRICS } from '../../core/config/metrics.config.js';
 import { buildDynamicResponse } from '../../core/utils/response-builder.js';
+import {
+  BRAND_GROUP,
+  BRAND_BUCKETS,
+  brandGroupFilters,
+  expandBrandGroupFilters,
+} from '../../core/config/brand-groups.config.js';
 
 /**
  * Hard cap on the number of rows an Excel export may contain.
@@ -48,8 +54,10 @@ export class ListService {
   async getBalanceList(
     params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean; search?: string }
   ): Promise<ListResponse> {
-    // Support both filter formats: direct filters or params to parse
-    const filters = params.filters ?? parseQueryParamsToFilters(params);
+    // Support both filter formats: direct filters or params to parse. A drilled
+    // brand bucket arrives as a `brand_group` filter — expand it into the real
+    // provider conditions the rest of the pipeline understands.
+    const filters = expandBrandGroupFilters(params.filters ?? parseQueryParamsToFilters(params));
     const {
       groupBy,
       page = 1,
@@ -59,6 +67,11 @@ export class ListService {
       facturadoOnly = false,
       search,
     } = params;
+
+    // Virtual "Marcas" grouping: two provider buckets computed in the service.
+    if (groupBy === BRAND_GROUP) {
+      return this.getBrandGroupList(filters, { page, limit, orderBy, orderDirection, facturadoOnly });
+    }
 
     // Calculate offset for pagination
     const offset = (page - 1) * limit;
@@ -82,8 +95,9 @@ export class ListService {
     ]);
 
     // Extract total count from first row (window function returns same value in all rows)
-    const total = results.length > 0 && '_total_count' in results[0]!
-      ? Number(results[0]!['_total_count'])
+    const firstRow = results[0];
+    const total = firstRow && '_total_count' in firstRow
+      ? Number(firstRow['_total_count'])
       : results.length;
 
     // Build array of responses using shared utility
@@ -115,13 +129,25 @@ export class ListService {
   async getBalanceListForExport(
     params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
   ): Promise<ListItemResponse[]> {
-    const filters = params.filters ?? parseQueryParamsToFilters(params);
+    const filters = expandBrandGroupFilters(params.filters ?? parseQueryParamsToFilters(params));
     const {
       groupBy,
       orderBy = 'sales_total',
       orderDirection = 'desc',
       facturadoOnly = false,
     } = params;
+
+    // Virtual "Marcas" grouping exports its two buckets (always within the cap).
+    if (groupBy === BRAND_GROUP) {
+      const { data } = await this.getBrandGroupList(filters, {
+        page: 1,
+        limit: BRAND_BUCKETS.length,
+        orderBy,
+        orderDirection,
+        facturadoOnly,
+      });
+      return data;
+    }
 
     const [results, codeByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
@@ -141,6 +167,58 @@ export class ListService {
     }
 
     return results.map((result) => this.toListItemResponse(result, codeByGroup));
+  }
+
+  /**
+   * Virtual "Marcas" listing: two aggregated rows (Marcas Exclusivas / Aliadas)
+   * by commercial-provider membership. Each bucket is a single ungrouped YoY
+   * aggregate over the same provider filter the Marcas dashboards use, so a
+   * bucket total matches its dashboard. Clicking a row drills into its providers
+   * (DRILL_TARGET.brand_group → ProveedorComercial), expanded back on the server.
+   */
+  private async getBrandGroupList(
+    filters: FilterCondition[],
+    params: {
+      page: number;
+      limit: number;
+      orderBy: string;
+      orderDirection: 'asc' | 'desc';
+      facturadoOnly: boolean;
+    }
+  ): Promise<ListResponse> {
+    const buckets = await Promise.all(
+      BRAND_BUCKETS.map(async (bucket) => ({
+        bucket,
+        result: await this.analyticsBuilder.buildMultiTableYoYQuery({
+          metrics: BALANCE_METRICS,
+          currentPeriodFilters: [...filters, ...brandGroupFilters(bucket.id)],
+          facturadoOnly: params.facturadoOnly,
+        }),
+      }))
+    );
+
+    const direction = params.orderDirection === 'asc' ? 1 : -1;
+    const sortValue = (row: Record<string, number>): number => {
+      const value = row[params.orderBy];
+      return typeof value === 'number' ? value : 0;
+    };
+    buckets.sort((a, b) => (sortValue(a.result) - sortValue(b.result)) * direction);
+
+    const items = buckets.map(({ bucket, result }) =>
+      this.toListItemResponse({ ...result, id: bucket.id, name: bucket.name })
+    );
+
+    return {
+      data: items,
+      meta: {
+        groupBy: BRAND_GROUP,
+        total: items.length,
+        count: items.length,
+        page: params.page,
+        limit: params.limit,
+        totalPages: 1,
+      },
+    };
   }
 
   /**
