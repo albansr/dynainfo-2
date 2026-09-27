@@ -3,6 +3,7 @@ import type {
   ListQueryParams,
   ListResponse,
   ListItemResponse,
+  SellerStatus,
 } from './list.schemas.js';
 import { parseQueryParamsToFilters } from '../balance/balance.schemas.js';
 import { BALANCE_METRICS } from '../../core/config/metrics.config.js';
@@ -258,10 +259,10 @@ export class ListService {
    * (the seller's own clients, well within the export cap) so the Pareto cut and
    * pagination stay correct.
    */
-  private async getPesoList(
+  private async computePesoKeptRows(
     filters: FilterCondition[],
-    params: { page: number; limit: number; facturadoOnly: boolean }
-  ): Promise<ListResponse> {
+    facturadoOnly: boolean
+  ): Promise<Array<Record<string, number | string>>> {
     const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
       metrics: BALANCE_METRICS,
       currentPeriodFilters: filters,
@@ -269,7 +270,7 @@ export class ListService {
       limit: EXPORT_ROW_HARD_CAP,
       orderBy: 'sales_total',
       orderDirection: 'desc',
-      facturadoOnly: params.facturadoOnly,
+      facturadoOnly,
     });
 
     const salesOf = (row: Record<string, number | string>): number =>
@@ -287,6 +288,14 @@ export class ListService {
       cumulative += salesOf(row);
       if (cumulative >= threshold) break;
     }
+    return kept;
+  }
+
+  private async getPesoList(
+    filters: FilterCondition[],
+    params: { page: number; limit: number; facturadoOnly: boolean }
+  ): Promise<ListResponse> {
+    const kept = await this.computePesoKeptRows(filters, params.facturadoOnly);
 
     const start = (params.page - 1) * params.limit;
     const items = kept
@@ -303,6 +312,49 @@ export class ListService {
         limit: params.limit,
         totalPages: Math.ceil(kept.length / params.limit),
       },
+    };
+  }
+
+  /**
+   * Seller "Estado" headline counts, one per insight card. Every count is scoped
+   * to the seller + window via `filters`; "sin compra" excludes window buyers from
+   * the seller's historical buyers (filters without the date bounds), and "peso
+   * retrocediendo" counts the 80%-of-sales clients whose sales fell vs last year.
+   */
+  async getSellerStatus(
+    params: ListQueryParams & { filters?: FilterCondition[]; facturadoOnly?: boolean }
+  ): Promise<SellerStatus> {
+    const facturadoOnly = params.facturadoOnly ?? false;
+    const currentFilters = params.filters ?? parseQueryParamsToFilters(params);
+    // Historical buyers: same filters (seller scope, etc.) minus the date window.
+    const universeFilters = currentFilters.filter((f) => f.field !== 'date');
+    const sources = [{ table: 'transactions', field: 'customer_id' }];
+
+    const [numerica, sinCompra, riesgo, promesa, pesoKept] = await Promise.all([
+      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: currentFilters }),
+      this.analyticsBuilder.buildDistinctCountExcludingQuery({
+        universe: { table: 'transactions', field: 'customer_id', filters: universeFilters },
+        exclude: { sources, filters: currentFilters },
+      }),
+      this.analyticsBuilder.buildDistinctCountQuery({
+        sources, filters: [...currentFilters, ...customerPresetFilters('riesgo')],
+      }),
+      this.analyticsBuilder.buildDistinctCountQuery({
+        sources, filters: [...currentFilters, ...customerPresetFilters('promesa')],
+      }),
+      this.computePesoKeptRows(currentFilters, facturadoOnly),
+    ]);
+
+    const declineOf = (row: Record<string, number | string>): number =>
+      typeof row['sales_total_vs_last_year'] === 'number' ? row['sales_total_vs_last_year'] : 0;
+
+    return {
+      numerica,
+      sinCompra,
+      riesgo,
+      promesa,
+      pesoTotal: pesoKept.length,
+      pesoRetrocediendo: pesoKept.filter((row) => declineOf(row) < 0).length,
     };
   }
 

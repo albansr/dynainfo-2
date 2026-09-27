@@ -124,3 +124,18 @@ export interface ListQueryParams extends BalanceQueryParams {
   orderDirection?: OrderDirection;
   customerPreset?: CustomerPreset;
 }
+
+/**
+ * Seller "Estado" headline counts (one per insight card). All scoped to the
+ * seller and the selected window via the request filters.
+ */
+export const SellerStatusSchema = Type.Object({
+  numerica: Type.Number({ description: 'Clients with a purchase in the window' }),
+  sinCompra: Type.Number({ description: 'Prior buyers with no purchase in the window' }),
+  riesgo: Type.Number({ description: 'Clients classified Riesgo in the window' }),
+  promesa: Type.Number({ description: 'Clients classified Promesa in the window' }),
+  pesoTotal: Type.Number({ description: 'Clients that make up 80% of sales' }),
+  pesoRetrocediendo: Type.Number({ description: 'Of the 80% clients, those declining vs last year' }),
+});
+
+export type SellerStatus = Static<typeof SellerStatusSchema>;
