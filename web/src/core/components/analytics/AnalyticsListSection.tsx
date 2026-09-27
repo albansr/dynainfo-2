@@ -18,6 +18,17 @@ import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
+import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
+
+/** Leading billing-rank column (#) for seller customer-preset listings. */
+const RANK_COLUMN: ColumnDefinition = {
+  id: 'rank',
+  header: { label: '#', align: 'right', rowSpan: 2 },
+  accessor: (data) => data.rank ?? '',
+  cellRenderer: (_data, _config, value) => (value === '' || value == null ? '' : String(value)),
+  align: 'right',
+  sortable: false,
+};
 
 /** Totals row from the current page's mapped rows. */
 function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalData {
@@ -91,6 +102,8 @@ export interface AnalyticsListSectionProps {
   enableFilters?: boolean;
   /** Context (e.g. channel) that scopes the filter value options. */
   filterContext?: FilterMap;
+  /** Seller client-preset lens (drill from the Estado page). Adds a billing rank. */
+  customerPreset?: CustomerPreset;
 }
 
 /**
@@ -115,7 +128,9 @@ export function AnalyticsListSection({
   reportTitle,
   enableFilters = false,
   filterContext,
+  customerPreset = DEFAULT_CUSTOMER_PRESET,
 }: AnalyticsListSectionProps) {
+  const showRank = groupBy === 'customer_id' && customerPreset !== DEFAULT_CUSTOMER_PRESET;
   const { startDate, endDate, preset } = useDateRange();
 
   // Faceted filters (dimension → selected values); merged into the base filters
@@ -139,7 +154,7 @@ export function AnalyticsListSection({
   // size/search/filters). Adjust state during render instead of in an effect to
   // avoid the cascading-render smell.
   const [page, setPage] = useState(1);
-  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${JSON.stringify(effectiveFilters)}`;
+  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${customerPreset}|${JSON.stringify(effectiveFilters)}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
@@ -147,7 +162,7 @@ export function AnalyticsListSection({
   }
 
   const { balanceData, listData, listMeta, isLoading } = useAnalyticsData(
-    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch
+    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch, customerPreset
   );
 
   const totalPages = listMeta?.totalPages ?? 1;
@@ -174,16 +189,17 @@ export function AnalyticsListSection({
   );
 
   const mappedData = useMemo(
-    () => (listData || []).map((item) => {
+    () => (listData || []).map((item, index) => {
       const data = mapApiToRegionalData(item);
       let name = data.name;
       if (nameOverrides && name in nameOverrides) name = nameOverrides[name]!;
       // Product listings surface product_id in its own REFERENCIA column, so the
       // id-in-name prefix would be redundant there.
       if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
-      return { ...data, name };
+      // Preset listings are billing-desc ordered; carry a 1-based rank.
+      return { ...data, name, ...(showRank ? { rank: (page - 1) * pageSize + index + 1 } : {}) };
     }),
-    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
+    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData, showRank, page, pageSize]
   );
 
   const totals = useMemo(
@@ -206,8 +222,10 @@ export function AnalyticsListSection({
     }
     // Product listings lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id).
     if (groupBy === 'product_id') cols = [...getProductCodeColumns(), ...cols];
+    // Preset listings lead with a billing-rank column (#).
+    if (showRank) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel]);
+  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel, showRank]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;

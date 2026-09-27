@@ -15,6 +15,8 @@ const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPag
 const FestivalVirtualPage = lazy(() => import('@/features/festival/pages/FestivalVirtualPage').then((m) => ({ default: m.FestivalVirtualPage })));
 const FilteredDetailPage = lazy(() => import('@/features/dashboard/pages/FilteredDetailPage').then((m) => ({ default: m.FilteredDetailPage })));
 const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const EstadoPage = lazy(() => import('@/features/estado/pages/EstadoPage').then((m) => ({ default: m.EstadoPage })));
+const EstadoDetailPage = lazy(() => import('@/features/estado/pages/EstadoDetailPage').then((m) => ({ default: m.EstadoDetailPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +81,26 @@ function App() {
                   <RouteGuard requireAuth={true}>
                     <AppLayout>
                       <FilteredDetailPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/estado"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <EstadoPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/estado/:preset"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <EstadoDetailPage />
                     </AppLayout>
                   </RouteGuard>
                 }
