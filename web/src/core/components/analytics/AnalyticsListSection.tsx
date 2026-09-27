@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import type { FilterMap } from '@/core/api/downloadExcel';
-import { Pagination, Input, SelectItem } from '@heroui/react';
+import { Pagination, Input } from '@heroui/react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { AppSelect } from '@/core/components/AppSelect';
-import { useAuthStore } from '@/core/store/authStore';
-import {
-  CUSTOMER_PRESET_OPTIONS,
-  DEFAULT_CUSTOMER_PRESET,
-  toCustomerPreset,
-  type CustomerPreset,
-} from '@/core/config/customerPresets';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { useAnalyticsData } from './hooks/useAnalyticsData';
 import { RegionalTable, type RegionalData } from '@/core/components/RegionalTable';
@@ -27,16 +18,6 @@ import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
-
-/** Leading billing-rank column (#) for seller customer-preset listings. */
-const RANK_COLUMN: ColumnDefinition = {
-  id: 'rank',
-  header: { label: '#', align: 'right', rowSpan: 2 },
-  accessor: (data) => data.rank ?? '',
-  cellRenderer: (_data, _config, value) => (value === '' || value == null ? '' : String(value)),
-  align: 'right',
-  sortable: false,
-};
 
 /** Totals row from the current page's mapped rows. */
 function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalData {
@@ -137,24 +118,6 @@ export function AnalyticsListSection({
 }: AnalyticsListSectionProps) {
   const { startDate, endDate, preset } = useDateRange();
 
-  // Customer preset lens — only for a seller listing their own clients. State is
-  // kept in the URL (?cp=) so it is shareable and survives reload.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const dynaRole = useAuthStore((s) => s.user?.dynaRole);
-  const showCustomerPresets = dynaRole === 'SELLER' && groupBy === 'customer_id';
-  const customerPreset = showCustomerPresets
-    ? toCustomerPreset(searchParams.get('cp'))
-    : DEFAULT_CUSTOMER_PRESET;
-  const setCustomerPreset = useCallback(
-    (next: CustomerPreset) => {
-      const params = new URLSearchParams(searchParams);
-      if (next === DEFAULT_CUSTOMER_PRESET) params.delete('cp');
-      else params.set('cp', next);
-      setSearchParams(params, { replace: true });
-    },
-    [searchParams, setSearchParams]
-  );
-
   // Faceted filters (dimension → selected values); merged into the base filters
   const [applied, setApplied] = useState<AppliedFilters>({});
   const effectiveFilters = useMemo(() => {
@@ -176,7 +139,7 @@ export function AnalyticsListSection({
   // size/search/filters). Adjust state during render instead of in an effect to
   // avoid the cascading-render smell.
   const [page, setPage] = useState(1);
-  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${customerPreset}|${JSON.stringify(effectiveFilters)}`;
+  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${JSON.stringify(effectiveFilters)}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
@@ -184,7 +147,7 @@ export function AnalyticsListSection({
   }
 
   const { balanceData, listData, listMeta, isLoading } = useAnalyticsData(
-    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch, customerPreset
+    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch
   );
 
   const totalPages = listMeta?.totalPages ?? 1;
@@ -211,21 +174,16 @@ export function AnalyticsListSection({
   );
 
   const mappedData = useMemo(
-    () => (listData || []).map((item, index) => {
+    () => (listData || []).map((item) => {
       const data = mapApiToRegionalData(item);
       let name = data.name;
       if (nameOverrides && name in nameOverrides) name = nameOverrides[name]!;
       // Product listings surface product_id in its own REFERENCIA column, so the
       // id-in-name prefix would be redundant there.
       if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
-      // Seller preset listings are billing-desc ordered; carry a 1-based rank.
-      return {
-        ...data,
-        name,
-        ...(showCustomerPresets ? { rank: (page - 1) * pageSize + index + 1 } : {}),
-      };
+      return { ...data, name };
     }),
-    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData, showCustomerPresets, page, pageSize]
+    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
   );
 
   const totals = useMemo(
@@ -248,10 +206,8 @@ export function AnalyticsListSection({
     }
     // Product listings lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id).
     if (groupBy === 'product_id') cols = [...getProductCodeColumns(), ...cols];
-    // Seller preset listings lead with a billing-rank column (#).
-    if (showCustomerPresets) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel, showCustomerPresets]);
+  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
@@ -294,24 +250,6 @@ export function AnalyticsListSection({
           <div />
         )}
         <div className="flex items-center gap-2 flex-wrap sm:justify-end">
-          {showCustomerPresets && (
-            <AppSelect
-              size="sm"
-              aria-label="Segmento de clientes"
-              label="Clientes"
-              selectedKeys={[customerPreset]}
-              disallowEmptySelection
-              onSelectionChange={(keys) => {
-                const key = Array.from(keys)[0] as CustomerPreset | undefined;
-                if (key) setCustomerPreset(key);
-              }}
-              className="w-full sm:w-48"
-            >
-              {CUSTOMER_PRESET_OPTIONS.map((o) => (
-                <SelectItem key={o.id} className="cursor-pointer">{o.label}</SelectItem>
-              ))}
-            </AppSelect>
-          )}
           {enableFilters && (
             <FacetedFilterAddButton value={applied} onChange={setApplied} contextFilters={filterContext} />
           )}
