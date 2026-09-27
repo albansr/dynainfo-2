@@ -133,9 +133,15 @@ export const SellerStatusSchema = Type.Object({
   numerica: Type.Number({ description: 'Clients with a purchase in the window' }),
   sinCompra: Type.Number({ description: 'Prior buyers with no purchase in the window' }),
   riesgo: Type.Number({ description: 'Clients classified Riesgo in the window' }),
+  riesgoSales: Type.Number({ description: 'Sales of the Riesgo clients in the window' }),
+  riesgoMarginPct: Type.Number({ description: 'Gross margin % of the Riesgo clients' }),
   promesa: Type.Number({ description: 'Clients classified Promesa in the window' }),
+  promesaSales: Type.Number({ description: 'Sales of the Promesa clients in the window' }),
+  promesaMarginPct: Type.Number({ description: 'Gross margin % of the Promesa clients' }),
   pesoTotal: Type.Number({ description: 'Clients that make up 80% of sales' }),
   pesoRetrocediendo: Type.Number({ description: 'Of the 80% clients, those declining vs last year' }),
+  pesoDecline: Type.Number({ description: 'How much (currency) the declining key clients are down vs last year' }),
+  pesoDeclineSharePct: Type.Number({ description: 'Share of total sales the declining key clients represent' }),
 });
 
 export type SellerStatus = Static<typeof SellerStatusSchema>;

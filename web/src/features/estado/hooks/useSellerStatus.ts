@@ -11,9 +11,15 @@ export interface SellerStatus {
   numerica: number;
   sinCompra: number;
   riesgo: number;
+  riesgoSales: number;
+  riesgoMarginPct: number;
   promesa: number;
+  promesaSales: number;
+  promesaMarginPct: number;
   pesoTotal: number;
   pesoRetrocediendo: number;
+  pesoDecline: number;
+  pesoDeclineSharePct: number;
 }
 
 /**

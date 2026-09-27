@@ -273,7 +273,7 @@ export class ListService {
   private async computePesoKeptRows(
     filters: FilterCondition[],
     facturadoOnly: boolean
-  ): Promise<Array<Record<string, number | string>>> {
+  ): Promise<{ kept: Array<Record<string, number | string>>; totalSales: number }> {
     const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
       metrics: BALANCE_METRICS,
       currentPeriodFilters: filters,
@@ -299,7 +299,7 @@ export class ListService {
       cumulative += salesOf(row);
       if (cumulative >= threshold) break;
     }
-    return kept;
+    return { kept, totalSales };
   }
 
   /**
@@ -348,7 +348,7 @@ export class ListService {
     filters: FilterCondition[],
     params: { page: number; limit: number; facturadoOnly: boolean }
   ): Promise<ListResponse> {
-    const kept = await this.computePesoKeptRows(filters, params.facturadoOnly);
+    const { kept } = await this.computePesoKeptRows(filters, params.facturadoOnly);
 
     const start = (params.page - 1) * params.limit;
     const items = kept
@@ -383,31 +383,48 @@ export class ListService {
     const universeFilters = currentFilters.filter((f) => f.field !== 'date');
     const sources = [{ table: 'transactions', field: 'customer_id' }];
 
-    const [numerica, sinCompra, riesgo, promesa, pesoKept] = await Promise.all([
+    const riesgoFilters = [...currentFilters, ...customerPresetFilters('riesgo')];
+    const promesaFilters = [...currentFilters, ...customerPresetFilters('promesa')];
+
+    const [numerica, sinCompra, riesgo, promesa, peso, riesgoYoY, promesaYoY] = await Promise.all([
       this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: currentFilters }),
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
         universe: { table: 'transactions', field: 'customer_id', filters: universeFilters },
         exclude: { sources, filters: currentFilters },
       }),
-      this.analyticsBuilder.buildDistinctCountQuery({
-        sources, filters: [...currentFilters, ...customerPresetFilters('riesgo')],
-      }),
-      this.analyticsBuilder.buildDistinctCountQuery({
-        sources, filters: [...currentFilters, ...customerPresetFilters('promesa')],
-      }),
+      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: riesgoFilters }),
+      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: promesaFilters }),
       this.computePesoKeptRows(currentFilters, facturadoOnly),
+      this.analyticsBuilder.buildMultiTableYoYQuery({ metrics: BALANCE_METRICS, currentPeriodFilters: riesgoFilters, facturadoOnly }),
+      this.analyticsBuilder.buildMultiTableYoYQuery({ metrics: BALANCE_METRICS, currentPeriodFilters: promesaFilters, facturadoOnly }),
     ]);
 
-    const declineOf = (row: Record<string, number | string>): number =>
-      typeof row['sales_total_vs_last_year'] === 'number' ? row['sales_total_vs_last_year'] : 0;
+    const numOf = (row: Record<string, number | string>, key: string): number => {
+      const value = row[key];
+      return typeof value === 'number' ? value : 0;
+    };
+
+    // Declining key clients: of the 80%-of-sales set, those down vs last year.
+    const declining = peso.kept.filter((row) => numOf(row, 'sales_total_vs_last_year') < 0);
+    const pesoDecline = declining.reduce(
+      (sum, row) => sum + Math.max(0, numOf(row, 'sales_total_last_year') - numOf(row, 'sales_total')),
+      0
+    );
+    const decliningSales = declining.reduce((sum, row) => sum + numOf(row, 'sales_total'), 0);
 
     return {
       numerica,
       sinCompra,
       riesgo,
+      riesgoSales: numOf(riesgoYoY, 'sales_total'),
+      riesgoMarginPct: numOf(riesgoYoY, 'gross_margin_pct'),
       promesa,
-      pesoTotal: pesoKept.length,
-      pesoRetrocediendo: pesoKept.filter((row) => declineOf(row) < 0).length,
+      promesaSales: numOf(promesaYoY, 'sales_total'),
+      promesaMarginPct: numOf(promesaYoY, 'gross_margin_pct'),
+      pesoTotal: peso.kept.length,
+      pesoRetrocediendo: declining.length,
+      pesoDecline,
+      pesoDeclineSharePct: peso.totalSales > 0 ? (decliningSales / peso.totalSales) * 100 : 0,
     };
   }
 

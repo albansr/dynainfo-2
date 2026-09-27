@@ -9,6 +9,7 @@ import {
   ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '@/core/components/PageHeader';
+import { useDateRange } from '@/core/hooks/useDateRange';
 import { useSellerStatus, type SellerStatus } from '../hooks/useSellerStatus';
 
 type Tone = 'rose' | 'amber';
@@ -22,6 +23,8 @@ interface InsightCard {
   /** Headline continues the number: "<value> <headline>". */
   headline: string;
   detail: string;
+  /** Optional business figure line (sales, margin, decline…). */
+  stat?: string;
 }
 
 const DOT: Record<Tone, string> = {
@@ -29,9 +32,21 @@ const DOT: Record<Tone, string> = {
   amber: 'bg-amber-500',
 };
 
-const num = (v: number) => v.toLocaleString('es-CO');
+const PERIOD_PHRASE: Record<string, string> = {
+  'current-month': 'este mes',
+  'previous-month': 'el mes pasado',
+  accumulated: 'en lo que va del año',
+  today: 'hoy',
+};
 
-function buildCards(s: SellerStatus): InsightCard[] {
+const num = (v: number) => v.toLocaleString('es-CO');
+const money = (v: number) =>
+  Math.abs(v) >= 1e6
+    ? `$${(v / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 1 })} M`
+    : `$${v.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
+const pct = (v: number) => `${v.toLocaleString('es-CO', { maximumFractionDigits: 0 })}%`;
+
+function buildCards(s: SellerStatus, period: string): InsightCard[] {
   return [
     {
       key: 'sin_compra',
@@ -39,7 +54,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
       icon: ClockIcon,
       value: s.sinCompra,
       headline: 'clientes se enfriaron',
-      detail: 'Te compraron antes pero no este mes. Un contacto a tiempo los reactiva.',
+      detail: `Te compraron antes pero no ${period}. Un contacto a tiempo los reactiva.`,
     },
     {
       key: 'riesgo',
@@ -48,6 +63,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
       value: s.riesgo,
       headline: 'clientes en riesgo',
       detail: 'Clasificados en riesgo comercial. Priorízalos antes de perderlos.',
+      stat: `${money(s.riesgoSales)} en ventas · ${pct(s.riesgoMarginPct)} margen en juego`,
     },
     {
       key: 'promesa',
@@ -56,6 +72,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
       value: s.promesa,
       headline: 'promesas por consolidar',
       detail: 'Van por buen camino; un empujón los convierte en clientes fuertes.',
+      stat: `${money(s.promesaSales)} en ventas · ${pct(s.promesaMarginPct)} margen`,
     },
     {
       key: 'peso',
@@ -64,16 +81,19 @@ function buildCards(s: SellerStatus): InsightCard[] {
       value: s.pesoRetrocediendo,
       of: s.pesoTotal,
       headline: 'de tus clientes clave están cayendo',
-      detail: 'Concentran el 80% de tus ventas y retroceden frente al año pasado.',
+      detail: `Tus ${num(s.pesoTotal)} clientes clave concentran el 80% de tus ventas. Estos ${num(s.pesoRetrocediendo)} retroceden frente al año pasado.`,
+      stat: `Pesan el ${pct(s.pesoDeclineSharePct)} de tus ventas · caen ${money(s.pesoDecline)} vs. el año pasado`,
     },
   ];
 }
 
 export function EstadoPage() {
   const navigate = useNavigate();
+  const { preset } = useDateRange();
   const { data, isLoading } = useSellerStatus();
 
-  const cards = useMemo(() => (data ? buildCards(data) : []), [data]);
+  const period = PERIOD_PHRASE[preset] ?? 'en el periodo';
+  const cards = useMemo(() => (data ? buildCards(data, period) : []), [data, period]);
   const activeBase = data ? data.numerica + data.sinCompra : 0;
   const coverage = activeBase > 0 ? Math.round((data!.numerica / activeBase) * 100) : 0;
 
@@ -89,7 +109,7 @@ export function EstadoPage() {
           <>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-semibold tracking-tight text-zinc-900">{num(data.numerica)}</span>
-              <span className="text-sm text-zinc-500">de {num(activeBase)} clientes activos te compraron este mes</span>
+              <span className="text-sm text-zinc-500">de {num(activeBase)} clientes activos te compraron {period}</span>
             </div>
             <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
               <div className="h-full rounded-full bg-zinc-900" style={{ width: `${coverage}%` }} />
@@ -105,7 +125,7 @@ export function EstadoPage() {
         {isLoading || !data
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-white p-5">
-                <Skeleton className="h-20 w-full rounded-md" />
+                <Skeleton className="h-24 w-full rounded-md" />
               </div>
             ))
           : cards.map((card) => {
@@ -129,6 +149,9 @@ export function EstadoPage() {
                     <span className="text-sm text-zinc-600">{card.headline}</span>
                   </p>
                   <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">{card.detail}</p>
+                  {card.stat && (
+                    <p className="mt-2 text-xs font-medium text-zinc-500">{card.stat}</p>
+                  )}
                   <span className="mt-4 inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors group-hover:text-zinc-900">
                     Ver clientes
                     <ArrowRightIcon className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
