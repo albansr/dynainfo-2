@@ -562,5 +562,47 @@ describe('ListService', () => {
       expect(result.data.map((d) => d.id)).toEqual(['A']);
       expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
     });
+
+    it('fixes the roster to the 12-month set but reads figures over the requested window', async () => {
+      // First call = the fixed 12m SET (A is a declining key client, rank 1; B is
+      // kept but growing ⇒ excluded). Second call = the FIGURES over the requested
+      // window, where A billed a different amount.
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery)
+        .mockResolvedValueOnce([
+          { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 80, sales_total_vs_last_year: -10 }) },
+          { id: 'B', name: 'B', ...generateMockQueryResult({ sales_total: 20, sales_total_vs_last_year: 5 }) },
+        ])
+        .mockResolvedValueOnce([
+          { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 3, sales_total_vs_last_year: -1 }) },
+        ]);
+
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'peso' });
+
+      // Roster and ABC position come from the fixed 12m set.
+      expect(result.data.map((d) => d.id)).toEqual(['A']);
+      expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
+      // Figures come from the window (second) call, not the set call.
+      expect(result.data[0].sales_total).toBe(3);
+      // The figures query is scoped to the set ids and keeps every key client.
+      const metricsCall = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[1]![0];
+      expect(metricsCall.includeAllGroups).toBe(true);
+      expect(
+        metricsCall.currentPeriodFilters.some((f) => f.field === 'customer_id' && f.operator === 'in')
+      ).toBe(true);
+    });
+
+    it('keeps a key client visible with zero figures when absent from the requested window', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery)
+        .mockResolvedValueOnce([
+          { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 80, sales_total_vs_last_year: -10 }) },
+        ])
+        .mockResolvedValueOnce([]); // no activity in the chosen window
+
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'peso' });
+
+      expect(result.data.map((d) => d.id)).toEqual(['A']);
+      expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
+      expect(result.data[0].sales_total).toBe(0);
+    });
   });
 });

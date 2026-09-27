@@ -344,39 +344,106 @@ export class ListService {
     };
   }
 
+  /**
+   * "Clientes clave" (peso) listing — two windows on purpose:
+   *  - The SET (who the key declining clients are, and their ABC position) is fixed
+   *    to the last 12 months, so the roster and ranking never move with the
+   *    temporality selector and always match the Estado card.
+   *  - The FIGURES (sales, margin…) are read over the requested window, so the
+   *    seller can switch temporality to see this month's / this year's numbers for
+   *    those same clients. `includeAllGroups` keeps every key client visible even
+   *    when they have no activity in the chosen window (they render as zeros).
+   */
   private async getPesoList(
     filters: FilterCondition[],
     params: { page: number; limit: number; facturadoOnly: boolean }
   ): Promise<ListResponse> {
-    const { kept } = await this.computePesoKeptRows(filters, params.facturadoOnly);
+    const baseFilters = filters.filter((f) => f.field !== 'date');
+    const requestDate = filters.filter((f) => f.field === 'date');
 
-    // Rank every key client by billing (their ABC position within the 80%), then
-    // keep only the ones declining vs last year — carrying that ABC position.
+    // SET (fixed 12m): the key clients (80% of sales) ranked by billing, kept only
+    // when declining vs last year — each carrying its ABC position within the 80%.
+    const { kept } = await this.computePesoKeptRows(
+      [...baseFilters, ...ListService.rollingWindow(12)],
+      params.facturadoOnly
+    );
     const declining = kept
-      .map((row, index) => ({ row, abcRank: index + 1 }))
+      .map((row, index) => ({ id: this.rowId(row), name: this.rowName(row), abcRank: index + 1, row }))
       .filter(({ row }) => ListService.numField(row, 'sales_total_vs_last_year') < 0);
 
+    if (declining.length === 0) {
+      return this.emptyList(params);
+    }
+
+    const nameById = new Map(declining.map((d) => [d.id, d.name]));
+    const ids = declining.map((d) => d.id);
+
+    // FIGURES over the requested window for exactly those clients.
+    const metricRows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+      metrics: BALANCE_METRICS,
+      currentPeriodFilters: [...baseFilters, ...requestDate, { field: 'customer_id', operator: 'in', value: ids }],
+      groupBy: 'customer_id',
+      limit: EXPORT_ROW_HARD_CAP,
+      orderBy: 'sales_total',
+      orderDirection: 'desc',
+      facturadoOnly: params.facturadoOnly,
+      includeAllGroups: true,
+    });
+    const metricById = new Map(metricRows.map((row) => [this.rowId(row), row]));
+
+    // Emit the full roster in ABC order; clients absent from the window are zeros.
+    const ordered = declining.map(({ id, abcRank }) => {
+      const row = metricById.get(id) ?? { id, name: nameById.get(id) ?? '' };
+      return { ...this.toListItemResponse(row), abcRank };
+    });
+
     const start = (params.page - 1) * params.limit;
-    const items = declining
-      .slice(start, start + params.limit)
-      .map(({ row, abcRank }) => ({ ...this.toListItemResponse(row), abcRank }));
+    const items = ordered.slice(start, start + params.limit);
 
     return {
       data: items,
       meta: {
         groupBy: 'customer_id',
-        total: declining.length,
+        total: ordered.length,
         count: items.length,
         page: params.page,
         limit: params.limit,
-        totalPages: Math.ceil(declining.length / params.limit),
+        totalPages: Math.ceil(ordered.length / params.limit),
       },
+    };
+  }
+
+  private rowId(row: Record<string, number | string>): string {
+    return String(row['id'] ?? '');
+  }
+
+  private rowName(row: Record<string, number | string>): string {
+    return String(row['name'] ?? '');
+  }
+
+  private emptyList(params: { page: number; limit: number }): ListResponse {
+    return {
+      data: [],
+      meta: { groupBy: 'customer_id', total: 0, count: 0, page: params.page, limit: params.limit, totalPages: 0 },
     };
   }
 
   private static numField(row: Record<string, number | string>, key: string): number {
     const value = row[key];
     return typeof value === 'number' ? value : 0;
+  }
+
+  /** A rolling [now - monthsBack, now] date window as filter conditions. */
+  private static rollingWindow(monthsBack: number): FilterCondition[] {
+    const now = new Date();
+    const start = new Date(now);
+    start.setMonth(start.getMonth() - monthsBack);
+    const fmt = (d: Date): string =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return [
+      { field: 'date', operator: 'gte', value: fmt(start) },
+      { field: 'date', operator: 'lte', value: fmt(now) },
+    ];
   }
 
   /**
