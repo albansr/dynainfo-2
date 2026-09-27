@@ -543,5 +543,22 @@ describe('ListService', () => {
       const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
       expect(call.currentPeriodFilters.some((f) => f.field === 'aionsales_sales_short_customer')).toBe(false);
     });
+
+    it('keeps the sales-desc clients up to the 80% cut for the peso preset', async () => {
+      // Sales 50/30/15/5 (total 100). Threshold 80 ⇒ keep A (50) then B (cum 80).
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 50 }) },
+        { id: 'B', name: 'B', ...generateMockQueryResult({ sales_total: 30 }) },
+        { id: 'C', name: 'C', ...generateMockQueryResult({ sales_total: 15 }) },
+        { id: 'D', name: 'D', ...generateMockQueryResult({ sales_total: 5 }) },
+      ]);
+
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'peso' });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.orderBy).toBe('sales_total');
+      expect(result.meta.total).toBe(2);
+      expect(result.data.map((d) => d.id)).toEqual(['A', 'B']);
+    });
   });
 });

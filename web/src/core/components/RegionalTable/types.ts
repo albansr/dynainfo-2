@@ -3,6 +3,8 @@ export interface RegionalData {
   name: string;
   /** Optional secondary code shown next to the name (festival product listing: IdItem). */
   code?: string;
+  /** Optional 1-based ranking by billing (seller customer-preset listings). */
+  rank?: number;
   sales: {
     current: number;
     previous: number;

@@ -15,6 +15,7 @@ import {
 } from '../../core/config/brand-groups.config.js';
 import {
   DEFAULT_CUSTOMER_PRESET,
+  PESO_SALES_SHARE,
   customerPresetFilters,
 } from '../../core/config/customer-presets.config.js';
 
@@ -80,6 +81,11 @@ export class ListService {
     // Virtual "Marcas" grouping: two provider buckets computed in the service.
     if (groupBy === BRAND_GROUP) {
       return this.getBrandGroupList(filters, { page, limit, orderBy, orderDirection, facturadoOnly });
+    }
+
+    // "Peso en cumplimiento": the clients that concentrate the bulk of the budget.
+    if (customerPreset === 'peso') {
+      return this.getPesoList(filters, { page, limit, facturadoOnly });
     }
 
     // Calculate offset for pagination
@@ -162,6 +168,16 @@ export class ListService {
       return data;
     }
 
+    // "Peso en cumplimiento" exports its whole Pareto subset.
+    if (customerPreset === 'peso') {
+      const { data } = await this.getPesoList(filters, {
+        page: 1,
+        limit: EXPORT_ROW_HARD_CAP,
+        facturadoOnly,
+      });
+      return data;
+    }
+
     const [results, codeByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
         metrics: BALANCE_METRICS,
@@ -230,6 +246,62 @@ export class ListService {
         page: params.page,
         limit: params.limit,
         totalPages: 1,
+      },
+    };
+  }
+
+  /**
+   * "Peso en cumplimiento" listing: the clients that, ordered by sales desc,
+   * cumulatively make up PESO_SALES_SHARE of the total sales — the few clients
+   * whose performance carries the seller's compliance. (Budget has no per-customer
+   * breakdown, so the ranking is by sales.) Computed over the full grouped result
+   * (the seller's own clients, well within the export cap) so the Pareto cut and
+   * pagination stay correct.
+   */
+  private async getPesoList(
+    filters: FilterCondition[],
+    params: { page: number; limit: number; facturadoOnly: boolean }
+  ): Promise<ListResponse> {
+    const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+      metrics: BALANCE_METRICS,
+      currentPeriodFilters: filters,
+      groupBy: 'customer_id',
+      limit: EXPORT_ROW_HARD_CAP,
+      orderBy: 'sales_total',
+      orderDirection: 'desc',
+      facturadoOnly: params.facturadoOnly,
+    });
+
+    const salesOf = (row: Record<string, number | string>): number =>
+      typeof row['sales_total'] === 'number' ? row['sales_total'] : 0;
+    const totalSales = rows.reduce((sum, row) => sum + salesOf(row), 0);
+    const threshold = totalSales * PESO_SALES_SHARE;
+
+    // Keep the sales-desc clients until their cumulative sales reach the
+    // threshold. With no sales at all, keep nothing.
+    const kept: Array<Record<string, number | string>> = [];
+    let cumulative = 0;
+    for (const row of rows) {
+      if (totalSales <= 0) break;
+      kept.push(row);
+      cumulative += salesOf(row);
+      if (cumulative >= threshold) break;
+    }
+
+    const start = (params.page - 1) * params.limit;
+    const items = kept
+      .slice(start, start + params.limit)
+      .map((row) => this.toListItemResponse(row));
+
+    return {
+      data: items,
+      meta: {
+        groupBy: 'customer_id',
+        total: kept.length,
+        count: items.length,
+        page: params.page,
+        limit: params.limit,
+        totalPages: Math.ceil(kept.length / params.limit),
       },
     };
   }

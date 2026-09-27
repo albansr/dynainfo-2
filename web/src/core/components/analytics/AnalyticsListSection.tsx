@@ -28,6 +28,16 @@ import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useLis
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
 
+/** Leading billing-rank column (#) for seller customer-preset listings. */
+const RANK_COLUMN: ColumnDefinition = {
+  id: 'rank',
+  header: { label: '#', align: 'right', rowSpan: 2 },
+  accessor: (data) => data.rank ?? '',
+  cellRenderer: (_data, _config, value) => (value === '' || value == null ? '' : String(value)),
+  align: 'right',
+  sortable: false,
+};
+
 /** Totals row from the current page's mapped rows. */
 function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalData {
   const totals = data.reduce(
@@ -201,16 +211,21 @@ export function AnalyticsListSection({
   );
 
   const mappedData = useMemo(
-    () => (listData || []).map((item) => {
+    () => (listData || []).map((item, index) => {
       const data = mapApiToRegionalData(item);
       let name = data.name;
       if (nameOverrides && name in nameOverrides) name = nameOverrides[name]!;
       // Product listings surface product_id in its own REFERENCIA column, so the
       // id-in-name prefix would be redundant there.
       if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
-      return { ...data, name };
+      // Seller preset listings are billing-desc ordered; carry a 1-based rank.
+      return {
+        ...data,
+        name,
+        ...(showCustomerPresets ? { rank: (page - 1) * pageSize + index + 1 } : {}),
+      };
     }),
-    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
+    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData, showCustomerPresets, page, pageSize]
   );
 
   const totals = useMemo(
@@ -233,8 +248,10 @@ export function AnalyticsListSection({
     }
     // Product listings lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id).
     if (groupBy === 'product_id') cols = [...getProductCodeColumns(), ...cols];
+    // Seller preset listings lead with a billing-rank column (#).
+    if (showCustomerPresets) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel]);
+  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel, showCustomerPresets]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
