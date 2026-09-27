@@ -1,3 +1,4 @@
+import { Chip } from '@heroui/react';
 import { useDateRange } from '@/core/hooks/useDateRange';
 import { PRESET_LABELS } from '@/core/config/dateRangeConfig';
 import { DateRangeFilter } from '@/features/dashboard/components/DateRangeFilter';
@@ -15,6 +16,8 @@ interface PageHeaderProps {
   leadingControl?: React.ReactNode;
   /** Optional element rendered inline after the title (e.g. a live badge). */
   titleAccessory?: React.ReactNode;
+  /** Optional role label appended to the date subtitle (e.g. "Rol: Vendedores"). */
+  roleLabel?: string;
   /**
    * Overrides the date-derived subtitle line. Use when the page has its own
    * date window (e.g. the festival event range) instead of the global range.
@@ -22,7 +25,7 @@ interface PageHeaderProps {
   subtitle?: React.ReactNode;
 }
 
-export function PageHeader({ title, showDateFilter = true, chip, chipMuted = true, breadcrumbs, leadingControl, titleAccessory, subtitle }: PageHeaderProps) {
+export function PageHeader({ title, showDateFilter = true, chip, chipMuted = true, breadcrumbs, leadingControl, titleAccessory, subtitle, roleLabel }: PageHeaderProps) {
   const { preset, formattedRange, endDate } = useDateRange();
   const currentYear = endDate.getFullYear();
 
@@ -34,7 +37,7 @@ export function PageHeader({ title, showDateFilter = true, chip, chipMuted = tru
   const periodLabel = getPresetLabel(preset);
 
   return (
-    <div className="sticky -top-4 z-10 bg-white -mx-4 xl:-mx-10 px-4 xl:px-10 -mt-4 pt-4 pb-4 mb-4">
+    <div className="sticky -top-4 z-30 bg-white -mx-4 xl:-mx-10 px-4 xl:px-10 -mt-4 pt-4 pb-4 mb-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
           {breadcrumbs && <div className="mb-1">{breadcrumbs}</div>}
@@ -51,9 +54,15 @@ export function PageHeader({ title, showDateFilter = true, chip, chipMuted = tru
             )}
             {titleAccessory}
           </div>
-          <p className="text-sm text-zinc-500 mt-1">
-            {subtitle ?? `${periodLabel || `Año ${currentYear}`} · ${formattedRange}`}
-          </p>
+          <div className="text-sm text-zinc-500 mt-1 flex items-center gap-1.5 flex-wrap">
+            <span>{subtitle ?? `${periodLabel || `Año ${currentYear}`} · ${formattedRange}`}</span>
+            {roleLabel && (
+              <span className="flex items-center gap-1.5">
+                · Rol:
+                <Chip size="sm" variant="flat">{roleLabel}</Chip>
+              </span>
+            )}
+          </div>
         </div>
         {(leadingControl || showDateFilter) && (
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">

@@ -69,6 +69,22 @@ export const ROLE_ACCESS: Record<string, RoleAccess> = {
   SELLER: { allowedPresets: CORE_PRESETS, allowedYears: [PREVIOUS_YEAR], allowExport: false },
 };
 
+/** Human-readable Spanish label per role (single source for UI role names). */
+export const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Admin',
+  MANAGER: 'Gerencia',
+  BOARD: 'Junta General',
+  RETAIL: 'Dirección Retail',
+  NEW_CHANNELS: 'Dirección Nuevos Canales',
+  DISTRIBUTION: 'Director',
+  SELLER: 'Vendedor',
+};
+
+/** Friendly role label, falling back to the raw role (or empty when unset). */
+export function getRoleLabel(dynaRole: string | null | undefined): string {
+  return dynaRole ? ROLE_LABELS[dynaRole] ?? dynaRole : '';
+}
+
 /**
  * Resolve the access config for a role. Empty/null/MANAGER get the standard
  * management access; unknown roles get an empty config (no data, safe default).

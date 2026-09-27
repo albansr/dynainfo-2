@@ -5,17 +5,17 @@ import { AppSelect } from '@/core/components/AppSelect';
 import { PageHeader } from '@/core/components/PageHeader';
 import { useAuthStore } from '@/core/store/authStore';
 import { DEMO_ROLE_EMAIL } from '@/core/config/constants';
-import { REGIONAL_GROUPS } from '@/core/config/access';
+import { REGIONAL_GROUPS, ROLE_LABELS } from '@/core/config/access';
 
+// BOARD (Junta General) is hidden from the demo switcher for now.
 const DEMO_ROLES: { value: string; label: string }[] = [
-  { value: 'ADMIN', label: 'Gerencia General' },
-  { value: 'MANAGER', label: 'Gerencias' },
-  { value: 'BOARD', label: 'Junta General' },
-  { value: 'RETAIL', label: 'Dirección Retail' },
-  { value: 'NEW_CHANNELS', label: 'Dirección Nuevos Canales' },
-  { value: 'DISTRIBUTION', label: 'Directores' },
-  { value: 'SELLER', label: 'Vendedores' },
-];
+  'ADMIN',
+  'MANAGER',
+  'RETAIL',
+  'NEW_CHANNELS',
+  'DISTRIBUTION',
+  'SELLER',
+].map((value) => ({ value, label: ROLE_LABELS[value] ?? value }));
 
 function DemoRoleSwitcher() {
   const user = useAuthStore((s) => s.user);

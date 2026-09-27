@@ -45,6 +45,8 @@ interface DashboardViewProps {
   footer?: ReactNode;
   /** Control rendered in the header before the date filter (e.g. view selector). */
   leadingControl?: ReactNode;
+  /** Role label appended to the header date subtitle. */
+  roleLabel?: string;
 }
 
 /**
@@ -52,7 +54,7 @@ interface DashboardViewProps {
  * Used by the main "Inicio" page and by the entity detail pages, which pass
  * an entity filter to scope every metric/chart to a single regional/seller/customer.
  */
-export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, segmentEntityOptions, segmentDefaultEntity, footer, leadingControl }: DashboardViewProps) {
+export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, segmentEntityOptions, segmentDefaultEntity, footer, leadingControl, roleLabel }: DashboardViewProps) {
   const { startDate, endDate, preset } = useDateRange();
   const { data, isLoading } = useBalance(startDate, endDate, preset, filters);
 
@@ -91,7 +93,7 @@ export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, se
 
   return (
     <div>
-      <PageHeader title={title} chip={chip} chipMuted={chipMuted} breadcrumbs={breadcrumbs} leadingControl={leadingControl} />
+      <PageHeader title={title} chip={chip} chipMuted={chipMuted} breadcrumbs={breadcrumbs} leadingControl={leadingControl} roleLabel={roleLabel} />
 
       {/* Ventas */}
       <div className="border border-zinc-200 rounded-lg p-4 sm:p-6">

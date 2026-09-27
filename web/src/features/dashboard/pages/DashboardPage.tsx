@@ -9,7 +9,7 @@ import { DimensionBreakdown } from '@/core/components/analytics/DimensionBreakdo
 import type { GroupByDimension } from '@/core/api/hooks/useList';
 import { buildDetailUrl, DIM_LABEL } from '@/core/config/breakdownDimensions';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { getRoleViewSections, resolveActiveView } from '@/core/config/access';
+import { getRoleViewSections, resolveActiveView, getRoleLabel } from '@/core/config/access';
 import { DEFAULT_ANALYSIS_VIEW_ID } from '@/core/config/analysisViews';
 
 /**
@@ -54,13 +54,16 @@ export function DashboardPage() {
     </AppSelect>
   ) : undefined;
 
-  const chip = active.label;
+  // A seller sees their own code in the header instead of the generic "Vendedor"
+  // view label (their scope carries the seller_id).
+  const chip = dynaRole === 'SELLER' && user?.scope ? user.scope : active.label;
   const chipMuted = active.id !== DEFAULT_ANALYSIS_VIEW_ID;
+  const roleLabel = getRoleLabel(dynaRole);
 
   if (active.type === 'soon') {
     return (
       <div>
-        <PageHeader title="Análisis" chip={chip} chipMuted={chipMuted} showDateFilter={false} leadingControl={selector} />
+        <PageHeader title="Análisis" chip={chip} chipMuted={chipMuted} showDateFilter={false} leadingControl={selector} roleLabel={roleLabel} />
         <div className="border border-zinc-200 rounded-lg p-10 flex flex-col items-center justify-center text-center gap-2">
           <span className="text-4xl">🚧</span>
           <h2 className="text-lg font-semibold text-zinc-700">{active.label}</h2>
@@ -74,7 +77,7 @@ export function DashboardPage() {
 
   // "Compañía General" is overview only (no table).
   if (active.type === 'overview') {
-    return <DashboardView title="Análisis" chip={chip} chipMuted={chipMuted} filters={config.filters} leadingControl={selector} />;
+    return <DashboardView title="Análisis" chip={chip} chipMuted={chipMuted} filters={config.filters} leadingControl={selector} roleLabel={roleLabel} />;
   }
 
   // The "Agrupar por" selector offers the standard breakdown dims; a view whose
@@ -93,6 +96,7 @@ export function DashboardPage() {
       chipMuted={chipMuted}
       filters={config.filters}
       leadingControl={selector}
+      roleLabel={roleLabel}
       footer={
         <DimensionBreakdown
           filters={config.filters ?? {}}
