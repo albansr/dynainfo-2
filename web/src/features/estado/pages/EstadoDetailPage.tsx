@@ -8,19 +8,14 @@ import type { CustomerPreset } from '@/core/config/customerPresets';
 
 interface PresetView {
   title: string;
-  /** List lens; absent = not a list-backed preset yet (e.g. sin compra). */
-  customerPreset?: CustomerPreset;
-  note?: string;
+  customerPreset: CustomerPreset;
 }
 
 const PRESET_VIEWS: Record<string, PresetView> = {
   riesgo: { title: 'Clientes en riesgo', customerPreset: 'riesgo' },
   promesa: { title: 'Clientes en promesa', customerPreset: 'promesa' },
   peso: { title: 'Clientes clave (80% de tus ventas)', customerPreset: 'peso' },
-  sin_compra: {
-    title: 'Clientes sin compra este mes',
-    note: 'El detalle de clientes sin compra llega en la siguiente entrega.',
-  },
+  sin_compra: { title: 'Clientes sin compra este mes', customerPreset: 'sin_compra' },
 };
 
 export function EstadoDetailPage() {
@@ -43,10 +38,10 @@ export function EstadoDetailPage() {
       </Button>
 
       {!view ? (
-        <div className="rounded-2xl border border-zinc-200 p-10 text-center text-zinc-500">
+        <div className="rounded-xl border border-zinc-200 p-10 text-center text-zinc-500">
           Segmento no encontrado.
         </div>
-      ) : view.customerPreset ? (
+      ) : (
         <AnalyticsListSection
           groupBy="customer_id"
           customerPreset={view.customerPreset}
@@ -54,10 +49,6 @@ export function EstadoDetailPage() {
           showSearch
           dimensionLabel="CLIENTE"
         />
-      ) : (
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-10 text-center text-zinc-500">
-          {view.note}
-        </div>
       )}
     </div>
   );

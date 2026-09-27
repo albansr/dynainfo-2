@@ -8,9 +8,10 @@ import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
  * that concentrate the bulk of the budget) and is resolved in the list service,
  * not as a filter.
  *
- * (sin_compra is a planned follow-up — see the feature TDD.)
+ * 'sin_compra' lists the seller's historical buyers who did not buy in the window
+ * (computed via exclusion), resolved in the list service too.
  */
-export const CUSTOMER_PRESETS = ['todos', 'riesgo', 'promesa', 'peso'] as const;
+export const CUSTOMER_PRESETS = ['todos', 'riesgo', 'promesa', 'peso', 'sin_compra'] as const;
 
 export type CustomerPreset = (typeof CUSTOMER_PRESETS)[number];
 

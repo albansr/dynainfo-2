@@ -89,6 +89,11 @@ export class ListService {
       return this.getPesoList(filters, { page, limit, facturadoOnly });
     }
 
+    // "Sin compra": the seller's historical buyers with no purchase in the window.
+    if (customerPreset === 'sin_compra') {
+      return this.getSinCompraList(filters, { page, limit });
+    }
+
     // Calculate offset for pagination
     const offset = (page - 1) * limit;
 
@@ -176,6 +181,12 @@ export class ListService {
         limit: EXPORT_ROW_HARD_CAP,
         facturadoOnly,
       });
+      return data;
+    }
+
+    // "Sin compra" exports its whole exclusion set.
+    if (customerPreset === 'sin_compra') {
+      const { data } = await this.getSinCompraList(filters, { page: 1, limit: EXPORT_ROW_HARD_CAP });
       return data;
     }
 
@@ -289,6 +300,48 @@ export class ListService {
       if (cumulative >= threshold) break;
     }
     return kept;
+  }
+
+  /**
+   * "Sin compra" listing: the seller's historical buyers (same filters minus the
+   * date window) minus those who bought in the window, via the exclusion-details
+   * query. These clients have no sales in the window, so only id (NIT) and name
+   * come back; metrics render as zero.
+   */
+  private async getSinCompraList(
+    filters: FilterCondition[],
+    params: { page: number; limit: number }
+  ): Promise<ListResponse> {
+    const universeFilters = filters.filter((f) => f.field !== 'date');
+    const rows = await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
+      universe: { table: 'transactions', keyField: 'customer_id', filters: universeFilters },
+      attributes: ['customer_name'],
+      dateField: 'date',
+      exclude: { sources: [{ table: 'transactions', field: 'customer_id' }], filters },
+      orderBy: 'customer_name',
+    });
+
+    const start = (params.page - 1) * params.limit;
+    const items = rows
+      .slice(start, start + params.limit)
+      .map((row) =>
+        this.toListItemResponse({
+          id: String(row['customer_id'] ?? ''),
+          name: String(row['customer_name'] ?? ''),
+        })
+      );
+
+    return {
+      data: items,
+      meta: {
+        groupBy: 'customer_id',
+        total: rows.length,
+        count: items.length,
+        page: params.page,
+        limit: params.limit,
+        totalPages: Math.ceil(rows.length / params.limit),
+      },
+    };
   }
 
   private async getPesoList(

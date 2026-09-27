@@ -1,23 +1,21 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Skeleton } from '@heroui/react';
 import {
   ClockIcon,
   ExclamationTriangleIcon,
   SparklesIcon,
   ArrowTrendingDownIcon,
-  UsersIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '@/core/components/PageHeader';
 import { useSellerStatus, type SellerStatus } from '../hooks/useSellerStatus';
 
-type Severity = 'danger' | 'warning' | 'positive';
+type Tone = 'rose' | 'amber';
 
 interface InsightCard {
   key: string;
-  severity: Severity;
+  tone: Tone;
   icon: typeof ClockIcon;
   value: number;
   of?: number;
@@ -26,28 +24,9 @@ interface InsightCard {
   detail: string;
 }
 
-const SEVERITY: Record<Severity, { ring: string; tint: string; accent: string; text: string; iconBg: string }> = {
-  danger: {
-    ring: 'hover:border-rose-300',
-    tint: 'bg-rose-50/60',
-    accent: 'bg-rose-500',
-    text: 'text-rose-600',
-    iconBg: 'bg-rose-100 text-rose-600',
-  },
-  warning: {
-    ring: 'hover:border-amber-300',
-    tint: 'bg-amber-50/60',
-    accent: 'bg-amber-500',
-    text: 'text-amber-600',
-    iconBg: 'bg-amber-100 text-amber-600',
-  },
-  positive: {
-    ring: 'hover:border-emerald-300',
-    tint: 'bg-emerald-50/60',
-    accent: 'bg-emerald-500',
-    text: 'text-emerald-600',
-    iconBg: 'bg-emerald-100 text-emerald-600',
-  },
+const DOT: Record<Tone, string> = {
+  rose: 'bg-rose-500',
+  amber: 'bg-amber-500',
 };
 
 const num = (v: number) => v.toLocaleString('es-CO');
@@ -56,7 +35,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
   return [
     {
       key: 'sin_compra',
-      severity: 'danger',
+      tone: 'rose',
       icon: ClockIcon,
       value: s.sinCompra,
       headline: 'clientes se enfriaron',
@@ -64,7 +43,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
     },
     {
       key: 'riesgo',
-      severity: 'danger',
+      tone: 'rose',
       icon: ExclamationTriangleIcon,
       value: s.riesgo,
       headline: 'clientes en riesgo',
@@ -72,7 +51,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
     },
     {
       key: 'promesa',
-      severity: 'warning',
+      tone: 'amber',
       icon: SparklesIcon,
       value: s.promesa,
       headline: 'promesas por consolidar',
@@ -80,7 +59,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
     },
     {
       key: 'peso',
-      severity: 'danger',
+      tone: 'rose',
       icon: ArrowTrendingDownIcon,
       value: s.pesoRetrocediendo,
       of: s.pesoTotal,
@@ -95,71 +74,66 @@ export function EstadoPage() {
   const { data, isLoading } = useSellerStatus();
 
   const cards = useMemo(() => (data ? buildCards(data) : []), [data]);
+  const activeBase = data ? data.numerica + data.sinCompra : 0;
+  const coverage = activeBase > 0 ? Math.round((data!.numerica / activeBase) * 100) : 0;
 
   return (
     <div>
       <PageHeader title="Estado" />
 
-      {/* Positive anchor: how many clients bought this month */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5"
-      >
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-          <UsersIcon className="h-6 w-6" />
-        </div>
-        <div>
-          {isLoading || !data ? (
-            <Skeleton className="h-7 w-56 rounded-md" />
-          ) : (
-            <p className="text-lg text-zinc-700">
-              <span className="text-2xl font-bold text-emerald-600">{num(data.numerica)}</span>{' '}
-              clientes te compraron este mes
-            </p>
-          )}
-          <p className="text-sm text-zinc-500">Tu base activa. Debajo, dónde poner el foco.</p>
-        </div>
-      </motion.div>
+      {/* Coverage summary */}
+      <section className="border-b border-zinc-200 pb-6">
+        {isLoading || !data ? (
+          <Skeleton className="h-9 w-80 rounded-md" />
+        ) : (
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-semibold tracking-tight text-zinc-900">{num(data.numerica)}</span>
+              <span className="text-sm text-zinc-500">de {num(activeBase)} clientes activos te compraron este mes</span>
+            </div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+              <div className="h-full rounded-full bg-zinc-900" style={{ width: `${coverage}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-zinc-400">{coverage}% de tu base activa compró en el periodo</p>
+          </>
+        )}
+      </section>
 
-      {/* Insight cards */}
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Focus areas */}
+      <p className="mb-3 mt-6 text-xs font-medium uppercase tracking-wide text-zinc-400">Dónde poner el foco</p>
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-zinc-200 bg-zinc-200 sm:grid-cols-2">
         {isLoading || !data
           ? Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-40 rounded-2xl" />
+              <div key={i} className="bg-white p-5">
+                <Skeleton className="h-20 w-full rounded-md" />
+              </div>
             ))
-          : cards.map((card, i) => {
-              const s = SEVERITY[card.severity];
+          : cards.map((card) => {
               const Icon = card.icon;
               return (
-                <motion.button
+                <button
                   key={card.key}
                   type="button"
                   onClick={() => navigate(`/estado/${card.key}`)}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={`group relative flex w-full cursor-pointer items-start gap-4 overflow-hidden rounded-2xl border border-zinc-200 ${s.tint} p-5 text-left transition-colors ${s.ring}`}
+                  className="group flex cursor-pointer flex-col bg-white p-5 text-left transition-colors hover:bg-zinc-50"
                 >
-                  <span className={`absolute inset-y-0 left-0 w-1.5 ${s.accent}`} aria-hidden />
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${s.iconBg}`}>
-                    <Icon className="h-6 w-6" />
+                  <div className="flex items-center gap-2">
+                    <span className={`h-1.5 w-1.5 rounded-full ${DOT[card.tone]}`} aria-hidden />
+                    <Icon className="h-4 w-4 text-zinc-400" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-zinc-900">
-                      <span className={`text-3xl font-bold ${s.text}`}>{num(card.value)}</span>
-                      {card.of !== undefined && (
-                        <span className="text-base font-medium text-zinc-400"> / {num(card.of)}</span>
-                      )}{' '}
-                      <span className="text-base font-semibold">{card.headline}</span>
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-500">{card.detail}</p>
-                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-zinc-600 group-hover:text-zinc-900">
-                      Ver clientes
-                      <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </div>
-                </motion.button>
+                  <p className="mt-3 text-zinc-800">
+                    <span className="text-3xl font-semibold tracking-tight text-zinc-900">{num(card.value)}</span>
+                    {card.of !== undefined && (
+                      <span className="text-lg font-medium text-zinc-300"> / {num(card.of)}</span>
+                    )}{' '}
+                    <span className="text-sm text-zinc-600">{card.headline}</span>
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">{card.detail}</p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors group-hover:text-zinc-900">
+                    Ver clientes
+                    <ArrowRightIcon className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </button>
               );
             })}
       </div>
