@@ -37,6 +37,10 @@ services:
       # localhost (which resolves to this container). Overrides POSTGRES_URL from
       # .env, whose localhost host is meant for `make dev` (API runs on the host).
       - POSTGRES_URL=postgresql://dynainfo:dynainfo_dev@postgres:5432/dynainfo
+      # macOS bind-mount file events don't reach the Linux container, so tsx watch
+      # never sees host edits. Force polling so the API always hot-reloads.
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=1000
     depends_on:
       postgres:
         condition: service_healthy
