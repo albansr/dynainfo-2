@@ -761,4 +761,35 @@ describe('AnalyticsQueryBuilder', () => {
       expect(callArgs.query).not.toContain('ORDER BY sales asc');
     });
   });
+
+  describe('buildTimeSeriesQuery', () => {
+    it('applies dimension filters to the budget series only when the budget table has the column', async () => {
+      const filters: FilterCondition[] = [
+        { field: 'date', operator: 'gte', value: '2026-09-01' },
+        { field: 'date', operator: 'lte', value: '2026-09-27' },
+        // Budget lacks seller_id in the mock schema → must NOT reach the budget CTE.
+        { field: 'seller_id', operator: 'in', value: ['CL10'] },
+        // Budget has IdRegional → must scope the budget CTE too.
+        { field: 'IdRegional', operator: 'eq', value: '0002' },
+      ];
+
+      // Build after TABLE_PREFIX is set so the budget table name matches the mock.
+      const tsBuilder = new AnalyticsQueryBuilder(mockClient);
+      await tsBuilder.buildTimeSeriesQuery({ filters, granularity: 'day' });
+
+      const calls = vi.mocked(mockClient.query).mock.calls;
+      const mainQuery = calls[calls.length - 1]![0].query as string;
+      const splitAt = mainQuery.indexOf('budget_monthly');
+      const salesPart = mainQuery.slice(0, splitAt);
+      const budgetPart = mainQuery.slice(splitAt);
+
+      // Sales is scoped by both dimensions.
+      expect(salesPart).toContain('seller_id IN');
+      expect(salesPart).toContain('IdRegional =');
+
+      // Budget: IdRegional applies (column exists); seller_id does not (column absent).
+      expect(budgetPart).toContain('IdRegional =');
+      expect(budgetPart).not.toContain('seller_id');
+    });
+  });
 });

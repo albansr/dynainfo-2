@@ -777,8 +777,15 @@ ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}${paginationClause}
 
     // Sales conditions: all filters applied normally
     const salesConditions: string[] = [];
-    // Budget conditions: only date filters, with start date expanded to start of month
+    // Budget conditions: date filters (start expanded to start of month) plus any
+    // dimension filter the budget table actually carries — so a scoped role (e.g.
+    // a seller) compares its own sales against its own budget, not the company's.
     const budgetConditions: string[] = [];
+
+    // Which columns the budget table has, so dimension filters are applied there
+    // only when the column exists (table-aware, like the grouped query).
+    const budgetColumnMap = await this.columnDiscoveryService.getColumnsForTables([budgetTable]);
+    const budgetColumns = budgetColumnMap.get(budgetTable) ?? new Set<string>();
 
     for (let index = 0; index < filters.length; index++) {
       const f = filters[index]!;
@@ -804,13 +811,19 @@ ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}${paginationClause}
         const values = Array.isArray(f.value) ? f.value : [f.value];
         queryParams[paramName] = values.map(String);
         salesConditions.push(`${f.field} IN {${paramName}:Array(String)}`);
-        // Dimension filters not applied to budget (column may not exist)
+        // Apply to budget only when the budget table has this dimension column.
+        if (budgetColumns.has(f.field)) {
+          budgetConditions.push(`${f.field} IN {${paramName}:Array(String)}`);
+        }
       } else {
         queryParams[paramName] = String(f.value);
         const opMap: Record<string, string> = { gte: '>=', lte: '<=', eq: '=', gt: '>', lt: '<', neq: '!=' };
         const op = opMap[f.operator] ?? '=';
         salesConditions.push(`${f.field} ${op} {${paramName}:String}`);
-        // Dimension filters not applied to budget (column may not exist)
+        // Apply to budget only when the budget table has this dimension column.
+        if (budgetColumns.has(f.field)) {
+          budgetConditions.push(`${f.field} ${op} {${paramName}:String}`);
+        }
       }
     }
 
