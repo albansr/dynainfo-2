@@ -4,7 +4,6 @@ import { SelectItem, Input, Button, Chip } from '@heroui/react';
 import { AppSelect } from '@/core/components/AppSelect';
 import { PageHeader } from '@/core/components/PageHeader';
 import { useAuthStore } from '@/core/store/authStore';
-import { DEMO_ROLE_EMAIL } from '@/core/config/constants';
 import { REGIONAL_GROUPS, ROLE_LABELS } from '@/core/config/access';
 
 // BOARD (Junta General) is hidden from the demo switcher for now.
@@ -94,14 +93,11 @@ function DemoRoleSwitcher() {
 }
 
 export function SettingsPage() {
-  const email = useAuthStore((s) => s.user?.email);
-  const isDemoUser = email === DEMO_ROLE_EMAIL;
-
   return (
     <div>
       <PageHeader title="Configuración" showDateFilter={false} />
 
-      {isDemoUser && <DemoRoleSwitcher />}
+      <DemoRoleSwitcher />
 
       <div className="border border-zinc-200 rounded-lg p-4 sm:p-6">
         <h2 className="text-sm font-semibold text-zinc-700 mb-1">Presupuesto</h2>

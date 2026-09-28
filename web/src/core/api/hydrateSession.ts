@@ -1,7 +1,6 @@
 import { useAuthStore } from '@/core/store/authStore';
 import { authApi } from '@/core/api/authApi';
 import { normalizeAuthResponse } from '@/core/utils/normalizeAuthResponse';
-import { DEMO_ROLE_EMAIL } from '@/core/config/constants';
 
 /**
  * Pull the full session from the server and apply it to the auth store, keeping
@@ -19,10 +18,9 @@ export async function hydrateSessionFromServer(): Promise<boolean> {
   const { user, session } = normalizeAuthResponse(response);
   // Demo role override: apply the persisted override over the real session.
   const { demoRole, demoScope } = useAuthStore.getState();
-  const finalUser =
-    demoRole && user.email === DEMO_ROLE_EMAIL
-      ? { ...user, dynaRole: demoRole, scope: demoScope }
-      : user;
+  const finalUser = demoRole
+    ? { ...user, dynaRole: demoRole, scope: demoScope }
+    : user;
 
   useAuthStore.getState().setUserAndSession(finalUser, session);
   return true;
