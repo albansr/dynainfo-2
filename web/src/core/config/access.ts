@@ -136,9 +136,16 @@ export function canExport(dynaRole: string | null | undefined): boolean {
  * distribution roles get the table-only distribution menu; channel roles get
  * the app menu filtered to their allowed paths; unknown roles get none.
  */
-export function getMenuSections(_dynaRole: string | null | undefined): MenuSection[] {
-  // Same sidebar for every role for now (Análisis is rendered separately as the
-  // dashboard item; here we only add Festival Virtual). Per-role differences TBD.
+export function getMenuSections(dynaRole: string | null | undefined): MenuSection[] {
+  // Sellers get their own client-focus page ("Estado") above Festival Virtual.
+  if (dynaRole === 'SELLER') {
+    return [
+      { title: '', items: [{ key: 'estado', label: 'Estado', href: '/estado' }] },
+      ...NAVIGATION_SECTIONS,
+    ];
+  }
+  // Same sidebar for every other role for now (Análisis is rendered separately as
+  // the dashboard item; here we only add Festival Virtual).
   return NAVIGATION_SECTIONS;
 }
 

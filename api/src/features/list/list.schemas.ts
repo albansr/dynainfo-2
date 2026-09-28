@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { BalanceQueryStringSchema, BalanceSheetResponseSchema, type BalanceQueryParams } from '../balance/balance.schemas.js';
 import { ALLOWED_DIMENSIONS, type GroupByDimension } from '../../core/config/dimensions.config.js';
+import { CUSTOMER_PRESETS, type CustomerPreset } from '../../core/config/customer-presets.config.js';
 
 /**
  * TypeBox schemas and types for list endpoint
@@ -47,6 +48,12 @@ export const ListQueryStringSchema = Type.Composite(
       orderBy: Type.Optional(Type.String({ description: 'Field to order by (metric alias or "name"). Default: "sales"' })),
       orderDirection: Type.Optional(OrderDirectionSchema),
       search: Type.Optional(Type.String({ description: 'Case-insensitive substring search on the dimension id/name' })),
+      customerPreset: Type.Optional(
+        Type.Union(
+          CUSTOMER_PRESETS.map((p) => Type.Literal(p)),
+          { description: 'Customer preset lens (seller client listing). Default: todos' }
+        )
+      ),
     }),
   ],
   {
@@ -115,4 +122,27 @@ export interface ListQueryParams extends BalanceQueryParams {
   limit?: number;
   orderBy?: string;
   orderDirection?: OrderDirection;
+  customerPreset?: CustomerPreset;
 }
+
+/**
+ * Seller "Estado" headline counts (one per insight card). All scoped to the
+ * seller and the selected window via the request filters.
+ */
+export const SellerStatusSchema = Type.Object({
+  numerica: Type.Number({ description: 'Clients with a purchase in the current month' }),
+  activos: Type.Number({ description: 'Total active clients (distinct historical buyers)' }),
+  sinCompra: Type.Number({ description: 'Prior buyers with no purchase in the last 3 months' }),
+  riesgo: Type.Number({ description: 'Riesgo clients (last 12m) with negative evolution' }),
+  riesgoSales: Type.Number({ description: 'Sales of the Riesgo clients in the window' }),
+  riesgoMarginPct: Type.Number({ description: 'Gross margin % of the Riesgo clients' }),
+  promesa: Type.Number({ description: 'Clients classified Promesa in the window' }),
+  promesaSales: Type.Number({ description: 'Sales of the Promesa clients in the window' }),
+  promesaMarginPct: Type.Number({ description: 'Gross margin % of the Promesa clients' }),
+  pesoTotal: Type.Number({ description: 'Clients that make up 80% of sales' }),
+  pesoRetrocediendo: Type.Number({ description: 'Of the 80% clients, those declining vs last year' }),
+  pesoDecline: Type.Number({ description: 'How much (currency) the declining key clients are down vs last year' }),
+  pesoDeclineSharePct: Type.Number({ description: 'Share of total sales the declining key clients represent' }),
+});
+
+export type SellerStatus = Static<typeof SellerStatusSchema>;

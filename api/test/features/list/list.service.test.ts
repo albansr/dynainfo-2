@@ -498,4 +498,111 @@ describe('ListService', () => {
       );
     });
   });
+
+  describe('customer preset lens', () => {
+    it('appends the risk classification filter for the riesgo preset, keeping the seller filter', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'Client A', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({
+        groupBy: 'customer_id',
+        customerPreset: 'riesgo',
+        filters: [{ field: 'seller_id', operator: 'eq', value: 'CL10' }],
+      });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.currentPeriodFilters).toContainEqual({
+        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Riesgo',
+      });
+      expect(call.currentPeriodFilters).toContainEqual({
+        field: 'seller_id', operator: 'eq', value: 'CL10',
+      });
+    });
+
+    it('appends the promise classification filter for the promesa preset', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'X', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'promesa' });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.currentPeriodFilters).toContainEqual({
+        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Promesa',
+      });
+    });
+
+    it('adds no preset filter for todos (default)', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { name: 'X', _total_count: 1, ...generateMockQueryResult() },
+      ]);
+
+      await service.getBalanceList({ groupBy: 'customer_id' });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.currentPeriodFilters.some((f) => f.field === 'aionsales_sales_short_customer')).toBe(false);
+    });
+
+    it('returns only the declining clients of the 80% cut, with their ABC position', async () => {
+      // Sales 50/30/15/5 (total 100). 80% cut keeps A then B (cum 80). Of those,
+      // only A is declining ⇒ result [A] with its ABC position (1).
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 50, sales_total_vs_last_year: -10 }) },
+        { id: 'B', name: 'B', ...generateMockQueryResult({ sales_total: 30, sales_total_vs_last_year: 5 }) },
+        { id: 'C', name: 'C', ...generateMockQueryResult({ sales_total: 15, sales_total_vs_last_year: -3 }) },
+        { id: 'D', name: 'D', ...generateMockQueryResult({ sales_total: 5, sales_total_vs_last_year: -1 }) },
+      ]);
+
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'peso' });
+
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      expect(call.orderBy).toBe('sales_total');
+      expect(result.meta.total).toBe(1);
+      expect(result.data.map((d) => d.id)).toEqual(['A']);
+      expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
+    });
+
+    it('fixes the roster to the 12-month set but reads figures over the requested window', async () => {
+      // First call = the fixed 12m SET (A is a declining key client, rank 1; B is
+      // kept but growing ⇒ excluded). Second call = the FIGURES over the requested
+      // window, where A billed a different amount.
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery)
+        .mockResolvedValueOnce([
+          { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 80, sales_total_vs_last_year: -10 }) },
+          { id: 'B', name: 'B', ...generateMockQueryResult({ sales_total: 20, sales_total_vs_last_year: 5 }) },
+        ])
+        .mockResolvedValueOnce([
+          { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 3, sales_total_vs_last_year: -1 }) },
+        ]);
+
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'peso' });
+
+      // Roster and ABC position come from the fixed 12m set.
+      expect(result.data.map((d) => d.id)).toEqual(['A']);
+      expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
+      // Figures come from the window (second) call, not the set call.
+      expect(result.data[0].sales_total).toBe(3);
+      // The figures query is scoped to the set ids and keeps every key client.
+      const metricsCall = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[1]![0];
+      expect(metricsCall.includeAllGroups).toBe(true);
+      expect(
+        metricsCall.currentPeriodFilters.some((f) => f.field === 'customer_id' && f.operator === 'in')
+      ).toBe(true);
+    });
+
+    it('keeps a key client visible with zero figures when absent from the requested window', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery)
+        .mockResolvedValueOnce([
+          { id: 'A', name: 'A', ...generateMockQueryResult({ sales_total: 80, sales_total_vs_last_year: -10 }) },
+        ])
+        .mockResolvedValueOnce([]); // no activity in the chosen window
+
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'peso' });
+
+      expect(result.data.map((d) => d.id)).toEqual(['A']);
+      expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
+      expect(result.data[0].sales_total).toBe(0);
+    });
+  });
 });

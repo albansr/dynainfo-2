@@ -7,7 +7,9 @@ import type { ListQueryParams } from './list.schemas.js';
 import {
   ListQueryStringSchema,
   ListResponseSchema,
+  SellerStatusSchema,
 } from './list.schemas.js';
+import { BalanceQueryStringSchema } from '../balance/balance.schemas.js';
 import { sanitizeDateString, sanitizeFieldName } from '../../core/utils/sanitization.js';
 import { parseQueryParamsToFilters } from '../balance/balance.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
@@ -68,7 +70,8 @@ export function listRoutes(
         ...(query.page && { page: query.page }),
         ...(query.limit && { limit: query.limit }),
         ...(query.orderBy && { orderBy: sanitizeFieldName(query.orderBy) }),
-        ...(query.orderDirection && { orderDirection: query.orderDirection as 'asc' | 'desc' }),
+        ...(query.orderDirection ? { orderDirection: query.orderDirection } : {}),
+        ...(query.customerPreset ? { customerPreset: query.customerPreset } : {}),
       };
 
       // Parse date filters from startDate/endDate
@@ -97,7 +100,46 @@ export function listRoutes(
         ...(search && { search }),
       });
 
+      // Fastify's schema-inferred serializer type diverges from the TypeBox
+      // Static response type, so the payload needs a cast here.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return reply.code(200).send(listResponse as any);
+    }
+  );
+
+  /**
+   * GET /list/seller-status
+   * Headline counts for the seller "Estado" page (one per insight card), scoped
+   * to the seller and window via dynamic filters (e.g. seller_id, startDate/endDate).
+   */
+  server.get(
+    '/list/seller-status',
+    {
+      schema: {
+        description: 'Seller Estado headline counts (numérica, sin compra, riesgo, promesa, peso).',
+        tags: ['list'],
+        querystring: BalanceQueryStringSchema,
+        response: {
+          200: SellerStatusSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const query = request.query as Record<string, unknown>;
+      const params = {
+        ...(typeof query['startDate'] === 'string' && { startDate: sanitizeDateString(query['startDate']) }),
+        ...(typeof query['endDate'] === 'string' && { endDate: sanitizeDateString(query['endDate']) }),
+      } as ListQueryParams;
+
+      // The Estado windows are fixed per criterion in the service; only the seller
+      // scope (and any non-date filter) is passed through.
+      const dateFilters = parseQueryParamsToFilters(params);
+      const dynamicFilters = parseDynamicFilters(query);
+      const allFilters = combineFilters(dynamicFilters, dateFilters);
+
+      const status = await service.getSellerStatus({ ...params, filters: allFilters });
+
+      return reply.code(200).send(status);
     }
   );
 }

@@ -18,6 +18,18 @@ import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
+import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
+
+/** Leading ABC-position column (#) for the seller peso (80%) list. */
+const RANK_COLUMN: ColumnDefinition = {
+  id: 'rank',
+  header: { label: 'ABC', align: 'left', rowSpan: 2 },
+  accessor: (data) => data.rank ?? '',
+  cellRenderer: (_data, _config, value) =>
+    value === '' || value == null ? '' : <div className="px-4 py-2.5 text-[12px] font-medium text-zinc-400">{String(value)}</div>,
+  align: 'left',
+  sortable: false,
+};
 
 /** Totals row from the current page's mapped rows. */
 function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalData {
@@ -91,6 +103,12 @@ export interface AnalyticsListSectionProps {
   enableFilters?: boolean;
   /** Context (e.g. channel) that scopes the filter value options. */
   filterContext?: FilterMap;
+  /** Seller client-preset lens (drill from the Estado page). Adds a billing rank. */
+  customerPreset?: CustomerPreset;
+  /** Fixed window override — Estado drills use a per-criterion window, not the global temporality. */
+  dateOverride?: { startDate: Date; endDate: Date; preset: SalesMetricPreset };
+  /** Hide the totals row (simple client lists with no meaningful aggregate). */
+  hideTotals?: boolean;
 }
 
 /**
@@ -115,8 +133,17 @@ export function AnalyticsListSection({
   reportTitle,
   enableFilters = false,
   filterContext,
+  customerPreset = DEFAULT_CUSTOMER_PRESET,
+  dateOverride,
+  hideTotals = false,
 }: AnalyticsListSectionProps) {
-  const { startDate, endDate, preset } = useDateRange();
+  // Only the "peso" (80% of sales) list carries a rank — the client's ABC position
+  // by contribution. Other preset lists show no sequential count.
+  const showRank = customerPreset === 'peso';
+  const globalRange = useDateRange();
+  const startDate = dateOverride?.startDate ?? globalRange.startDate;
+  const endDate = dateOverride?.endDate ?? globalRange.endDate;
+  const preset = dateOverride?.preset ?? globalRange.preset;
 
   // Faceted filters (dimension → selected values); merged into the base filters
   const [applied, setApplied] = useState<AppliedFilters>({});
@@ -139,7 +166,7 @@ export function AnalyticsListSection({
   // size/search/filters). Adjust state during render instead of in an effect to
   // avoid the cascading-render smell.
   const [page, setPage] = useState(1);
-  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${JSON.stringify(effectiveFilters)}`;
+  const resetKey = `${groupBy}|${startDate.getTime()}|${endDate.getTime()}|${preset}|${pageSize}|${debouncedSearch}|${customerPreset}|${JSON.stringify(effectiveFilters)}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
@@ -147,7 +174,7 @@ export function AnalyticsListSection({
   }
 
   const { balanceData, listData, listMeta, isLoading } = useAnalyticsData(
-    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch
+    groupBy, startDate, endDate, preset, effectiveFilters, page, pageSize, debouncedSearch, customerPreset
   );
 
   const totalPages = listMeta?.totalPages ?? 1;
@@ -181,7 +208,8 @@ export function AnalyticsListSection({
       // Product listings surface product_id in its own REFERENCIA column, so the
       // id-in-name prefix would be redundant there.
       if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
-      return { ...data, name };
+      // The peso list carries each client's ABC position (server-provided).
+      return { ...data, name, ...(item.abcRank != null ? { rank: item.abcRank } : {}) };
     }),
     [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
   );
@@ -206,8 +234,10 @@ export function AnalyticsListSection({
     }
     // Product listings lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id).
     if (groupBy === 'product_id') cols = [...getProductCodeColumns(), ...cols];
+    // Preset listings lead with a billing-rank column (#).
+    if (showRank) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel]);
+  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel, showRank]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
@@ -278,7 +308,7 @@ export function AnalyticsListSection({
       ) : (
         <RegionalTable
           data={mappedData}
-          totals={totals}
+          totals={hideTotals ? undefined : totals}
           columns={columns}
           columnGroups={columnGroups}
           onRowClick={onRowClick}

@@ -5,7 +5,7 @@ import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
  */
 const RESERVED_PARAMS = [
   'startDate', 'endDate', 'compareStartDate', 'compareEndDate', 'groupBy', 'page', 'limit', 'granularity',
-  'orderBy', 'orderDirection', 'preset', 'facturadoOnly', 'search',
+  'orderBy', 'orderDirection', 'preset', 'facturadoOnly', 'search', 'customerPreset',
   // Excel export presentation params (never filters)
   'reportTitle', 'periodLabel', 'generatedLabel', 'dimensionLabel', 'billingLabel',
   'totalsLabel', 'currentYear', 'previousYear', 'hideBudgetColumns', 'hideRetainedColumn',

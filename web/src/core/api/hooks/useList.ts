@@ -4,6 +4,7 @@ import { apiClient } from '../client';
 import { getSalesOrderByField, usesFacturadoOnly, type SalesMetricPreset } from '@/core/utils/salesMetric';
 import { useMergedFilters } from './useMergedFilters';
 import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
+import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
 
 export type GroupByDimension = 'seller_id' | 'IdRegional' | 'channel' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'brand_group' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'customer_city' | 'customer_department' | 'ClasifRiesgo' | 'Categoria' | 'SubCategoria' | 'FamiliaProducto' | 'Linea' | 'month' | 'quarter' | 'year';
 
@@ -12,6 +13,8 @@ export interface ListItemResponse {
   name: string;
   /** Item code (IdItem) surfaced when grouping by product_id. */
   code?: string;
+  /** ABC position within the seller's 80% key clients (peso list). */
+  abcRank?: number;
   budget: number;
   budget_last_year: number;
   budget_vs_last_year: number;
@@ -65,6 +68,7 @@ interface ListQueryParams {
   orderDirection: 'asc' | 'desc';
   facturadoOnly: boolean;
   search?: string;
+  customerPreset?: CustomerPreset;
 }
 
 async function fetchList(params: ListQueryParams, filters?: FilterMap): Promise<ListResponse> {
@@ -80,6 +84,10 @@ async function fetchList(params: ListQueryParams, filters?: FilterMap): Promise<
   if (params.facturadoOnly) q.append('facturadoOnly', 'true');
   // Case-insensitive search on the dimension id/name
   if (params.search) q.append('search', params.search);
+  // Seller client preset lens (omit the default to keep URLs clean)
+  if (params.customerPreset && params.customerPreset !== DEFAULT_CUSTOMER_PRESET) {
+    q.append('customerPreset', params.customerPreset);
+  }
   appendFilterParams(q, filters);
 
   return apiClient<ListResponse>(`/api/list?${q.toString()}`);
@@ -93,7 +101,8 @@ export function useList(
   filters?: FilterMap,
   page: number = 1,
   limit: number = 50,
-  search?: string
+  search?: string,
+  customerPreset: CustomerPreset = DEFAULT_CUSTOMER_PRESET
 ) {
   // Channel/scope roles get their data filtered automatically
   const mergedFilters = useMergedFilters(filters);
@@ -109,10 +118,11 @@ export function useList(
     orderDirection: 'desc',
     facturadoOnly: usesFacturadoOnly(preset),
     ...(trimmedSearch && { search: trimmedSearch }),
+    customerPreset,
   };
 
   return useQuery({
-    queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, mergedFilters, preset, trimmedSearch],
+    queryKey: ['list', params.groupBy, params.startDate, params.endDate, page, limit, mergedFilters, preset, trimmedSearch, customerPreset],
     queryFn: () => fetchList(params, mergedFilters),
   });
 }

@@ -3,6 +3,7 @@ import type { FilterMap } from '@/core/api/downloadExcel';
 import { useList } from '@/core/api/hooks/useList';
 import type { SalesMetricPreset } from '@/core/utils/salesMetric';
 import type { GroupByDimension } from '@/core/api/hooks/useList';
+import type { CustomerPreset } from '@/core/config/customerPresets';
 
 /**
  * Generic hook for fetching analytics data
@@ -32,7 +33,8 @@ export function useAnalyticsData(
   filters?: FilterMap,
   page: number = 1,
   limit: number = 50,
-  search?: string
+  search?: string,
+  customerPreset?: CustomerPreset
 ) {
   const {
     data: balanceData,
@@ -44,7 +46,7 @@ export function useAnalyticsData(
     data: listData,
     isLoading: isLoadingList,
     error: listError,
-  } = useList(groupBy, startDate, endDate, preset, filters, page, limit, search);
+  } = useList(groupBy, startDate, endDate, preset, filters, page, limit, search, customerPreset);
 
   return {
     balanceData: balanceData?.data,
