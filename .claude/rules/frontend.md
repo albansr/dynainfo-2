@@ -43,6 +43,29 @@ React 19 + Vite 7 + React Router 7 (`react-router-dom`) + HeroUI (`@heroui/react
   prefer semantic/theme classes and HeroUI `color`/`variant` props.
 - Charts share one palette — don't scatter loose colors.
 
+## Spatial system — fixed spacing/hierarchy, not per-screen
+
+HeroUI gives you the component palette, but **spacing, type scale, layout and empty/error states
+drift per feature** — and that drift is what turns into rounds of UI polish. Fix them like the
+colors. If a spacing/size/hierarchy value is being chosen per feature, it belongs in a token or a
+layout primitive — one moved into the system is one you never review again.
+
+- **Spacing scale (not ad-hoc `p-5`/`gap-5`):** page padding `px-6 py-8` (sm:`px-8`); between
+  sections `space-y-8`; card/panel padding `p-6` (`p-4` dense); within a group `gap-4`;
+  icon↔label / chips `gap-2`. Keep one control density (HeroUI `size` prop — pick a default and stick to it).
+- **Type scale (fixed roles, no ad-hoc `text-3xl`):** page title `text-2xl font-semibold tracking-tight`
+  · section `text-lg font-semibold` · card title `text-sm font-semibold` · body `text-sm`
+  (muted via theme) · caption/overline `text-xs` muted.
+- **Layout primitives (compose pages from these):** `Page`, `PageHeader` (title + description +
+  right-aligned actions), `Section`, `Stack`/`Row`, `Toolbar` — build them once (`@/core/components`)
+  and reuse; don't hand-roll page padding/gaps per route.
+- **State components (one canonical look):** `EmptyState` (icon + title + description + action),
+  `ErrorState` (+ retry), and skeletons shaped like the content. Render empty/error/loading
+  through these, never bespoke per screen.
+- HeroUI has its own token layer (`@heroui/theme`): configure the semantic palette there, but the
+  spacing/type scale and the layout + state primitives still live on top — HeroUI doesn't give you
+  `Page`/`Section`/`EmptyState`.
+
 ## State management — WHAT TO USE WHEN (hard rule)
 
 Three kinds of state, three tools. **Don't mix them.**
