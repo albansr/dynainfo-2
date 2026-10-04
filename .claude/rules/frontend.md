@@ -24,6 +24,14 @@ React 19 + Vite 7 + React Router 7 (`react-router-dom`) + HeroUI (`@heroui/react
 > sticky title bar. If a primitive is being styled the same way in a 2nd place,
 > wrap it in `@/core` and migrate both.
 
+> **Reuse what's already built — don't rebuild (the #1 waste).** Before creating any component,
+> search `@/core/components` and existing feature components for one that already does the job and
+> **reuse/extend it**. The recurring failure is rebuilding instead of reusing — asked for a **table**,
+> reuse **`RegionalTable`**, **never** hand-roll a fresh `<table>`/`<Table>`; dropdowns → `AppSelect`;
+> page headers → `PageHeader`. If a reusable pattern doesn't exist yet **and it will be used again,
+> create a wrapper in `@/core`** and reuse that — never copy-paste a one-off. Grep for an existing
+> component before writing a new one.
+
 > **UI language: Spanish.** Every user-facing string is in **Spanish** — labels,
 > buttons, table headers, empty/error/loading states, toasts, dialog copy, menu
 > items, tooltips. Watch grammatical gender. **Code, identifiers, comments, routes,
@@ -42,6 +50,59 @@ React 19 + Vite 7 + React Router 7 (`react-router-dom`) + HeroUI (`@heroui/react
 - Use Tailwind v4 + HeroUI tokens/utilities. Avoid hardcoding hex in components;
   prefer semantic/theme classes and HeroUI `color`/`variant` props.
 - Charts share one palette — don't scatter loose colors.
+
+## Spatial system — fixed spacing/hierarchy, not per-screen
+
+HeroUI gives you the component palette, but **spacing, type scale, layout and empty/error states
+drift per feature** — and that drift is what turns into rounds of UI polish. Fix them like the
+colors. If a spacing/size/hierarchy value is being chosen per feature, it belongs in a token or a
+layout primitive — one moved into the system is one you never review again.
+
+- **Spacing scale (not ad-hoc `p-5`/`gap-5`):** page padding `px-6 py-8` (sm:`px-8`); between
+  sections `space-y-8`; card/panel padding `p-6` (`p-4` dense); within a group `gap-4`;
+  icon↔label / chips `gap-2`. Keep one control density (HeroUI `size` prop — pick a default and stick to it).
+- **Type scale (fixed roles, no ad-hoc `text-3xl`):** page title `text-2xl font-semibold tracking-tight`
+  · section `text-lg font-semibold` · card title `text-sm font-semibold` · body `text-sm`
+  (muted via theme) · caption/overline `text-xs` muted.
+- **Layout primitives (compose pages from these):** `Page`, `PageHeader` (title + description +
+  right-aligned actions), `Section`, `Stack`/`Row`, `Toolbar` — build them once (`@/core/components`)
+  and reuse; don't hand-roll page padding/gaps per route.
+- **State components (one canonical look):** `EmptyState` (icon + title + description + action),
+  `ErrorState` (+ retry), and skeletons shaped like the content. Render empty/error/loading
+  through these, never bespoke per screen.
+- HeroUI has its own token layer (`@heroui/theme`): configure the semantic palette there, but the
+  spacing/type scale and the layout + state primitives still live on top — HeroUI doesn't give you
+  `Page`/`Section`/`EmptyState`.
+
+## Clickability — cursor-pointer is non-negotiable
+If an element does **anything** on click (navigate / open / close / toggle / select / sort / expand /
+submit) it shows the hand cursor. Most-missed rule — verify every UI change. Covers: buttons; **close
+(×) icons**, chevrons, kebab/overflow menus, **any icon with `onClick`**; links **and inline link
+text/phrases**; clickable **rows/cards/tiles**; tabs, filter chips; `Select`/dropdown/popover/menu
+triggers + items; accordion headers; checkbox/radio/switch **+ their labels**; sortable headers;
+pagination; **any `<div>`/`<span>` with `onClick`**. Prefer a real `<button>`/HeroUI pressable over a
+`<div onClick>`; if you must use a div, add `cursor-pointer` + `role`/`tabIndex`/`onKeyDown`.
+**Disabled → `cursor-not-allowed`**, never pointer. (HeroUI interactive components usually include it —
+add it explicitly everywhere else.)
+
+## Modals — size them, don't improvise
+Centered, with a **consistent width scale** — never ad-hoc per `Modal` (that's how you get a "muy fino"
+modal): **sm** (~28rem) confirmations · **default** (~42rem, **≥ half the viewport**) forms/content ·
+**lg** (~56rem) rich/two-column (use HeroUI `size`/`classNames` consistently, wrap it if you restyle
+twice). Content-heavy: fixed header + footer + **one** internal scroll area + a generous fixed height —
+content scrolls inside, the modal never grows wide or looks cropped. Same width/padding across the app.
+
+## Usability defaults (Apple/Notion feel)
+- **Destructive/irreversible actions always confirm** (a shared confirm modal naming the object +
+  "no se puede deshacer"; destructive button; Cancelar is the default). Never `window.confirm`.
+- **Every mutation toasts** success **and** error (`sonner`) with concrete copy; the control shows a
+  **pending** state while in flight; offer **Deshacer** when reversible. No silent success/failure.
+- **Inputs/selects easy by default**: visible label above (placeholder ≠ label); a select with >~7
+  options is **searchable** (HeroUI `Autocomplete`); sensible default; **specific inline** validation;
+  never silently disable submit (tooltip why); keyboard + visible focus ring. Standard primitive over a
+  clever custom control.
+- **Less chrome**: group with spacing + a subtle surface, not nested boxes/divider lines; one elevation
+  level; **one primary action per view/modal**; airy over dense.
 
 ## State management — WHAT TO USE WHEN (hard rule)
 
