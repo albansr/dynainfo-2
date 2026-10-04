@@ -169,6 +169,16 @@ web/src/
 - **Clickable table rows are real controls:** `role="button"` + `tabIndex={0}` + `onKeyDown` (Enter/Space) + an `aria-label`, not a bare `<tr onClick>`.
 - **Sortable headers:** the `<th>` gets `scope="col"` and `aria-sort` (`ascending`/`descending`), and the clickable label is a `<button>` (native keyboard). Group headers get `scope="colgroup"`. Sort glyphs are `aria-hidden`.
 - Meaning is never color-only (pair a sign/label/icon with the color).
+- **Overlays** (modal/popover/dropdown): focus moves in on open, is **trapped**, Esc closes, focus
+  returns to the trigger on close (HeroUI handles this — don't hand-roll a `<div>` that doesn't).
+- **Icon-only controls** (close ×, kebab, chevrons) need an `aria-label`. Visible focus ring on
+  everything (never strip the outline without a replacement). Respect `prefers-reduced-motion`.
+- **Forms:** label tied to control; errors via `aria-invalid` + described-by text, not color alone.
+
+## Responsive
+Desktop-first, but **nothing breaks to ~768px**: the body never scrolls horizontally; wide content
+(RegionalTable/diagrams) scrolls in its **own** `overflow-x-auto` container; modals go full-width
+(`92vw`) on narrow screens. State a different min target explicitly if a surface needs one.
 
 ## State updates
 
