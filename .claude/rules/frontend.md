@@ -66,6 +66,36 @@ layout primitive — one moved into the system is one you never review again.
   spacing/type scale and the layout + state primitives still live on top — HeroUI doesn't give you
   `Page`/`Section`/`EmptyState`.
 
+## Clickability — cursor-pointer is non-negotiable
+If an element does **anything** on click (navigate / open / close / toggle / select / sort / expand /
+submit) it shows the hand cursor. Most-missed rule — verify every UI change. Covers: buttons; **close
+(×) icons**, chevrons, kebab/overflow menus, **any icon with `onClick`**; links **and inline link
+text/phrases**; clickable **rows/cards/tiles**; tabs, filter chips; `Select`/dropdown/popover/menu
+triggers + items; accordion headers; checkbox/radio/switch **+ their labels**; sortable headers;
+pagination; **any `<div>`/`<span>` with `onClick`**. Prefer a real `<button>`/HeroUI pressable over a
+`<div onClick>`; if you must use a div, add `cursor-pointer` + `role`/`tabIndex`/`onKeyDown`.
+**Disabled → `cursor-not-allowed`**, never pointer. (HeroUI interactive components usually include it —
+add it explicitly everywhere else.)
+
+## Modals — size them, don't improvise
+Centered, with a **consistent width scale** — never ad-hoc per `Modal` (that's how you get a "muy fino"
+modal): **sm** (~28rem) confirmations · **default** (~42rem, **≥ half the viewport**) forms/content ·
+**lg** (~56rem) rich/two-column (use HeroUI `size`/`classNames` consistently, wrap it if you restyle
+twice). Content-heavy: fixed header + footer + **one** internal scroll area + a generous fixed height —
+content scrolls inside, the modal never grows wide or looks cropped. Same width/padding across the app.
+
+## Usability defaults (Apple/Notion feel)
+- **Destructive/irreversible actions always confirm** (a shared confirm modal naming the object +
+  "no se puede deshacer"; destructive button; Cancelar is the default). Never `window.confirm`.
+- **Every mutation toasts** success **and** error (`sonner`) with concrete copy; the control shows a
+  **pending** state while in flight; offer **Deshacer** when reversible. No silent success/failure.
+- **Inputs/selects easy by default**: visible label above (placeholder ≠ label); a select with >~7
+  options is **searchable** (HeroUI `Autocomplete`); sensible default; **specific inline** validation;
+  never silently disable submit (tooltip why); keyboard + visible focus ring. Standard primitive over a
+  clever custom control.
+- **Less chrome**: group with spacing + a subtle surface, not nested boxes/divider lines; one elevation
+  level; **one primary action per view/modal**; airy over dense.
+
 ## State management — WHAT TO USE WHEN (hard rule)
 
 Three kinds of state, three tools. **Don't mix them.**
