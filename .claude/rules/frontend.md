@@ -24,6 +24,14 @@ React 19 + Vite 7 + React Router 7 (`react-router-dom`) + HeroUI (`@heroui/react
 > sticky title bar. If a primitive is being styled the same way in a 2nd place,
 > wrap it in `@/core` and migrate both.
 
+> **Reuse what's already built — don't rebuild (the #1 waste).** Before creating any component,
+> search `@/core/components` and existing feature components for one that already does the job and
+> **reuse/extend it**. The recurring failure is rebuilding instead of reusing — asked for a **table**,
+> reuse **`RegionalTable`**, **never** hand-roll a fresh `<table>`/`<Table>`; dropdowns → `AppSelect`;
+> page headers → `PageHeader`. If a reusable pattern doesn't exist yet **and it will be used again,
+> create a wrapper in `@/core`** and reuse that — never copy-paste a one-off. Grep for an existing
+> component before writing a new one.
+
 > **UI language: Spanish.** Every user-facing string is in **Spanish** — labels,
 > buttons, table headers, empty/error/loading states, toasts, dialog copy, menu
 > items, tooltips. Watch grammatical gender. **Code, identifiers, comments, routes,
