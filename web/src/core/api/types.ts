@@ -28,6 +28,11 @@ export interface BalanceSheetData {
   order_fulfillment_pct: number;
   cartera: number;
   cartera_compliance_pct: number;
+  /** Only with `includeUnits` (product listings' totals row). */
+  units?: number;
+  units_total?: number;
+  avg_unit_cost?: number;
+  avg_unit_cost_total?: number;
 }
 
 export interface BalanceSheetResponse {

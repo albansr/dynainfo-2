@@ -70,6 +70,12 @@ describe('filter-parser', () => {
       expect(filters[0].field).toBe('seller_id');
     });
 
+    it('does not turn the export showUnitColumns flag into a filter', () => {
+      const filters = parseDynamicFilters({ showUnitColumns: 'true', seller_id: 'S001' });
+
+      expect(filters.map((f) => f.field)).toEqual(['seller_id']);
+    });
+
     it('should accept ANY field name (no validation)', () => {
       const query = {
         unknown_field: 'value1',

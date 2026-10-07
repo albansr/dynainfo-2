@@ -9,7 +9,7 @@ const RESERVED_PARAMS = [
   // Excel export presentation params (never filters)
   'reportTitle', 'periodLabel', 'generatedLabel', 'dimensionLabel', 'billingLabel',
   'totalsLabel', 'currentYear', 'previousYear', 'hideBudgetColumns', 'hideRetainedColumn',
-  'nameOverrides', 'filename',
+  'nameOverrides', 'filename', 'showUnitColumns', 'includeUnits',
 ];
 
 /**

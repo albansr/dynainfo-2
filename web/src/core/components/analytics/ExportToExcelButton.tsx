@@ -19,6 +19,8 @@ interface ExportToExcelButtonProps {
   totalsLabel: string;
   hideBudgetColumns: boolean;
   hideRetainedColumn: boolean;
+  /** Add the Unidades + Costo Promedio columns (product listings). */
+  showUnitColumns?: boolean;
   nameOverrides?: Record<string, string>;
   /** Page title, shown as the report title in the exported file. */
   reportTitle: string;
@@ -56,6 +58,7 @@ export function ExportToExcelButton({
   totalsLabel,
   hideBudgetColumns,
   hideRetainedColumn,
+  showUnitColumns = false,
   nameOverrides,
   reportTitle,
   dimensionLabelOverride,
@@ -86,6 +89,7 @@ export function ExportToExcelButton({
       params.append('generatedLabel', fmtLongDate(new Date()));
       if (hideBudgetColumns) params.append('hideBudgetColumns', 'true');
       if (hideRetainedColumn) params.append('hideRetainedColumn', 'true');
+      if (showUnitColumns) params.append('showUnitColumns', 'true');
       if (nameOverrides) params.append('nameOverrides', JSON.stringify(nameOverrides));
 
       // Filename: dimension + date range (sanitized server-side too)

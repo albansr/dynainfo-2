@@ -146,3 +146,10 @@ export const SellerStatusSchema = Type.Object({
 });
 
 export type SellerStatus = Static<typeof SellerStatusSchema>;
+
+/** Estado figures per seller (directors, admin, management): one row per seller in scope. */
+export const SellerStatusBySellerSchema = Type.Array(
+  Type.Composite([Type.Object({ seller_id: Type.String(), seller_name: Type.String() }), SellerStatusSchema])
+);
+
+export type SellerStatusBySeller = Static<typeof SellerStatusBySellerSchema>;

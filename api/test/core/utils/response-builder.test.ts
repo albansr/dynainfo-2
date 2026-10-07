@@ -90,6 +90,24 @@ describe('response-builder', () => {
     });
   });
 
+  describe('buildDynamicResponse with extra metrics', () => {
+    it('emits current and last-year values for extra metrics, without nullable variances', () => {
+      const extra = [{ table: 'transactions', field: 'units', aggregation: 'sum' as const, alias: 'units' }];
+
+      const response = buildDynamicResponse({ ...generateMockQueryResult(), units: 12, units_ly: 9 }, extra) as unknown as Record<string, unknown>;
+
+      expect(response['units']).toBe(12);
+      expect(response['units_last_year']).toBe(9);
+      expect(response).not.toHaveProperty('units_vs_last_year');
+    });
+
+    it('omits extra metrics when none are requested', () => {
+      const response = buildDynamicResponse({ ...generateMockQueryResult(), units: 12 }) as unknown as Record<string, unknown>;
+
+      expect(response).not.toHaveProperty('units');
+    });
+  });
+
   describe('buildDynamicResponseArray', () => {
     it('should convert array of query results to response array', () => {
       const queryResults = [

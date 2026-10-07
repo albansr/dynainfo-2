@@ -18,7 +18,9 @@ Adapted from the `changelog-email-digest` playbook. Design and decisions: `docs/
 
 - A feature (or any relevant user-facing change) is not done without an entry, added in the **same PR** as the change — like tests.
 - Copy in **Spanish**, concrete and not salesy. Lead each item with a short `**bold**` phrase, then a plain explanation. Category: `nuevo` / `mejorado` / `corregido`.
-- Optional `image` (`{ src, alt }`): a file under `web/public/novedades/`, shown on the page and in the email (absolute URL). **Always a mockup with fictional figures — never a screenshot with real customer data**, since the page and the email are public. Always write the `alt` text.
+- **Images are mini mockups per item** (default): an item can be `{ text, image: { src, alt } }` with a small mockup (one piece, ~150 px tall) right under its text — only where it helps; changes that remove something stay text-only. A large entry-level `image` is only for big launches (a whole new screen). Files live under `web/public/novedades/` and render on the page and in the email (absolute URL).
+- **Mockups always use fictional figures — never a screenshot with real customer data**, since the page and the email are public. Always write the `alt` text.
+- After adding a file to `web/public/`, restart the web dev container (`docker restart dynainfo-web`): Vite only indexes public files at startup.
 - `published: false` while on `dev`; flip to `true` and set the real go-live `date` (plain `YYYY-MM-DD`, Bogota) on the `dev → master` deploy. The digest only emails **published** entries dated the **previous day**.
 
 ## The digest

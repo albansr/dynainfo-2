@@ -14,6 +14,8 @@ export interface ExportRow {
   budget: { amount: number; compliance: number };
   margin: { current: number; previous: number; variation: number; budget: number };
   retained: { amount: number; compliance: number };
+  /** Units, average price and average cost per unit (product listings; zero otherwise). */
+  units: { current: number; avgCost: number; avgPrice: number };
 }
 
 /**
@@ -49,6 +51,10 @@ export function mapListItemToExportRow(
   const salesCurrent = facturadoOnly ? num(item, 'sales') : num(item, 'sales_total');
   const salesPrevious = facturadoOnly ? num(item, 'sales_last_year') : num(item, 'sales_total_last_year');
   const salesVariation = facturadoOnly ? num(item, 'sales_vs_last_year') : num(item, 'sales_total_vs_last_year');
+  // Units / average cost follow the same facturado vs facturado + comprometido rule as sales.
+  const units = facturadoOnly ? num(item, 'units') : num(item, 'units_total');
+  const avgCost = facturadoOnly ? num(item, 'avg_unit_cost') : num(item, 'avg_unit_cost_total');
+  const avgPrice = facturadoOnly ? num(item, 'avg_unit_price') : num(item, 'avg_unit_price_total');
 
   const rawName = str(item, 'name');
   const name = nameOverrides && rawName in nameOverrides ? nameOverrides[rawName]! : rawName;
@@ -77,6 +83,7 @@ export function mapListItemToExportRow(
       amount: num(item, 'cartera'),
       compliance: num(item, 'cartera_compliance_pct'),
     },
+    units: { current: units, avgCost, avgPrice },
   };
 }
 
@@ -93,8 +100,10 @@ export function calculateExportTotals(rows: ExportRow[], totalsLabel: string): E
       budgetAmount: acc.budgetAmount + item.budget.amount,
       budgetMargin: acc.budgetMargin + (item.margin.budget * item.budget.amount) / 100,
       retainedAmount: acc.retainedAmount + item.retained.amount,
+      units: acc.units + item.units.current,
+      cost: acc.cost + item.units.avgCost * item.units.current,
     }),
-    { salesCurrent: 0, salesPrevious: 0, budgetAmount: 0, budgetMargin: 0, retainedAmount: 0 }
+    { salesCurrent: 0, salesPrevious: 0, budgetAmount: 0, budgetMargin: 0, retainedAmount: 0, units: 0, cost: 0 }
   );
 
   const salesVariation =
@@ -132,5 +141,11 @@ export function calculateExportTotals(rows: ExportRow[], totalsLabel: string): E
     budget: { amount: totals.budgetAmount, compliance: budgetCompliance },
     margin: { current: marginCurrent, previous: marginPrevious, variation: marginVariation, budget: marginBudget },
     retained: { amount: totals.retainedAmount, compliance: retainedCompliance },
+    // Unit-weighted averages: total cost (or sales) / total units.
+    units: {
+      current: totals.units,
+      avgCost: totals.units !== 0 ? totals.cost / totals.units : 0,
+      avgPrice: totals.units !== 0 ? totals.salesCurrent / totals.units : 0,
+    },
   };
 }

@@ -60,13 +60,17 @@ export interface FestivalListRow {
   clientes_sin_compra: number;
   presupuesto: number | null;
   cumplimiento_ppto: number | null;
+  /** Solo al agrupar por producto: unidades (facturado + comprometido). */
+  units_total?: number;
+  /** Solo al agrupar por producto: costo promedio por unidad (facturado + comprometido). */
+  avg_unit_cost_total?: number;
 }
 
 interface Wrapped<T> {
   data: T;
 }
 
-interface FestivalRange {
+export interface FestivalRange {
   startDate: Date;
   endDate: Date;
   /** Optional comparison window; omitted → no comparison. */
@@ -74,7 +78,8 @@ interface FestivalRange {
   compareEndDate?: Date;
 }
 
-function buildParams(range: FestivalRange, filters?: FilterMap): string {
+/** Festival query string: event window, optional comparison window and filters. */
+export function buildFestivalParams(range: FestivalRange, filters?: FilterMap): string {
   const params = new URLSearchParams({
     startDate: format(range.startDate, 'yyyy-MM-dd'),
     endDate: format(range.endDate, 'yyyy-MM-dd'),
@@ -107,32 +112,10 @@ export function useFestivalBalance(range: FestivalRange, filters?: FilterMap) {
 
   return useQuery({
     queryKey: ['festival-balance', ...rangeKey(range), mergedFilters],
-    queryFn: () => apiClient<Wrapped<FestivalBalance>>(`/api/festival?${buildParams(range, mergedFilters)}`),
+    queryFn: () => apiClient<Wrapped<FestivalBalance>>(`/api/festival?${buildFestivalParams(range, mergedFilters)}`),
     staleTime: 1000 * 60 * 2,
     refetchInterval: LIVE_REFETCH_INTERVAL,
     refetchOnWindowFocus: false,
-  });
-}
-
-export interface FestivalSinCompraRow {
-  customer_id: string;
-  customer_name: string;
-  seller_id: string;
-  seller_name: string;
-}
-
-/**
- * Detail of the `clientes_sin_compra` metric (fetched on demand when the
- * modal opens). Same window/filters contract as the balance.
- */
-export function useFestivalSinCompra(range: FestivalRange, filters: FilterMap | undefined, enabled: boolean) {
-  const mergedFilters = useMergedFilters(filters);
-
-  return useQuery({
-    queryKey: ['festival-sin-compra', ...rangeKey(range), mergedFilters],
-    queryFn: () => apiClient<Wrapped<FestivalSinCompraRow[]>>(`/api/festival/sin-compra?${buildParams(range, mergedFilters)}`),
-    staleTime: 1000 * 60 * 2,
-    enabled,
   });
 }
 
@@ -147,7 +130,7 @@ export function useFestivalDaily(range: FestivalRange, filters?: FilterMap) {
 
   return useQuery({
     queryKey: ['festival-daily', ...rangeKey(range), mergedFilters],
-    queryFn: () => apiClient<Wrapped<FestivalDailyPoint[]>>(`/api/festival/daily?${buildParams(range, mergedFilters)}`),
+    queryFn: () => apiClient<Wrapped<FestivalDailyPoint[]>>(`/api/festival/daily?${buildFestivalParams(range, mergedFilters)}`),
     staleTime: 1000 * 60 * 2,
     refetchInterval: LIVE_REFETCH_INTERVAL,
     refetchOnWindowFocus: false,
@@ -157,7 +140,7 @@ export function useFestivalDaily(range: FestivalRange, filters?: FilterMap) {
 /** Festival listing grouped by `groupBy` (e.g. 'ProveedorComercial'). */
 export function useFestivalList(range: FestivalRange, groupBy: string, filters?: FilterMap) {
   const mergedFilters = useMergedFilters(filters);
-  const query = buildParams(range, mergedFilters) + `&groupBy=${encodeURIComponent(groupBy)}`;
+  const query = buildFestivalParams(range, mergedFilters) + `&groupBy=${encodeURIComponent(groupBy)}`;
 
   return useQuery({
     queryKey: ['festival-list', groupBy, ...rangeKey(range), mergedFilters],

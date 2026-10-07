@@ -19,6 +19,7 @@ export const ListExportQueryStringSchema = Type.Composite(
       preset: Type.Optional(Type.String({ description: 'Date-range preset; decides facturado-only vs facturado+comprometido sales' })),
       hideBudgetColumns: Type.Optional(Type.Boolean({ description: 'Hide budget + margin-budget columns' })),
       hideRetainedColumn: Type.Optional(Type.Boolean({ description: 'Hide retained (cartera) column' })),
+      showUnitColumns: Type.Optional(Type.Boolean({ description: 'Add Unidades + Costo Promedio columns (product listings only)' })),
       totalsLabel: Type.Optional(Type.String({ description: 'Label for the TOTAL row' })),
       reportTitle: Type.Optional(Type.String({ description: 'Report title shown at the top of the sheet' })),
       periodLabel: Type.Optional(Type.String({ description: 'Human-readable reporting period shown under the title' })),

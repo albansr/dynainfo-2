@@ -14,6 +14,8 @@ export interface FestivalWorkbookInput {
   hideItems: boolean;
   /** Lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id) — product listings only. */
   showProductCode?: boolean;
+  /** Opt-in: add Unidades + Precio Promedio + Costo Promedio (product listings). Absent → unchanged. */
+  showUnitColumns?: boolean;
   reportTitle?: string;
   periodLabel?: string;
   generatedLabel?: string;
@@ -107,6 +109,24 @@ function buildColumns(input: FestivalWorkbookInput): FestivalExcelColumn[] {
       header: 'Pedido Promedio', format: 'currency', width: 16,
       value: (r) => r.pedido_promedio,
     },
+    input.showUnitColumns
+      ? {
+          header: 'Unidades', format: 'integer', width: 14,
+          value: (r) => r.units_total ?? 0,
+        }
+      : null,
+    input.showUnitColumns
+      ? {
+          header: 'Precio Promedio', format: 'currency', width: 16,
+          value: (r) => (r.units_total ? r.sales_total / r.units_total : null),
+        }
+      : null,
+    input.showUnitColumns
+      ? {
+          header: 'Costo Promedio', format: 'currency', width: 16,
+          value: (r) => (r.units_total ? (r.avg_unit_cost_total ?? 0) : null),
+        }
+      : null,
     input.hideItems
       ? null
       : {
@@ -134,6 +154,8 @@ export interface SinCompraWorkbookInput {
   rows: FestivalSinCompraRow[];
   reportTitle?: string;
   periodLabel?: string;
+  /** Caption before the period label: "Evento" (festival, default) or "Periodo" (analysis). */
+  periodCaption?: string;
   generatedLabel?: string;
 }
 
@@ -175,7 +197,7 @@ export async function buildSinCompraExportWorkbook(input: SinCompraWorkbookInput
 
     const periodRow = ws.getRow(2);
     ws.mergeCells(2, 1, 2, lastCol);
-    const periodText = input.periodLabel ? `Evento: ${input.periodLabel}` : '';
+    const periodText = input.periodLabel ? `${input.periodCaption ?? 'Evento'}: ${input.periodLabel}` : '';
     const generatedText = input.generatedLabel ? `Generado el ${input.generatedLabel}` : '';
     periodRow.getCell(1).value = [periodText, generatedText].filter(Boolean).join('    ·    ');
     periodRow.getCell(1).font = { name: FONT, bold: true, size: 11, color: { argb: MUTED_TEXT } };

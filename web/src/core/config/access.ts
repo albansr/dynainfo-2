@@ -136,9 +136,18 @@ export function canExport(dynaRole: string | null | undefined): boolean {
  * distribution roles get the table-only distribution menu; channel roles get
  * the app menu filtered to their allowed paths; unknown roles get none.
  */
+/**
+ * Roles that see Estado for their whole team (totals + one row per seller):
+ * directors (their regionals), admin and management (every seller). An empty
+ * role resolves to MANAGER, like resolveAccess.
+ */
+export function isEstadoTeamRole(dynaRole: string | null | undefined): boolean {
+  return !dynaRole || dynaRole === 'DISTRIBUTION' || dynaRole === 'ADMIN' || dynaRole === 'MANAGER';
+}
+
 export function getMenuSections(dynaRole: string | null | undefined): MenuSection[] {
-  // Sellers get their own client-focus page ("Estado") above Festival Virtual.
-  if (dynaRole === 'SELLER') {
+  // Sellers (their clients) and team roles (their sellers) get "Estado" above Festival Virtual.
+  if (dynaRole === 'SELLER' || isEstadoTeamRole(dynaRole)) {
     return [
       { title: '', items: [{ key: 'estado', label: 'Estado', href: '/estado' }] },
       ...NAVIGATION_SECTIONS,

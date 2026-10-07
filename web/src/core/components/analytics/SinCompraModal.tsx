@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Modal,
   ModalContent,
@@ -14,19 +15,33 @@ import {
 import { EyeIcon, ArrowDownTrayIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useFestivalSinCompra, useMergedFilters } from '../hooks/useFestivalBalance';
-import { downloadExcel, appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
+import { apiClient } from '@/core/api/client';
+import { downloadExcel } from '@/core/api/downloadExcel';
 import { useAuthStore } from '@/core/store/authStore';
 import { canExport } from '@/core/config/access';
 
-interface FestivalSinCompraModalProps {
-  /** Event window (the comparison window is irrelevant to this listing). */
+/** A customer without a purchase in the period, with the seller to follow up. */
+export interface SinCompraRow {
+  customer_id: string;
+  customer_name: string;
+  seller_id: string;
+  seller_name: string;
+}
+
+interface SinCompraModalProps {
+  /** Listing endpoint (e.g. `/api/balance/sin-compra`); its Excel export is `${endpoint}/export`. */
+  endpoint: string;
+  /** Period + merged filters, shared by the listing and the export. */
+  params: URLSearchParams;
+  /** Period shown in the export header (the window the "sin compra" refers to). */
   startDate: Date;
   endDate: Date;
-  /** Accumulated drill filters (role filters are merged automatically). */
-  filters: FilterMap;
-  /** Festival + drill context, shown in the modal and the export title. */
+  /** Context (board + drill), shown in the modal and the export title. */
   reportTitle: string;
+  /** What the list contains, shown under the modal title. */
+  description: string;
+  /** Export file name prefix, e.g. "Festival_ClientesSinCompra". */
+  filenamePrefix: string;
 }
 
 // Beyond this many rows the table is cut off — the search and the Excel
@@ -36,18 +51,30 @@ const MAX_VISIBLE_ROWS = 300;
 const fmtLongDate = (d: Date) => format(d, "d 'de' MMMM 'de' yyyy", { locale: es });
 
 /**
- * Trigger + modal for the "Clientes sin compra" card: lists the active-year
- * customers without a festival purchase (código, nombre, vendedor), searchable
- * and exportable to Excel. Data is fetched only when the modal opens.
+ * Trigger + modal for a "Clientes sin compra" card (Festival and the analysis
+ * boards): lists the customers (código, nombre, vendedor), searchable and
+ * exportable to Excel. Data is fetched only when the modal opens.
  */
-export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitle }: FestivalSinCompraModalProps) {
+export function SinCompraModal({
+  endpoint,
+  params,
+  startDate,
+  endDate,
+  reportTitle,
+  description,
+  filenamePrefix,
+}: SinCompraModalProps) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [search, setSearch] = useState('');
   const [isExporting, setIsExporting] = useState(false);
-  const mergedFilters = useMergedFilters(filters);
   const dynaRole = useAuthStore((s) => s.user?.dynaRole);
 
-  const { data, isLoading } = useFestivalSinCompra({ startDate, endDate }, filters, isOpen);
+  const query = params.toString();
+  const { data, isLoading } = useQuery({
+    queryKey: ['sin-compra', endpoint, query],
+    queryFn: () => apiClient<{ data: SinCompraRow[] }>(`${endpoint}?${query}`),
+    enabled: isOpen,
+  });
   const rows = useMemo(() => {
     const all = data?.data ?? [];
     const q = search.trim().toLowerCase();
@@ -63,18 +90,14 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const params = new URLSearchParams({
-        startDate: format(startDate, 'yyyy-MM-dd'),
-        endDate: format(endDate, 'yyyy-MM-dd'),
-        reportTitle: `${reportTitle} · Clientes sin compra`,
-        periodLabel: `${fmtLongDate(startDate)} – ${fmtLongDate(endDate)}`,
-        generatedLabel: fmtLongDate(new Date()),
-      });
-      const filename = `Festival_ClientesSinCompra_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
-      params.append('filename', filename);
-      appendFilterParams(params, mergedFilters);
+      const filename = `${filenamePrefix}_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
+      const exportParams = new URLSearchParams(params);
+      exportParams.set('reportTitle', `${reportTitle} · Clientes sin compra`);
+      exportParams.set('periodLabel', `${fmtLongDate(startDate)} – ${fmtLongDate(endDate)}`);
+      exportParams.set('generatedLabel', fmtLongDate(new Date()));
+      exportParams.set('filename', filename);
 
-      await downloadExcel('/api/festival/sin-compra/export', params, filename);
+      await downloadExcel(`${endpoint}/export`, exportParams, filename);
     } finally {
       setIsExporting(false);
     }
@@ -102,7 +125,7 @@ export function FestivalSinCompraModal({ startDate, endDate, filters, reportTitl
               <ModalHeader className="flex flex-col gap-1">
                 Clientes sin compra
                 <span className="text-sm font-normal text-zinc-500">
-                  {reportTitle} · activos con compra en {startDate.getFullYear()} sin compra en el festival
+                  {reportTitle} · {description}
                 </span>
               </ModalHeader>
               <ModalBody>

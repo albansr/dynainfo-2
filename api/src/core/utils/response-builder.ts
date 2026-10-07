@@ -1,4 +1,5 @@
 import { BALANCE_METRICS, getAllCalculatedMetricNames } from '../config/metrics.config.js';
+import type { MetricConfig } from '../db/clickhouse/query/types.js';
 import type { BalanceSheetResponse } from '../../features/balance/balance.schemas.js';
 
 /**
@@ -11,10 +12,15 @@ import type { BalanceSheetResponse } from '../../features/balance/balance.schema
  * - Year-over-year variance
  * - All calculated metrics
  *
- * This keeps the response structure consistent across all endpoints
+ * This keeps the response structure consistent across all endpoints.
+ * `extraMetrics` adds base metrics queried on top of BALANCE_METRICS (e.g. the
+ * product units/cost metrics) as current + last_year values. Their nullable
+ * `_vs_last_year` is not emitted: extra fields are serialized through the list
+ * schema's numeric `additionalProperties`, which rejects null.
  */
 export function buildDynamicResponse(
-  result: Record<string, number | null>
+  result: Record<string, number | null>,
+  extraMetrics: readonly MetricConfig[] = []
 ): BalanceSheetResponse {
   const response: Record<string, number | null> = {};
 
@@ -30,6 +36,11 @@ export function buildDynamicResponse(
 
     // Year-over-year variance
     response[`${alias}_vs_last_year`] = result[`${alias}_vs_last_year`] ?? null;
+  }
+
+  for (const { alias } of extraMetrics) {
+    response[alias] = result[alias] ?? 0;
+    response[`${alias}_last_year`] = result[`${alias}_ly`] ?? 0;
   }
 
   // Add all calculated metrics (growth metrics keep null when base <= 0 → 'N/A')

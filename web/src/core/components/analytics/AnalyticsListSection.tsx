@@ -10,15 +10,16 @@ import {
   getColumnsWithDynamicLabel,
   getColumnGroupsWithoutBudget,
   getColumnGroups,
-  getProductCodeColumns,
+  toProductListingColumns,
 } from '@/core/components/RegionalTable/config/columns';
 import type { ColumnDefinition, ColumnGroup } from '@/core/components/RegionalTable/config/types';
-import { getSalesMetric, type SalesMetricPreset } from '@/core/utils/salesMetric';
+import { getSalesMetric, getUnitMetric, type SalesMetricPreset, type UnitMetricValues } from '@/core/utils/salesMetric';
 import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
 import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
+import { groupingShowsCartera } from '@/core/config/breakdownDimensions';
 
 /** Leading ABC-position column (#) for the seller peso (80%) list. */
 const RANK_COLUMN: ColumnDefinition = {
@@ -64,9 +65,27 @@ function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalDat
   };
 }
 
+/** Table units slot from the resolved unit metrics (current + last year). */
+function toTableUnits(u: UnitMetricValues): NonNullable<RegionalData['units']> {
+  return {
+    current: u.units,
+    previous: u.unitsLastYear,
+    avgCost: u.avgCost,
+    avgCostPrevious: u.avgCostLastYear,
+    avgPrice: u.avgPrice,
+    avgPricePrevious: u.avgPriceLastYear,
+  };
+}
+
 /** Totals row from the backend aggregate (whole filtered dataset, not just the page). */
-function buildTotalsFromBalance(balance: BalanceSheetData, preset: SalesMetricPreset, totalsLabel: string): RegionalData {
+function buildTotalsFromBalance(
+  balance: BalanceSheetData,
+  preset: SalesMetricPreset,
+  totalsLabel: string,
+  withUnits: boolean
+): RegionalData {
   const sales = getSalesMetric(balance, preset);
+  const units = withUnits ? getUnitMetric(balance, preset) : undefined;
   return {
     id: 'totals',
     name: totalsLabel,
@@ -79,6 +98,7 @@ function buildTotalsFromBalance(balance: BalanceSheetData, preset: SalesMetricPr
       budget: balance.budget_gross_margin_pct,
     },
     retained: { amount: balance.cartera, compliance: balance.cartera_compliance_pct },
+    ...(units ? { units: toTableUnits(units) } : {}),
   };
 }
 
@@ -140,6 +160,9 @@ export function AnalyticsListSection({
   // Only the "peso" (80% of sales) list carries a rank — the client's ABC position
   // by contribution. Other preset lists show no sequential count.
   const showRank = customerPreset === 'peso';
+  const isProductListing = groupBy === 'product_id';
+  // RET. CARTERA only where dyna_cartera can break it down (else it always reads 0)
+  const hideRetained = hideRetainedColumn || !groupingShowsCartera(groupBy);
   const globalRange = useDateRange();
   const startDate = dateOverride?.startDate ?? globalRange.startDate;
   const endDate = dateOverride?.endDate ?? globalRange.endDate;
@@ -182,6 +205,7 @@ export function AnalyticsListSection({
   const mapApiToRegionalData = useCallback(
     (item: ListItemResponse): RegionalData => {
       const sales = getSalesMetric(item, preset);
+      const units = isProductListing ? getUnitMetric(item, preset) : undefined;
       return {
         id: item.id,
         name: item.name,
@@ -195,9 +219,10 @@ export function AnalyticsListSection({
           budget: item.budget_gross_margin_pct,
         },
         retained: { amount: item.cartera, compliance: item.cartera_compliance_pct },
+        ...(units ? { units: toTableUnits(units) } : {}),
       };
     },
-    [preset]
+    [preset, isProductListing]
   );
 
   const mappedData = useMemo(
@@ -207,37 +232,37 @@ export function AnalyticsListSection({
       if (nameOverrides && name in nameOverrides) name = nameOverrides[name]!;
       // Product listings surface product_id in its own REFERENCIA column, so the
       // id-in-name prefix would be redundant there.
-      if (showIdInName && groupBy !== 'product_id' && data.id && data.id !== name) name = `${data.id} - ${name}`;
+      if (showIdInName && !isProductListing && data.id && data.id !== name) name = `${data.id} - ${name}`;
       // The peso list carries each client's ABC position (server-provided).
       return { ...data, name, ...(item.abcRank != null ? { rank: item.abcRank } : {}) };
     }),
-    [listData, nameOverrides, showIdInName, groupBy, mapApiToRegionalData]
+    [listData, nameOverrides, showIdInName, isProductListing, mapApiToRegionalData]
   );
 
   const totals = useMemo(
     () => balanceData
-      ? buildTotalsFromBalance(balanceData, preset, totalsLabel)
+      ? buildTotalsFromBalance(balanceData, preset, totalsLabel, isProductListing)
       : calculateTotals(mappedData, totalsLabel),
-    [balanceData, preset, mappedData, totalsLabel]
+    [balanceData, preset, mappedData, totalsLabel, isProductListing]
   );
 
   const columns = useMemo(() => {
     if (tableColumns) return tableColumns;
     let cols = hideBudgetColumns
-      ? getColumnsWithoutBudget(groupBy, hideRetainedColumn)
+      ? getColumnsWithoutBudget(groupBy, hideRetained)
       : getColumnsWithDynamicLabel(groupBy);
-    if (hideRetainedColumn && !hideBudgetColumns) cols = cols.filter((col) => col.id !== 'retained');
+    if (hideRetained && !hideBudgetColumns) cols = cols.filter((col) => col.id !== 'retained');
     if (dimensionLabel) {
       cols = cols.map((col) =>
         col.id === 'regional' ? { ...col, header: { ...col.header, label: dimensionLabel } } : col
       );
     }
-    // Product listings lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id).
-    if (groupBy === 'product_id') cols = [...getProductCodeColumns(), ...cols];
+    // Product listings: CÓDIGO ITEM + REFERENCIA first, UNIDADES + COSTO PROMEDIO instead of CARTERA.
+    if (isProductListing) cols = toProductListingColumns(cols);
     // Preset listings lead with a billing-rank column (#).
     if (showRank) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetainedColumn, groupBy, dimensionLabel, showRank]);
+  }, [tableColumns, hideBudgetColumns, hideRetained, groupBy, dimensionLabel, showRank, isProductListing]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
@@ -291,7 +316,8 @@ export function AnalyticsListSection({
             filters={effectiveFilters}
             totalsLabel={totalsLabel}
             hideBudgetColumns={hideBudgetColumns}
-            hideRetainedColumn={hideRetainedColumn}
+            hideRetainedColumn={hideRetained}
+            showUnitColumns={isProductListing}
             nameOverrides={nameOverrides}
             reportTitle={reportTitle}
             dimensionLabelOverride={dimensionLabel}

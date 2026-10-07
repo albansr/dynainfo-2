@@ -271,6 +271,9 @@ export const FestivalListExportQueryStringSchema = Type.Composite(
       periodLabel: Type.Optional(Type.String({ description: 'Human-readable event window' })),
       generatedLabel: Type.Optional(Type.String({ description: 'Date the export was generated' })),
       filename: Type.Optional(Type.String({ description: 'Download filename (without extension)' })),
+      showUnitColumns: Type.Optional(
+        Type.Boolean({ description: 'Add Unidades + Costo Promedio columns (product listings only)' })
+      ),
     }),
   ],
   {
@@ -306,6 +309,11 @@ export const FestivalListRowSchema = Type.Object(
     }),
     presupuesto: NullableNumber, // presupuesto del evento para el grupo; null si no aplica
     cumplimiento_ppto: NullableNumber, // ventas / presupuesto total, %
+    // Solo al agrupar por producto (facturado + comprometido, como las ventas)
+    units_total: Type.Optional(Type.Number({ description: 'Unidades (facturado + comprometido)' })),
+    avg_unit_cost_total: Type.Optional(
+      Type.Number({ description: 'Costo promedio por unidad (facturado + comprometido)' })
+    ),
   },
   { $id: 'FestivalListRow' }
 );

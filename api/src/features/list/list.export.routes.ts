@@ -8,9 +8,8 @@ import { ListExportQueryStringSchema } from './list.export.schemas.js';
 import { parseListFilters } from './list.filters.js';
 import { mapListItemToExportRow, calculateExportTotals, usesFacturadoOnly } from './list.export.transform.js';
 import { buildListExportWorkbook } from './list.export.workbook.js';
-import { sanitizeFilename } from '../../core/utils/export-filename.js';
+import { sendXlsx } from '../../core/utils/export-filename.js';
 
-const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 
 /**
@@ -72,6 +71,8 @@ export function listExportRoutes(fastify: FastifyInstance, dbClient: DatabaseCli
           hideBudgetColumns: query.hideBudgetColumns === true,
           hideRetainedColumn: query.hideRetainedColumn === true,
           showProductCode: parsed.groupBy === 'product_id',
+          // Units are only queried for product listings; the column pair is opt-in.
+          showUnitColumns: query.showUnitColumns === true && parsed.groupBy === 'product_id',
           dimensionLabel: query.dimensionLabel || parsed.groupBy,
           billingLabel: query.billingLabel || 'Ventas VS Presupuesto',
           totalsLabel,
@@ -82,17 +83,7 @@ export function listExportRoutes(fastify: FastifyInstance, dbClient: DatabaseCli
           ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
         });
 
-        const baseName = sanitizeFilename(query.filename) || `export-${parsed.groupBy}`;
-        const asciiName = baseName.replace(/[^\x20-\x7e]+/g, '_');
-        const encodedName = encodeURIComponent(`${baseName}.xlsx`);
-
-        return reply
-          .header('Content-Type', XLSX_MIME)
-          .header(
-            'Content-Disposition',
-            `attachment; filename="${asciiName}.xlsx"; filename*=UTF-8''${encodedName}`
-          )
-          .send(buffer);
+        return sendXlsx(reply, buffer, query.filename, `export-${parsed.groupBy}`);
       } catch (error) {
         if (error instanceof ExportTooLargeError) {
           return reply.code(400).send({ error: 'EXPORT_TOO_LARGE', message: error.message });

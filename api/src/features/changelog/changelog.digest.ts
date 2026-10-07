@@ -5,8 +5,10 @@
  */
 import {
   CATEGORY_LABEL,
+  itemText,
   publishedEntries,
   type ChangelogEntry,
+  type ChangelogImage,
 } from './changelog.entries.js';
 
 export interface DigestLinks {
@@ -68,6 +70,11 @@ function boldToHtml(text: string): string {
     .join('');
 }
 
+/** Inline image block for the email (absolute URL: mail clients need one). */
+function imageHtml(image: ChangelogImage, webOrigin: string, style: string): string {
+  return `<img src="${escapeHtml(webOrigin + image.src)}" alt="${escapeHtml(image.alt)}" style="display:block;width:100%;height:auto;border:1px solid #e5e7eb;border-radius:8px;${style}">`;
+}
+
 /** Email subject for a day's digest, prefixed with the environment outside production. */
 export function renderDigestSubject(
   entries: readonly ChangelogEntry[],
@@ -92,18 +99,19 @@ export function renderDigestHtml(
 ): string {
   const blocks = entries
     .map((entry) => {
-      const image = entry.image
-        ? `<img src="${escapeHtml(links.webOrigin + entry.image.src)}" alt="${escapeHtml(
-            entry.image.alt,
-          )}" width="544" style="display:block;width:100%;max-width:544px;height:auto;border:1px solid #e5e7eb;border-radius:8px;margin:0 0 12px;">`
-        : '';
+      const image = entry.image ? imageHtml(entry.image, links.webOrigin, 'margin:0 0 12px;max-width:544px;') : '';
       const summary = entry.summary
         ? `<p style="margin:0 0 12px;color:#4b5563;line-height:1.5;">${escapeHtml(entry.summary)}</p>`
         : '';
       const groups = entry.changes
         .map((group) => {
           const items = group.items
-            .map((item) => `<li style="margin:4px 0;color:#374151;line-height:1.5;">${boldToHtml(item)}</li>`)
+            .map((item) => {
+              const image = typeof item === 'string' ? undefined : item.image;
+              return `<li style="margin:0 0 28px;color:#374151;line-height:1.5;">${boldToHtml(itemText(item))}${
+                image ? imageHtml(image, links.webOrigin, 'margin:10px 0 0;max-width:420px;') : ''
+              }</li>`;
+            })
             .join('');
           return `<p style="margin:12px 0 4px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">${escapeHtml(
             CATEGORY_LABEL[group.category],
@@ -141,7 +149,7 @@ export function renderDigestText(
     const groups = entry.changes.map((group) =>
       [
         CATEGORY_LABEL[group.category].toUpperCase(),
-        ...group.items.map((item) => `- ${item.replace(/\*\*/g, '')}`),
+        ...group.items.map((item) => `- ${itemText(item).replace(/\*\*/g, '')}`),
       ].join('\n'),
     );
     return [entry.title, entry.summary, ...groups].filter(Boolean).join('\n\n');

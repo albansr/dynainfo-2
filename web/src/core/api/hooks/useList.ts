@@ -44,6 +44,12 @@ export interface ListItemResponse {
   gross_margin_pct_last_year: number;
   gross_margin_pct_vs_last_year: number;
   cartera_compliance_pct: number;
+  /** Product listings only: units (facturado / facturado + comprometido). */
+  units?: number;
+  units_total?: number;
+  /** Product listings only: average cost per unit (facturado / facturado + comprometido). */
+  avg_unit_cost?: number;
+  avg_unit_cost_total?: number;
 }
 
 export interface ListResponse {

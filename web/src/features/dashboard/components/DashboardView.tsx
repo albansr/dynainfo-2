@@ -3,13 +3,17 @@ import type { FilterMap } from '@/core/api/downloadExcel';
 import { motion } from 'framer-motion';
 import { subDays, startOfMonth, subMonths } from 'date-fns';
 import { useDateRange } from '@/core/hooks/useDateRange';
+import { shouldShowCarteraBlock } from '@/core/utils/dateRangePresets';
 import { useBalance } from '@/core/api/hooks/useBalance';
 import { useBalanceSeries } from '@/core/api/hooks/useBalanceSeries';
+import { useBalanceReach, useBalanceReachParams } from '@/core/api/hooks/useBalanceReach';
 import { formatCurrency, formatPercentage, formatPercentageWithSign } from '@/core/utils/formatters';
 import { getSalesMetric, usesFacturadoOnly } from '@/core/utils/salesMetric';
 import { PrimaryMetricCard } from '@/core/components/PrimaryMetricCard';
 import { MetricCard } from '@/core/components/MetricCard';
 import { PageHeader } from '@/core/components/PageHeader';
+import { ReachMetricsBlock } from '@/core/components/analytics/ReachMetricsBlock';
+import { SinCompraModal } from '@/core/components/analytics/SinCompraModal';
 import { SegmentDistributionChart } from './SegmentDistributionChart';
 import { SalesBarChart } from '@/core/components/SalesBarChart';
 
@@ -82,6 +86,10 @@ export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, se
   const salesTotal = balanceData?.sales_total ?? 0;
   const comprometidoPct = salesTotal > 0 ? (comprometido / salesTotal) * 100 : 0;
   const facturadoPct = salesTotal > 0 ? (facturado / salesTotal) * 100 : 0;
+
+  // Reach block (Items, Numérica, Clientes sin compra) over the same period and filters
+  const reachParams = useBalanceReachParams(startDate, endDate, preset, filters);
+  const { data: reach, isLoading: reachLoading } = useBalanceReach(reachParams);
 
   const { granularity, chartStart, chartEnd } = getChartConfig(preset, endDate);
   const { data: seriesData, isLoading: seriesLoading } = useBalanceSeries(
@@ -242,26 +250,48 @@ export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, se
         </div>
       </div>
 
-      {/* Cartera */}
-      <div className="mt-8 border border-zinc-200 rounded-lg p-4 sm:p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
-          <MetricCard
-            label="CARTERA"
-            value={`$ ${balanceData ? formatCurrency(balanceData.cartera) : '0'}`}
-            description={`Cumpl. ppto con cartera: ${balanceData ? formatPercentage(balanceData.cartera_compliance_pct) : '0'}%`}
-            isLoading={isLoading}
-          />
-
-          {isDailyPreset && (
+      {/* Cartera — hidden on month-end so it can't be confused with budget compliance */}
+      {shouldShowCarteraBlock(endDate, isDailyPreset) && (
+        <div className="mt-8 border border-zinc-200 rounded-lg p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
             <MetricCard
-              label="CUMPL. PPTO MES"
-              value={`${monthBalance ? formatPercentage(monthBalance.budget_achievement_full_pct) : '0'}%`}
-              description={`Ppto mes: $ ${monthBalance ? formatCurrency(monthBalance.budget_full) : '0'}`}
+              label="CARTERA"
+              value={`$ ${balanceData ? formatCurrency(balanceData.cartera) : '0'}`}
+              description={`Cumpl. ppto con cartera: ${balanceData ? formatPercentage(balanceData.cartera_compliance_pct) : '0'}%`}
               isLoading={isLoading}
             />
-          )}
+
+            {isDailyPreset && (
+              <MetricCard
+                label="CUMPL. PPTO MES"
+                value={`${monthBalance ? formatPercentage(monthBalance.budget_achievement_full_pct) : '0'}%`}
+                description={`Ppto mes: $ ${monthBalance ? formatCurrency(monthBalance.budget_full) : '0'}`}
+                isLoading={isLoading}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Alcance: items, numérica y clientes sin compra (compraron en los 12 meses
+          anteriores al periodo y no en el periodo) */}
+      <ReachMetricsBlock
+        reach={reach}
+        isLoading={reachLoading}
+        sinCompraTooltip="Clientes que compraron en los 12 meses anteriores al periodo y no han comprado en el periodo, dentro de los filtros de este tablero. El detalle muestra el vendedor de su última compra."
+        sinCompraDescription="Compraron en los 12 meses anteriores"
+        sinCompraDetail={
+          <SinCompraModal
+            endpoint="/api/balance/sin-compra"
+            params={reachParams}
+            startDate={startDate}
+            endDate={endDate}
+            reportTitle={[title, chip].filter(Boolean).join(' · ')}
+            description="compraron en los 12 meses anteriores y no en el periodo"
+            filenamePrefix="ClientesSinCompra"
+          />
+        }
+      />
 
       {/* Gráfico tendencia */}
       <div className="mt-8 border border-zinc-200 rounded-lg p-4 sm:p-6">

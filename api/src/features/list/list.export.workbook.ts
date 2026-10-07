@@ -16,6 +16,11 @@ export interface BuildWorkbookInput {
   hideRetainedColumn: boolean;
   /** Lead with CÓDIGO ITEM (IdItem) + REFERENCIA (product_id) — product listings only. */
   showProductCode?: boolean;
+  /**
+   * Opt-in (sent by the current web for product listings): add the Unidades +
+   * Costo Promedio columns. Absent → the workbook is unchanged.
+   */
+  showUnitColumns?: boolean;
   dimensionLabel: string;
   billingLabel: string;
   totalsLabel: string;
@@ -29,7 +34,7 @@ export interface BuildWorkbookInput {
   generatedLabel?: string;
 }
 
-type ColFormat = 'text' | 'currency' | 'percent' | 'pp';
+type ColFormat = 'text' | 'currency' | 'percent' | 'pp' | 'integer';
 
 interface ExcelColumn {
   id: string;
@@ -46,6 +51,7 @@ const NUM_FMT: Record<ColFormat, string | undefined> = {
   currency: '"$"#,##0',
   percent: '#,##0.00"%"',
   pp: '+#,##0.00"pp";-#,##0.00"pp"',
+  integer: '#,##0',
 };
 
 // Palette (ARGB). Dark slate header, zebra body, emphasized total — matches the app tone.
@@ -66,7 +72,9 @@ const GROUP_MARGIN_LABEL = 'MARGEN VS PRESUPUESTO';
  * Every multi-value on-screen cell is split into its own column.
  */
 function buildColumns(input: BuildWorkbookInput): ExcelColumn[] {
-  const { hideBudgetColumns, hideRetainedColumn, showProductCode, dimensionLabel, currentYear, previousYear } = input;
+  const {
+    hideBudgetColumns, hideRetainedColumn, showProductCode, showUnitColumns, dimensionLabel, currentYear, previousYear,
+  } = input;
   const finite = (v: number): number | null => (Number.isFinite(v) ? v : null);
 
   // Product listings lead with the item code (IdItem) and reference (product_id),
@@ -134,6 +142,18 @@ function buildColumns(input: BuildWorkbookInput): ExcelColumn[] {
       color: (r) => marginBudgetColor(r.margin.budget - r.margin.current),
     },
     {
+      id: 'units', header: 'Unidades', group: null, format: 'integer', width: 14,
+      value: (r) => r.units.current,
+    },
+    {
+      id: 'avgUnitPrice', header: 'Precio Promedio', group: null, format: 'currency', width: 16,
+      value: (r) => (r.units.current === 0 ? null : r.units.avgPrice),
+    },
+    {
+      id: 'avgUnitCost', header: 'Costo Promedio', group: null, format: 'currency', width: 16,
+      value: (r) => (r.units.current === 0 ? null : r.units.avgCost),
+    },
+    {
       id: 'retainedAmount', header: 'Retenido en Cartera', group: null, format: 'currency', width: 16,
       value: (r) => (r.retained.amount === 0 ? null : r.retained.amount),
     },
@@ -146,10 +166,12 @@ function buildColumns(input: BuildWorkbookInput): ExcelColumn[] {
 
   const budgetIds = new Set(['budgetAmount', 'budgetCompliance', 'marginBudget', 'marginDelta']);
   const retainedIds = new Set(['retainedAmount', 'retainedCompliance']);
+  const unitIds = new Set(['units', 'avgUnitPrice', 'avgUnitCost']);
 
   return cols.filter((c) => {
     if (hideBudgetColumns && budgetIds.has(c.id)) return false;
     if (hideRetainedColumn && retainedIds.has(c.id)) return false;
+    if (!showUnitColumns && unitIds.has(c.id)) return false;
     return true;
   });
 }

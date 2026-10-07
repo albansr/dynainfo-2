@@ -605,4 +605,81 @@ describe('ListService', () => {
       expect(result.data[0].sales_total).toBe(0);
     });
   });
+
+  describe('product listing units and average cost', () => {
+    const metricAliases = (): string[] => {
+      const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
+      return call.metrics.map((m) => m.alias);
+    };
+
+    beforeEach(() => {
+      mockBuilder.buildGroupedAttributeQuery = vi.fn().mockResolvedValue(new Map([['P1', '1001']]));
+    });
+
+    it('queries units and cost on top of every balance metric when grouping by product', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([]);
+
+      await service.getBalanceList({ groupBy: 'product_id' });
+
+      const aliases = metricAliases();
+      expect(aliases).toEqual(expect.arrayContaining(['units', 'cost', 'orders_units', 'orders_cost']));
+      // Backward compatible: cartera keeps being queried and returned.
+      expect(aliases).toContain('cartera');
+    });
+
+    it('does not query units for non-product groupings', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([]);
+
+      await service.getBalanceList({ groupBy: 'IdRegional' });
+
+      expect(metricAliases()).not.toContain('units');
+    });
+
+    it('returns units, units_total and average unit costs while keeping cartera fields', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([
+        {
+          id: 'P1',
+          name: 'Producto 1',
+          ...generateMockQueryResult({ cartera: 50 }),
+          units: 10,
+          units_ly: 8,
+          cost: 400,
+          cost_ly: 300,
+          orders_units: 5,
+          orders_units_ly: 0,
+          orders_cost: 230,
+          orders_cost_ly: 0,
+          units_total: 15,
+          avg_unit_cost: 40,
+          avg_unit_cost_total: 42,
+        },
+      ]);
+
+      const result = await service.getBalanceList({ groupBy: 'product_id' });
+      const item = result.data[0] as unknown as Record<string, unknown>;
+
+      expect(item).toMatchObject({
+        code: '1001',
+        units: 10,
+        units_last_year: 8,
+        cost: 400,
+        orders_units: 5,
+        orders_cost: 230,
+        units_total: 15,
+        avg_unit_cost: 40,
+        avg_unit_cost_total: 42,
+        cartera: 50,
+      });
+      // Nullable YoY variances are not emitted for the extra metrics.
+      expect(item).not.toHaveProperty('units_vs_last_year');
+    });
+
+    it('adds the unit metrics to the export query for products', async () => {
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([]);
+
+      await service.getBalanceListForExport({ groupBy: 'product_id' });
+
+      expect(metricAliases()).toEqual(expect.arrayContaining(['units', 'orders_units']));
+    });
+  });
 });

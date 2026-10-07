@@ -17,7 +17,15 @@ export const ChangelogEntriesResponseSchema = Type.Object({
       changes: Type.Array(
         Type.Object({
           category: CategorySchema,
-          items: Type.Array(Type.String()),
+          items: Type.Array(
+            Type.Union([
+              Type.String(),
+              Type.Object({
+                text: Type.String(),
+                image: Type.Optional(Type.Object({ src: Type.String(), alt: Type.String() })),
+              }),
+            ])
+          ),
         }),
       ),
     }),

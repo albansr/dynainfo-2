@@ -8,6 +8,7 @@ import {
   ListQueryStringSchema,
   ListResponseSchema,
   SellerStatusSchema,
+  SellerStatusBySellerSchema,
 } from './list.schemas.js';
 import { BalanceQueryStringSchema } from '../balance/balance.schemas.js';
 import { sanitizeDateString, sanitizeFieldName } from '../../core/utils/sanitization.js';
@@ -104,6 +105,29 @@ export function listRoutes(
       // Static response type, so the payload needs a cast here.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return reply.code(200).send(listResponse as any);
+    }
+  );
+
+  /**
+   * GET /list/seller-status/by-seller
+   * Estado figures per seller in scope (directors, admin, management), filtered
+   * like /list/seller-status (role scope via dynamic filters).
+   */
+  server.get(
+    '/list/seller-status/by-seller',
+    {
+      schema: {
+        description: 'Estado counts per seller in scope.',
+        tags: ['list'],
+        querystring: BalanceQueryStringSchema,
+        response: { 200: SellerStatusBySellerSchema },
+      },
+    },
+    async (request, reply) => {
+      const rows = await service.getSellerStatusBySeller({
+        filters: parseDynamicFilters(request.query as Record<string, unknown>),
+      });
+      return reply.code(200).send(rows);
     }
   );
 

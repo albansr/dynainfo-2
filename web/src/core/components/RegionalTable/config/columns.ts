@@ -6,7 +6,9 @@ import {
   complianceCellRenderer,
   marginCellRenderer,
   marginBudgetCellRenderer,
-  textCellRenderer
+  textCellRenderer,
+  unitsCellRenderer,
+  unitAmountCellRenderer
 } from '../renderers/cellRenderers';
 import {
   budgetBackgroundColor,
@@ -172,7 +174,7 @@ export function getProductCodeColumns(): ColumnDefinition[] {
   return [
     {
       id: 'itemCode',
-      header: { label: 'CÓDIGO ITEM', sortable: true, align: 'left', rowSpan: 2 },
+      header: { label: 'CÓD. ITEM', sortable: true, align: 'left', rowSpan: 2 },
       accessor: (data) => data.code ?? '',
       cellRenderer: textCellRenderer,
       align: 'left',
@@ -188,6 +190,56 @@ export function getProductCodeColumns(): ColumnDefinition[] {
       sortable: true,
       sortKey: 'reference',
     },
+  ];
+}
+
+/**
+ * Unit columns shown whenever products are listed: "UNIDADES" (units sold),
+ * "PRECIO PROMEDIO" and "COSTO PROMEDIO" (average price and cost per unit).
+ * Flat, so they span the two header rows.
+ */
+export function getProductUnitColumns(): ColumnDefinition[] {
+  return [
+    {
+      id: 'units',
+      header: { label: 'UNIDADES', sortable: true, align: 'right', rowSpan: 2 },
+      accessor: (data) => data.units && { current: data.units.current, previous: data.units.previous },
+      cellRenderer: unitsCellRenderer,
+      align: 'right',
+      sortable: true,
+      sortKey: 'units',
+    },
+    {
+      id: 'avgUnitPrice',
+      header: { label: 'PRECIO PROM.', sortable: true, align: 'right', rowSpan: 2 },
+      accessor: (data) => data.units && { current: data.units.avgPrice ?? 0, previous: data.units.avgPricePrevious },
+      cellRenderer: unitAmountCellRenderer,
+      align: 'right',
+      sortable: true,
+      sortKey: 'avgUnitPrice',
+    },
+    {
+      id: 'avgUnitCost',
+      header: { label: 'COSTO PROM.', sortable: true, align: 'right', rowSpan: 2 },
+      accessor: (data) => data.units && { current: data.units.avgCost, previous: data.units.avgCostPrevious },
+      cellRenderer: unitAmountCellRenderer,
+      align: 'right',
+      sortable: true,
+      sortKey: 'avgUnitCost',
+    },
+  ];
+}
+
+/**
+ * Product listing layout: lead with CÓDIGO ITEM + REFERENCIA, drop CARTERA
+ * (receivables are not tracked per product) and close with UNIDADES +
+ * COSTO PROMEDIO in its place.
+ */
+export function toProductListingColumns(columns: ColumnDefinition[]): ColumnDefinition[] {
+  return [
+    ...getProductCodeColumns(),
+    ...columns.filter((col) => col.id !== 'retained'),
+    ...getProductUnitColumns(),
   ];
 }
 
