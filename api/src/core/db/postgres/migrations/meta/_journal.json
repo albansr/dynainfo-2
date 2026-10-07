@@ -29,6 +29,13 @@
       "when": 1790360219951,
       "tag": "0003_add_user_dyna_role_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791377531478,
+      "tag": "0004_add_changelog_subscriptions",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,8 @@ const FilteredDetailPage = lazy(() => import('@/features/dashboard/pages/Filtere
 const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const EstadoPage = lazy(() => import('@/features/estado/pages/EstadoPage').then((m) => ({ default: m.EstadoPage })));
 const EstadoDetailPage = lazy(() => import('@/features/estado/pages/EstadoDetailPage').then((m) => ({ default: m.EstadoDetailPage })));
+const NovedadesPage = lazy(() => import('@/features/changelog/pages/NovedadesPage').then((m) => ({ default: m.NovedadesPage })));
+const NovedadesBajaPage = lazy(() => import('@/features/changelog/pages/NovedadesBajaPage').then((m) => ({ default: m.NovedadesBajaPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +117,9 @@ function App() {
                   </RouteGuard>
                 }
               />
+              {/* Public for everyone, signed in or not: no RouteGuard */}
+              <Route path="/novedades" element={<NovedadesPage />} />
+              <Route path="/novedades/baja" element={<NovedadesBajaPage />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
             </Suspense>

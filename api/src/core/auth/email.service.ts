@@ -1,14 +1,9 @@
-import { Resend } from 'resend';
 import { logger } from '../logger/logger.js';
+import { resend, EMAIL_FROM } from '../email/resend.client.js';
 
 /**
  * Email service for OTP delivery via Resend
- *
- * Uses Resend's default domain (onboarding@resend.dev) for development
- * Configure RESEND_API_KEY in .env
  */
-const resend = new Resend(process.env['RESEND_API_KEY']);
-
 /**
  * Send OTP code via email
  *
@@ -21,7 +16,7 @@ export async function sendOTPEmail(
 ): Promise<void> {
   try {
     await resend.emails.send({
-      from: 'DynaInfo <no-reply@aionsales.app>',
+      from: EMAIL_FROM,
       to: email,
       subject: `Your verification code: ${code}`,
       html: getOTPEmailTemplate(code),

@@ -34,7 +34,7 @@ describe('Email Service', () => {
 
       expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          from: 'DynaInfo <onboarding@resend.dev>',
+          from: 'DynaInfo <no-reply@aionsales.app>',
           to: 'test@example.com',
           subject: 'Your verification code: 654321',
           html: expect.stringContaining('654321'),

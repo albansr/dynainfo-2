@@ -5,6 +5,7 @@ import { db } from '../db/postgres/client.js';
 import { users, session, verification } from '../db/postgres/schema.js';
 import { sendOTPEmail } from './email.service.js';
 import { dynaSSO } from './plugins/sso.plugin.js';
+import { webOrigins } from '../config/web-origin.js';
 
 /**
  * Better Auth configuration with Email OTP and SSO plugins
@@ -75,9 +76,8 @@ export const auth = betterAuth({
   // Trust proxy headers for production
   trustedOrigins: [
     process.env['BETTER_AUTH_URL'],
-    // Frontend origin(s), comma-separated (production + preview, e.g. dev.dynainfo.com.co)
-    ...(process.env['ORIGIN_URL']?.split(',').map((s) => s.trim()).filter(Boolean) ?? []),
-    'http://localhost:4000', // Frontend dev server
+    // Frontend origin(s): ORIGIN_URL (production + preview) + the local dev server
+    ...webOrigins(),
   ].filter((origin): origin is string => Boolean(origin)),
 
   // Cookie config. Production keeps Secure + SameSite=None + Partitioned for the

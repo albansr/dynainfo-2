@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, integer, index } from 'drizzle-orm/pg-core';
 
 /**
  * Users table - Core authentication and user management
@@ -80,6 +80,49 @@ export const verification = pgTable('verification', {
     .defaultNow(),
 });
 
+/**
+ * Changelog subscriber table - Public "Novedades" email list
+ *
+ * Entries live in code (features/changelog/changelog.entries.ts); this table is
+ * the audience. Email is stored normalized (trim + lowercase); the token is the
+ * per-subscriber secret behind the one-click unsubscribe link.
+ */
+export const changelogSubscribers = pgTable('changelog_subscriber', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull().unique(),
+  token: text('token').notNull().unique(),
+  // Web origin the subscriber signed up from (validated against ORIGIN_URL), so
+  // their email links and unsubscribe redirect go back to that same site (dev or prod)
+  webOrigin: text('web_origin'),
+  status: text('status', { enum: ['active', 'unsubscribed'] })
+    .notNull()
+    .default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => ({
+  // Index for the digest recipient query (WHERE status = 'active')
+  statusIdx: index('changelog_subscriber_status_idx').on(table.status),
+}));
+
+/**
+ * Changelog digest run table - One row per digest day already sent
+ *
+ * The in-process scheduler claims a day by inserting its row before sending, so
+ * an API restart (or a second instance) never emails the same day twice.
+ */
+export const changelogDigestRuns = pgTable('changelog_digest_run', {
+  digestDate: text('digest_date').primaryKey(), // YYYY-MM-DD in the project timezone
+  recipients: integer('recipients').notNull().default(0),
+  sentAt: timestamp('sent_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // Type inference for TypeScript
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -87,3 +130,4 @@ export type Session = typeof session.$inferSelect;
 export type NewSession = typeof session.$inferInsert;
 export type Verification = typeof verification.$inferSelect;
 export type NewVerification = typeof verification.$inferInsert;
+export type ChangelogSubscriber = typeof changelogSubscribers.$inferSelect;
