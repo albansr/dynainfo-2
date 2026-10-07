@@ -51,6 +51,9 @@ export function FestivalExportButton({
         generatedLabel: fmtLongDate(new Date()),
       });
 
+      // Product listings add Unidades + Costo Promedio (opt-in on the API).
+      if (groupBy === 'product_id') params.append('showUnitColumns', 'true');
+
       const filename = `Festival_${dimensionLabel}_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
       params.append('filename', filename);
       appendFilterParams(params, mergedFilters);

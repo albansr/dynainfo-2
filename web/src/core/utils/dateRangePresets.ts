@@ -6,6 +6,7 @@ import {
   startOfYear,
   endOfYear,
   getYear,
+  isLastDayOfMonth,
 } from 'date-fns';
 import { AVAILABLE_DATA_RANGE, type DateRangePreset } from '../config/dateRangeConfig';
 
@@ -100,3 +101,12 @@ export const getAvailableYears = (): number[] => {
 
   return years;
 };
+
+/**
+ * Whether the dashboard Cartera block (cartera + full-month budget compliance)
+ * is shown. On the last day of the month, a live period (today / current month)
+ * covers the whole month, so those cards would only be confused with the budget
+ * compliance card — hide them. Closed periods (past months, years) keep the block.
+ */
+export const shouldShowCarteraBlock = (endDate: Date, isLivePeriod: boolean): boolean =>
+  !(isLivePeriod && isLastDayOfMonth(endDate));

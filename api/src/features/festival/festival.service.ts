@@ -1,4 +1,5 @@
 import type { IAnalyticsQueryBuilder, FilterCondition } from '../../core/db/clickhouse/query/interfaces.js';
+import { PRODUCT_UNIT_METRICS } from '../../core/config/metrics.config.js';
 import {
   FESTIVAL_METRICS,
   FESTIVAL_DEFAULT_GROUP_BY,
@@ -193,9 +194,11 @@ export class FestivalService {
     groupBy?: string;
   }): Promise<FestivalListRow[]> {
     const groupBy = params.groupBy || FESTIVAL_DEFAULT_GROUP_BY;
+    // Product listings also carry units and average unit cost.
+    const isProductListing = groupBy === 'product_id';
 
     // When listing products, surface the item code (IdItem) next to product_id.
-    const codeByGroupPromise = groupBy === 'product_id'
+    const codeByGroupPromise = isProductListing
       ? this.analyticsBuilder.buildGroupedAttributeQuery({
           table: 'transactions',
           attribute: 'IdItem',
@@ -207,7 +210,7 @@ export class FestivalService {
     // Comparison is irrelevant to the listing (only current-period metrics are shown).
     const [rows, clientesByGroup, productosByGroup, sinCompraByGroup, codeByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-        metrics: FESTIVAL_METRICS,
+        metrics: isProductListing ? [...FESTIVAL_METRICS, ...PRODUCT_UNIT_METRICS] : FESTIVAL_METRICS,
         currentPeriodFilters: params.currentFilters,
         ...(params.comparisonFilters ? { comparisonFilters: params.comparisonFilters } : {}),
         groupBy,
@@ -263,6 +266,9 @@ export class FestivalService {
         clientes_sin_compra: sinCompraByGroup.get(rawId) ?? 0,
         presupuesto: budget > 0 ? budget : null,
         cumplimiento_ppto: budget > 0 ? (salesTotal / budget) * 100 : null,
+        ...(isProductListing
+          ? { units_total: num(row['units_total']), avg_unit_cost_total: num(row['avg_unit_cost_total']) }
+          : {}),
       };
     });
   }

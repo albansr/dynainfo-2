@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { usesFacturadoOnly, getSalesMetric, getSalesOrderByField, type SalesMetricSource } from './salesMetric';
+import { usesFacturadoOnly, getSalesMetric, getSalesOrderByField, getUnitMetric, type SalesMetricSource } from './salesMetric';
 
 const source: SalesMetricSource = {
   sales: 100,
@@ -49,5 +49,25 @@ describe('getSalesOrderByField', () => {
   it('orders by sales on closed periods and sales_total on open ones', () => {
     expect(getSalesOrderByField('accumulated')).toBe('sales');
     expect(getSalesOrderByField('today')).toBe('sales_total');
+  });
+});
+
+describe('getUnitMetric', () => {
+  const units = {
+    units: 10, units_total: 15, avg_unit_cost: 40, avg_unit_cost_total: 42,
+    units_last_year: 8, units_total_last_year: 12, avg_unit_cost_last_year: 38, avg_unit_cost_total_last_year: 39,
+    avg_unit_price: 50, avg_unit_price_total: 52, avg_unit_price_last_year: 47, avg_unit_price_total_last_year: 48,
+  };
+
+  it('uses facturado units and cost (current and last year) on closed periods, like VENTAS', () => {
+    expect(getUnitMetric(units, 'previous-month')).toEqual({ units: 10, unitsLastYear: 8, avgCost: 40, avgCostLastYear: 38, avgPrice: 50, avgPriceLastYear: 47 });
+  });
+
+  it('uses facturado + comprometido units and cost on open periods, like VENTAS', () => {
+    expect(getUnitMetric(units, 'current-month')).toEqual({ units: 15, unitsLastYear: 12, avgCost: 42, avgCostLastYear: 39, avgPrice: 52, avgPriceLastYear: 48 });
+  });
+
+  it('falls back to zero when the listing carries no unit fields', () => {
+    expect(getUnitMetric({}, 'current-month')).toEqual({ units: 0, unitsLastYear: 0, avgCost: 0, avgCostLastYear: 0, avgPrice: 0, avgPriceLastYear: 0 });
   });
 });

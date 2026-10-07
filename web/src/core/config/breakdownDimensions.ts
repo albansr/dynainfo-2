@@ -147,3 +147,26 @@ export function getBreakdownCategories(filters: FilterMap): DimCategory[] {
     .map((c) => ({ ...c, dims: c.dims.filter((d) => !filteredKeys.has(d.key)) }))
     .filter((c) => c.dims.length > 0);
 }
+
+/**
+ * Groupings whose column exists in dyna_cartera (receivables), the only ones
+ * that can break RET. CARTERA down — any other grouping always reads 0 there,
+ * so the column is hidden. Products are left out on purpose: their listing
+ * shows UNIDADES and COSTO PROMEDIO instead.
+ */
+const CARTERA_GROUPINGS: ReadonlySet<GroupByDimension> = new Set<GroupByDimension>([
+  'seller_id',
+  'IdRegional',
+  'customer_id',
+  'customer_name',
+  'ProveedorComercial',
+  'brand_group',
+  'month',
+  'quarter',
+  'year',
+]);
+
+/** Whether a listing grouped by `groupBy` shows the RET. CARTERA column. */
+export function groupingShowsCartera(groupBy: GroupByDimension): boolean {
+  return CARTERA_GROUPINGS.has(groupBy);
+}

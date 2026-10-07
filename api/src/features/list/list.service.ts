@@ -4,9 +4,11 @@ import type {
   ListResponse,
   ListItemResponse,
   SellerStatus,
+  SellerStatusBySeller,
 } from './list.schemas.js';
 import { parseQueryParamsToFilters } from '../balance/balance.schemas.js';
-import { BALANCE_METRICS } from '../../core/config/metrics.config.js';
+import { BALANCE_METRICS, PRODUCT_UNIT_METRICS } from '../../core/config/metrics.config.js';
+import type { MetricConfig } from '../../core/db/clickhouse/query/types.js';
 import { buildDynamicResponse } from '../../core/utils/response-builder.js';
 import {
   BRAND_GROUP,
@@ -100,9 +102,10 @@ export class ListService {
     // Execute the grouped metrics query and, when listing products, the item-code
     // (IdItem) lookup concurrently. The code column surfaces the internal item
     // code next to product_id without threading it through the metrics query.
+    const extraMetrics = ListService.extraMetrics(groupBy);
     const [results, codeByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-        metrics: BALANCE_METRICS,
+        metrics: [...BALANCE_METRICS, ...extraMetrics],
         currentPeriodFilters: filters,
         groupBy,
         limit,
@@ -122,7 +125,9 @@ export class ListService {
       : results.length;
 
     // Build array of responses using shared utility
-    const items: ListItemResponse[] = results.map((result) => this.toListItemResponse(result, codeByGroup));
+    const items: ListItemResponse[] = results.map((result) =>
+      this.toListItemResponse(result, codeByGroup, extraMetrics)
+    );
 
     // Calculate total pages
     const totalPages = Math.ceil(total / limit);
@@ -190,9 +195,10 @@ export class ListService {
       return data;
     }
 
+    const extraMetrics = ListService.extraMetrics(groupBy);
     const [results, codeByGroup] = await Promise.all([
       this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-        metrics: BALANCE_METRICS,
+        metrics: [...BALANCE_METRICS, ...extraMetrics],
         currentPeriodFilters: filters,
         groupBy,
         limit: EXPORT_ROW_HARD_CAP + 1,
@@ -207,7 +213,7 @@ export class ListService {
       throw new ExportTooLargeError(results.length);
     }
 
-    return results.map((result) => this.toListItemResponse(result, codeByGroup));
+    return results.map((result) => this.toListItemResponse(result, codeByGroup, extraMetrics));
   }
 
   /**
@@ -547,6 +553,15 @@ export class ListService {
   }
 
   /**
+   * Base metrics queried (and returned) on top of BALANCE_METRICS: product
+   * listings add units and cost, from which units_total and
+   * avg_unit_cost(_total) are calculated. Purely additive to the response.
+   */
+  private static extraMetrics(groupBy: string): readonly MetricConfig[] {
+    return groupBy === 'product_id' ? PRODUCT_UNIT_METRICS : [];
+  }
+
+  /**
    * When grouping by product, resolve each product_id to its item code (IdItem)
    * so the listing can show the internal code sellers recognise next to the SKU.
    * Returns undefined for non-product groupings (no code column is shown).
@@ -570,7 +585,8 @@ export class ListService {
    */
   private toListItemResponse(
     result: Record<string, number | string>,
-    codeByGroup?: Map<string, string>
+    codeByGroup?: Map<string, string>,
+    extraMetrics: readonly MetricConfig[] = []
   ): ListItemResponse {
     const rawId = result['id']?.toString() ?? '';
     const id = rawId.trim() === '' ? 'Sin Determinar' : rawId;
@@ -590,7 +606,64 @@ export class ListService {
       id,
       name,
       ...(code ? { code } : {}),
-      ...buildDynamicResponse(numericResult),
+      ...buildDynamicResponse(numericResult, extraMetrics),
     } as unknown as ListItemResponse;
   }
+
+  /**
+   * Estado figures for every seller in scope (sellers with sales in the last 12
+   * months under the request filters, e.g. a director's regionals). Each row is
+   * the exact getSellerStatus of that seller, so a cell always matches the
+   * client detail it opens. Cached briefly: the Estado windows only move daily.
+   */
+  async getSellerStatusBySeller(params: { filters: FilterCondition[] }): Promise<SellerStatusBySeller> {
+    const baseFilters = params.filters.filter((f) => f.field !== 'date');
+    const cacheKey = JSON.stringify(baseFilters);
+    const cached = ListService.bySellerCache.get(cacheKey);
+    if (cached && cached.expires > Date.now()) return cached.rows;
+
+    const now = new Date();
+    const from = new Date(now);
+    from.setMonth(from.getMonth() - 12);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const last12m: FilterCondition[] = [
+      ...baseFilters,
+      { field: 'date', operator: 'gte', value: iso(from) },
+      { field: 'date', operator: 'lte', value: iso(now) },
+    ];
+    const [sellers, names] = await Promise.all([
+      this.analyticsBuilder.buildGroupedDistinctCountQuery({
+        sources: [{ table: 'transactions', field: 'customer_id' }],
+        filters: last12m,
+        groupBy: 'seller_id',
+      }),
+      this.analyticsBuilder.buildGroupedAttributeQuery({
+        table: 'transactions',
+        attribute: 'seller_name',
+        filters: last12m,
+        groupBy: 'seller_id',
+      }),
+    ]);
+
+    const ids = [...sellers.keys()].filter(Boolean);
+    const rows: SellerStatusBySeller = [];
+    // Bounded concurrency: each seller status runs several ClickHouse queries.
+    for (let i = 0; i < ids.length; i += ListService.BY_SELLER_CONCURRENCY) {
+      const batch = ids.slice(i, i + ListService.BY_SELLER_CONCURRENCY);
+      const statuses = await Promise.all(
+        batch.map((id) =>
+          this.getSellerStatus({ groupBy: 'customer_id', filters: [...baseFilters, { field: 'seller_id', operator: 'eq', value: id }] })
+        )
+      );
+      batch.forEach((id, index) => rows.push({ seller_id: id, seller_name: names.get(id) ?? id, ...statuses[index]! }));
+    }
+    rows.sort((a, b) => a.seller_name.localeCompare(b.seller_name));
+
+    ListService.bySellerCache.set(cacheKey, { rows, expires: Date.now() + ListService.BY_SELLER_TTL_MS });
+    return rows;
+  }
+
+  private static readonly BY_SELLER_CONCURRENCY = 16;
+  private static readonly BY_SELLER_TTL_MS = 10 * 60 * 1000;
+  private static readonly bySellerCache = new Map<string, { rows: SellerStatusBySeller; expires: number }>();
 }

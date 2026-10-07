@@ -128,6 +128,62 @@ export const marginBudgetCellRenderer: CellRenderer = (_data, config, value) => 
   );
 };
 
+const emptyCell = (
+  <div className="px-4 text-right py-2.5">
+    <div className="text-[13px] text-zinc-400">-</div>
+  </div>
+);
+
+interface EvolutionValue {
+  current: number;
+  /** Comparison period value; without it the cell shows the current value only. */
+  previous?: number;
+}
+
+/** Value + year-over-year evolution, with the same colors and thresholds as the sales cell. */
+function evolutionCell(config: Parameters<CellRenderer>[1], value: EvolutionValue, currency: boolean) {
+  const { current, previous } = value;
+  const variation = previous != null && previous > 0 ? ((current - previous) / previous) * 100 : NaN;
+  const varFinite = Number.isFinite(variation);
+  const varColor = varFinite ? getVariationColor(variation, config.thresholds!) : null;
+  const arrow = varFinite ? (variation > 0 ? '↑' : variation < 0 ? '↓' : '') : '';
+  const money = (v: number) => (currency ? `${config.currency} ${formatNumber(v, config.locale)}` : formatNumber(v, config.locale));
+
+  return (
+    <div className="px-4 text-right py-2.5">
+      <div className="text-[13px] text-zinc-900">
+        {currency && <span className="text-[11px] text-zinc-500">{config.currency} </span>}
+        <span className="font-semibold">{formatNumber(current, config.locale)}</span>
+        {previous != null && (
+          <>
+            {' '}
+            <span className="text-[11px] font-semibold" style={{ color: varFinite ? varColor!.text : '#64748b' }}>
+              {varFinite ? `${arrow} ${formatPercent(Math.abs(variation), config.locale, 2)}%` : 'N/A'}
+            </span>
+          </>
+        )}
+      </div>
+      {previous != null && (
+        <div className="text-[11px] text-zinc-400 mt-1">
+          {config.previousYear}: {previous > 0 ? money(previous) : '-'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Units cell (integer + evolution); dash when the row carries no units
+export const unitsCellRenderer: CellRenderer = (_data, config, value) => {
+  if (value == null) return emptyCell;
+  return evolutionCell(config, value, false);
+};
+
+// Per-unit amount (average price or cost: currency + evolution); dash without units to divide by
+export const unitAmountCellRenderer: CellRenderer = (data, config, value) => {
+  if (value == null || !data.units?.current) return emptyCell;
+  return evolutionCell(config, value, true);
+};
+
 // Simple text cell
 export const textCellRenderer: CellRenderer = (_data, _config, value) => {
   return (

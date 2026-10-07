@@ -36,3 +36,22 @@ export function useSellerStatus() {
     queryFn: () => apiClient<SellerStatus>(`/api/list/seller-status?${q.toString()}`),
   });
 }
+
+export interface SellerStatusRow extends SellerStatus {
+  seller_id: string;
+  seller_name: string;
+}
+
+/** Estado figures per seller in the user's scope (directors, admin, management). */
+export function useSellersStatus(enabled: boolean) {
+  const mergedFilters = useMergedFilters();
+
+  const q = new URLSearchParams();
+  appendFilterParams(q, mergedFilters);
+
+  return useQuery({
+    queryKey: ['sellers-status', q.toString()],
+    queryFn: () => apiClient<SellerStatusRow[]>(`/api/list/seller-status/by-seller?${q.toString()}`),
+    enabled,
+  });
+}

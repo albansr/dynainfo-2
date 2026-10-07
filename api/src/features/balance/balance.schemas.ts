@@ -16,6 +16,7 @@ export const BalanceQueryStringSchema = Type.Object(
     startDate: Type.Optional(DateStringSchema),
     endDate: Type.Optional(DateStringSchema),
     facturadoOnly: Type.Optional(Type.Boolean({ description: 'Closed period: exclude comprometido from budget-relative metrics' })),
+    includeUnits: Type.Optional(Type.Boolean({ description: 'Also return units and average unit cost (opt-in, product listings)' })),
   },
   {
     additionalProperties: true,
@@ -79,3 +80,52 @@ export function parseQueryParamsToFilters(params: BalanceQueryParams): FilterCon
 
   return filters;
 }
+
+/**
+ * Read a boolean flag from the query (e.g. facturadoOnly: closed periods leave
+ * comprometido out). Accepts the boolean or its query-string form.
+ */
+export function parseBooleanParam(query: Record<string, unknown>, name: string): boolean {
+  return query[name] === true || query[name] === 'true';
+}
+
+/**
+ * Query parameters for the reach block and its "clientes sin compra" detail.
+ * The period is required: "sin compra" is measured against the 12 months
+ * before it. Accepts dynamic filters like /balance.
+ */
+export const BalanceReachQueryStringSchema = Type.Object(
+  {
+    startDate: DateStringSchema,
+    endDate: DateStringSchema,
+    facturadoOnly: Type.Optional(Type.Boolean({ description: 'Closed period: count invoiced sales only' })),
+  },
+  { additionalProperties: true }
+);
+
+export type BalanceReachQueryString = Static<typeof BalanceReachQueryStringSchema>;
+
+/** Same as the reach query plus the Excel presentation labels (reserved in the filter parser). */
+export const BalanceSinCompraExportQueryStringSchema = Type.Object(
+  {
+    startDate: DateStringSchema,
+    endDate: DateStringSchema,
+    facturadoOnly: Type.Optional(Type.Boolean()),
+    reportTitle: Type.Optional(Type.String()),
+    periodLabel: Type.Optional(Type.String()),
+    generatedLabel: Type.Optional(Type.String()),
+    filename: Type.Optional(Type.String()),
+  },
+  { additionalProperties: true }
+);
+
+/** Reach block: Items, Numérica and Clientes sin compra for the period. */
+export const BalanceReachSchema = Type.Object({
+  productos_unicos: Type.Number({ description: 'Items: distinct products sold in the period' }),
+  clientes_unicos: Type.Number({ description: 'Numérica: distinct customers who bought in the period' }),
+  clientes_sin_compra: Type.Number({
+    description: 'Customers who bought in the 12 months before the period and have not bought in it',
+  }),
+});
+
+export type BalanceReach = Static<typeof BalanceReachSchema>;

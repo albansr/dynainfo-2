@@ -77,6 +77,42 @@ export const BALANCE_METRICS = [
   // },
 ] as const satisfies readonly MetricConfig[];
 
+/**
+ * Units and cost metrics, only meaningful (and only queried) when listing
+ * products. Kept out of BALANCE_METRICS so every other balance/list query does
+ * not pay for them. Pending orders (comprometido) carry their quantity in
+ * `cantidadComprometida`: it is the quantity their `sales_price` is priced on
+ * (implied unit price matches invoiced sales), in the same unit as
+ * `transactions.units`; `cantidadProcesada` stays 0 until an order is invoiced.
+ * `cost_price` is a line total in both tables.
+ */
+export const PRODUCT_UNIT_METRICS = [
+  {
+    table: 'transactions',
+    field: 'units',
+    aggregation: 'sum',
+    alias: 'units',
+  },
+  {
+    table: 'transactions',
+    field: 'cost_price',
+    aggregation: 'sum',
+    alias: 'cost',
+  },
+  {
+    table: 'pedidos_retenidos',
+    field: 'cantidadComprometida',
+    aggregation: 'sum',
+    alias: 'orders_units',
+  },
+  {
+    table: 'pedidos_retenidos',
+    field: 'cost_price',
+    aggregation: 'sum',
+    alias: 'orders_cost',
+  },
+] as const satisfies readonly MetricConfig[];
+
 // ============ CALCULATED METRICS CONFIGURATION ============
 
 /**
@@ -190,6 +226,75 @@ export const CALCULATED_METRICS = [
     description: 'YoY variance % for total ventas',
     dependencies: ['sales_total', 'sales_total_last_year'],
     formula: 'if({sales_total_last_year} > 0, (({sales_total} - {sales_total_last_year}) / {sales_total_last_year}) * 100, NULL)',
+  },
+  {
+    // Product listings only (needs PRODUCT_UNIT_METRICS). Mirrors sales_total:
+    // facturado + comprometido; closed periods read `units` instead.
+    name: 'units_total',
+    description: 'Total units (facturado + comprometido)',
+    dependencies: ['units', 'orders_units'],
+    formula: '{units} + {orders_units}',
+  },
+  {
+    // Average cost per invoiced unit (pairs with `sales` / `units`).
+    name: 'avg_unit_cost',
+    description: 'Average cost per unit, facturado only',
+    dependencies: ['cost', 'units'],
+    formula: 'if({units} != 0, {cost} / {units}, 0)',
+  },
+  {
+    // Average cost per unit over facturado + comprometido (pairs with
+    // `sales_total` / `units_total`).
+    name: 'avg_unit_cost_total',
+    description: 'Average cost per unit (facturado + comprometido)',
+    dependencies: ['cost', 'orders_cost', 'units', 'orders_units'],
+    formula: 'if(({units} + {orders_units}) != 0, ({cost} + {orders_cost}) / ({units} + {orders_units}), 0)',
+  },
+  {
+    // Average selling price per invoiced unit (pairs with `sales` / `units`).
+    name: 'avg_unit_price',
+    description: 'Average price per unit, facturado only',
+    dependencies: ['sales', 'units'],
+    formula: 'if({units} != 0, {sales} / {units}, 0)',
+  },
+  {
+    // Average selling price per unit over facturado + comprometido (pairs with `sales_total` / `units_total`).
+    name: 'avg_unit_price_total',
+    description: 'Average price per unit (facturado + comprometido)',
+    dependencies: ['sales', 'orders', 'units', 'orders_units'],
+    formula: 'if(({units} + {orders_units}) != 0, ({sales} + {orders}) / ({units} + {orders_units}), 0)',
+  },
+  {
+    name: 'avg_unit_price_last_year',
+    description: 'Average price per unit last year, facturado only',
+    dependencies: ['sales_last_year', 'units_last_year'],
+    formula: 'if({units_last_year} != 0, {sales_last_year} / {units_last_year}, 0)',
+  },
+  {
+    name: 'avg_unit_price_total_last_year',
+    description: 'Average price per unit last year (facturado + comprometido)',
+    dependencies: ['sales_last_year', 'orders_last_year', 'units_last_year', 'orders_units_last_year'],
+    formula: 'if(({units_last_year} + {orders_units_last_year}) != 0, ({sales_last_year} + {orders_last_year}) / ({units_last_year} + {orders_units_last_year}), 0)',
+  },
+  {
+    // Same as units_total over the comparison period (evolution in product listings).
+    name: 'units_total_last_year',
+    description: 'Total units last year (facturado + comprometido)',
+    dependencies: ['units_last_year', 'orders_units_last_year'],
+    formula: '{units_last_year} + {orders_units_last_year}',
+  },
+  {
+    // 0 without a base (not NULL): extra list fields are serialized as plain numbers.
+    name: 'avg_unit_cost_last_year',
+    description: 'Average cost per unit last year, facturado only',
+    dependencies: ['cost_last_year', 'units_last_year'],
+    formula: 'if({units_last_year} != 0, {cost_last_year} / {units_last_year}, 0)',
+  },
+  {
+    name: 'avg_unit_cost_total_last_year',
+    description: 'Average cost per unit last year (facturado + comprometido)',
+    dependencies: ['cost_last_year', 'orders_cost_last_year', 'units_last_year', 'orders_units_last_year'],
+    formula: 'if(({units_last_year} + {orders_units_last_year}) != 0, ({cost_last_year} + {orders_cost_last_year}) / ({units_last_year} + {orders_units_last_year}), 0)',
   },
   // Add more calculated metrics here as needed
   // Example:

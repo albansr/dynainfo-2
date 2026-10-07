@@ -44,12 +44,24 @@ export function ChangelogEntryCard({ entry }: { entry: ChangelogEntry }) {
               <Chip size="sm" variant="flat" color={color} className="w-fit">
                 {label}
               </Chip>
-              <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-default-700">
-                {group.items.map((item) => (
-                  <li key={item}>
-                    <RichItem text={item} />
-                  </li>
-                ))}
+              <ul className="flex list-disc flex-col gap-9 pl-5 text-sm text-default-700">
+                {group.items.map((item) => {
+                  const text = typeof item === 'string' ? item : item.text;
+                  const image = typeof item === 'string' ? undefined : item.image;
+                  return (
+                    <li key={text}>
+                      <RichItem text={text} />
+                      {image && (
+                        <img
+                          src={image.src}
+                          alt={image.alt}
+                          loading="lazy"
+                          className="mt-3 h-auto w-full max-w-md rounded-md border border-default-200"
+                        />
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           );

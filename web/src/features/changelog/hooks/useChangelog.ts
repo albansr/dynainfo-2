@@ -3,6 +3,9 @@ import { apiClient } from '@/core/api/client';
 
 export type ChangelogCategory = 'nuevo' | 'mejorado' | 'corregido';
 
+/** A change: plain text, or text with its own small mockup. */
+export type ChangelogItem = string | { text: string; image?: { src: string; alt: string } };
+
 /** A published Novedades entry, as served by GET /api/changelog/entries (newest first). */
 export interface ChangelogEntry {
   id: string;
@@ -10,7 +13,7 @@ export interface ChangelogEntry {
   title: string;
   summary?: string;
   image?: { src: string; alt: string };
-  changes: { category: ChangelogCategory; items: string[] }[];
+  changes: { category: ChangelogCategory; items: ChangelogItem[] }[];
 }
 
 /** Public Novedades entries. No session needed. */

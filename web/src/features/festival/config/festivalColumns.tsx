@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { RegionalData, TableConfig } from '@/core/components/RegionalTable';
 import type { ColumnDefinition } from '@/core/components/RegionalTable/config/types';
+import { getProductUnitColumns } from '@/core/components/RegionalTable/config/columns';
 import { formatCurrency, formatPercentage } from '@/core/utils/formatters';
 import type { FestivalListRow } from '../hooks/useFestivalBalance';
 
@@ -21,6 +22,7 @@ import type { FestivalListRow } from '../hooks/useFestivalBalance';
  *   sales.variation → numérica (clientes únicos)
  *   margin.variation → items (productos únicos)
  *   retained.variation → clientes sin compra (activos del año sin compra en el festival)
+ *   units           → unidades y costo promedio por unidad (solo productos)
  * `% sobre total` is computed here over the sum of the current listing.
  */
 export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalData[] {
@@ -33,6 +35,16 @@ export function festivalRowsToRegionalData(rows: FestivalListRow[]): RegionalDat
     margin: { current: row.gross_margin_pct, previous: row.cumplimiento_ppto ?? 0, variation: row.productos_unicos, budget: row.presupuesto ?? 0 },
     budget: { amount: row.comprometido, compliance: row.rappel_pct },
     retained: { amount: row.pedido_promedio, compliance: row.margen_rappel_pct, variation: row.clientes_sin_compra },
+    ...(row.units_total != null
+      ? {
+          units: {
+            current: row.units_total,
+            avgCost: row.avg_unit_cost_total ?? 0,
+            // Average price per unit over the same facturado + comprometido scope
+            avgPrice: row.units_total ? row.sales_total / row.units_total : 0,
+          },
+        }
+      : {}),
   }));
 }
 
@@ -187,7 +199,7 @@ export const FESTIVAL_COLUMNS: ColumnDefinition[] = [
 const FESTIVAL_PRODUCT_CODE_COLUMNS: ColumnDefinition[] = [
   {
     id: 'itemCode',
-    header: { label: 'CÓDIGO ITEM', sortable: true, align: 'left', rowSpan: 2 },
+    header: { label: 'CÓD. ITEM', sortable: true, align: 'left', rowSpan: 2 },
     accessor: (d) => d.code ?? d.id,
     cellRenderer: textCell,
     align: 'left',
@@ -234,7 +246,8 @@ const FESTIVAL_BUDGET_COLUMNS: ColumnDefinition[] = [
  * Festival columns with the first column labelled for the current dimension.
  * Budget columns are inserted after VENTAS only when applicable. NUMÉRICA /
  * ITEMS are dropped when grouping by the counted entity itself (a column of
- * 1s carries no information).
+ * 1s carries no information). Product listings add UNIDADES + PRECIO PROMEDIO + COSTO PROMEDIO
+ * after PEDIDO PROMEDIO.
  */
 export function getFestivalColumns(
   firstColLabel: string,
@@ -244,6 +257,7 @@ export function getFestivalColumns(
   const columns = FESTIVAL_COLUMNS.flatMap((c) => {
     if (c.id === 'name' && groupBy === 'product_id') return [...FESTIVAL_PRODUCT_CODE_COLUMNS, c];
     if (c.id === 'sales' && includeBudget) return [c, ...FESTIVAL_BUDGET_COLUMNS];
+    if (c.id === 'pedidoPromedio' && groupBy === 'product_id') return [c, ...getProductUnitColumns()];
     return [c];
   }).filter(
     (c) =>

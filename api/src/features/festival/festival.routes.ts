@@ -27,9 +27,8 @@ import {
 import { buildFestivalExportWorkbook, buildSinCompraExportWorkbook } from './festival.export.workbook.js';
 import { SuccessResponseSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
-import { sanitizeFilename } from '../../core/utils/export-filename.js';
+import { sendXlsx } from '../../core/utils/export-filename.js';
 
-const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /**
  * Fixed filters always applied to the festival, both windows. The festival only
@@ -276,22 +275,14 @@ export function festivalRoutes(
         hideNumerica: groupBy === 'customer_id',
         hideItems: groupBy === 'product_id',
         showProductCode: groupBy === 'product_id',
+        // Units are only computed for product listings; the column pair is opt-in.
+        showUnitColumns: query.showUnitColumns === true && groupBy === 'product_id',
         ...(query.reportTitle && { reportTitle: query.reportTitle }),
         ...(query.periodLabel && { periodLabel: query.periodLabel }),
         ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
       });
 
-      const baseName = sanitizeFilename(query.filename) || `festival-${groupBy ?? 'listado'}`;
-      const asciiName = baseName.replace(/[^\x20-\x7e]+/g, '_');
-      const encodedName = encodeURIComponent(`${baseName}.xlsx`);
-
-      return reply
-        .header('Content-Type', XLSX_MIME)
-        .header(
-          'Content-Disposition',
-          `attachment; filename="${asciiName}.xlsx"; filename*=UTF-8''${encodedName}`
-        )
-        .send(buffer);
+      return sendXlsx(reply, buffer, query.filename, `festival-${groupBy ?? 'listado'}`);
     }
   );
 
@@ -352,17 +343,7 @@ export function festivalRoutes(
         ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
       });
 
-      const baseName = sanitizeFilename(query.filename) || 'festival-clientes-sin-compra';
-      const asciiName = baseName.replace(/[^\x20-\x7e]+/g, '_');
-      const encodedName = encodeURIComponent(`${baseName}.xlsx`);
-
-      return reply
-        .header('Content-Type', XLSX_MIME)
-        .header(
-          'Content-Disposition',
-          `attachment; filename="${asciiName}.xlsx"; filename*=UTF-8''${encodedName}`
-        )
-        .send(buffer);
+      return sendXlsx(reply, buffer, query.filename, 'festival-clientes-sin-compra');
     }
   );
 

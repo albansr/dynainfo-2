@@ -54,6 +54,47 @@ export function getSalesMetric(
   };
 }
 
+export interface UnitMetricSource {
+  units?: number;
+  units_total?: number;
+  avg_unit_cost?: number;
+  avg_unit_cost_total?: number;
+  units_last_year?: number;
+  units_total_last_year?: number;
+  avg_unit_cost_last_year?: number;
+  avg_unit_cost_total_last_year?: number;
+  avg_unit_price?: number;
+  avg_unit_price_total?: number;
+  avg_unit_price_last_year?: number;
+  avg_unit_price_total_last_year?: number;
+}
+
+export interface UnitMetricValues {
+  units: number;
+  unitsLastYear: number;
+  avgCost: number;
+  avgCostLastYear: number;
+  avgPrice: number;
+  avgPriceLastYear: number;
+}
+
+/**
+ * Resolves units and average cost per unit with the same rule as the sales
+ * metric: facturado only on closed periods, facturado + comprometido otherwise,
+ * so they stay consistent with the VENTAS shown in the same row.
+ */
+export function getUnitMetric(source: UnitMetricSource, preset: SalesMetricPreset): UnitMetricValues {
+  const facturadoOnly = usesFacturadoOnly(preset);
+  return {
+    units: (facturadoOnly ? source.units : source.units_total) ?? 0,
+    unitsLastYear: (facturadoOnly ? source.units_last_year : source.units_total_last_year) ?? 0,
+    avgCost: (facturadoOnly ? source.avg_unit_cost : source.avg_unit_cost_total) ?? 0,
+    avgCostLastYear: (facturadoOnly ? source.avg_unit_cost_last_year : source.avg_unit_cost_total_last_year) ?? 0,
+    avgPrice: (facturadoOnly ? source.avg_unit_price : source.avg_unit_price_total) ?? 0,
+    avgPriceLastYear: (facturadoOnly ? source.avg_unit_price_last_year : source.avg_unit_price_total_last_year) ?? 0,
+  };
+}
+
 /**
  * Returns the field name to use for backend ordering (useList.orderBy).
  */

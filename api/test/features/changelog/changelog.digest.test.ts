@@ -107,6 +107,16 @@ describe('changelog digest helpers', () => {
     expect(renderDigestHtml([entry()], links)).not.toContain('<img');
   });
 
+  it('renders a per-item mockup under its text and keeps the text part plain', () => {
+    const withItemImage = entry({
+      changes: [{ category: 'nuevo', items: [{ text: '**Bloque** nuevo', image: { src: '/novedades/x.png', alt: 'Bloque' } }] }],
+    });
+
+    const html = renderDigestHtml([withItemImage], links);
+    expect(html).toContain('<strong>Bloque</strong> nuevo<img src="https://dynainfo.com.co/novedades/x.png" alt="Bloque"');
+    expect(renderDigestText([withItemImage], links)).toContain('- Bloque nuevo');
+  });
+
   describe('renderDigestText', () => {
     it('renders a plain-text part without markdown and with both links', () => {
       const text = renderDigestText([entry()], links);

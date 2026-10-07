@@ -1,17 +1,41 @@
 import type { FastifyInstance } from 'fastify';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
-import { BalanceService } from './balance.service.js';
+import { BalanceService, historyWindow, type ReachWindows } from './balance.service.js';
 import { AnalyticsQueryBuilder } from '../../core/db/clickhouse/query/analytics-query-builder.js';
 import type { DatabaseClient } from '../../core/db/clickhouse/client.js';
 import type { BalanceQueryParams } from './balance.schemas.js';
 import {
   BalanceQueryStringSchema,
   BalanceSheetResponseSchema,
+  BalanceReachQueryStringSchema,
+  BalanceReachSchema,
+  BalanceSinCompraExportQueryStringSchema,
   parseQueryParamsToFilters,
+  parseBooleanParam,
 } from './balance.schemas.js';
+import { FestivalSinCompraSchema } from '../festival/festival.schemas.js';
+import { buildSinCompraExportWorkbook } from '../festival/festival.export.workbook.js';
+import { sendXlsx } from '../../core/utils/export-filename.js';
 import { SuccessResponseSchema, DateStringSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
+
+
+/**
+ * Reach windows from a query: the selected period and the 12 months before it,
+ * both with the same dashboard filters (channel, provider, role scope…).
+ */
+function buildReachWindows(query: { startDate: string; endDate: string } & Record<string, unknown>): ReachWindows {
+  const dynamicFilters = parseDynamicFilters(query);
+  return {
+    periodFilters: combineFilters(
+      dynamicFilters,
+      parseQueryParamsToFilters({ startDate: query.startDate, endDate: query.endDate })
+    ),
+    historyFilters: combineFilters(dynamicFilters, parseQueryParamsToFilters(historyWindow(query.startDate))),
+    facturadoOnly: parseBooleanParam(query, 'facturadoOnly'),
+  };
+}
 
 /**
  * Register balance routes
@@ -70,11 +94,12 @@ export function balanceRoutes(
       const allFilters = combineFilters(dynamicFilters, dateFilters);
 
       // Closed periods (facturadoOnly) exclude comprometido from budget-relative metrics
-      const facturadoOnly = (query as Record<string, unknown>)['facturadoOnly'] === true
-        || (query as Record<string, unknown>)['facturadoOnly'] === 'true';
+      const facturadoOnly = parseBooleanParam(query, 'facturadoOnly');
 
       // Get balance with combined filters
-      const balance = await service.getBalanceSheet({ filters: allFilters, facturadoOnly });
+      // Opt-in: product listings ask for units/cost for their totals row
+      const includeUnits = parseBooleanParam(query, 'includeUnits');
+      const balance = await service.getBalanceSheet({ filters: allFilters, facturadoOnly, includeUnits });
 
       return reply.code(200).send({
         data: balance,
@@ -133,6 +158,80 @@ export function balanceRoutes(
       const series = await service.getBalanceSeries({ filters: allFilters, granularity });
 
       return reply.code(200).send({ data: series });
+    }
+  );
+
+  /**
+   * GET /balance/reach
+   * Reach block for the period: Items, Numérica and Clientes sin compra
+   * (bought in the 12 months before the period, not in it). Same filters as /balance.
+   */
+  server.get(
+    '/balance/reach',
+    {
+      schema: {
+        description: 'Items, Numérica and Clientes sin compra for the period. Supports dynamic filters.',
+        tags: ['balance'],
+        querystring: BalanceReachQueryStringSchema,
+        response: {
+          200: SuccessResponseSchema(BalanceReachSchema),
+        },
+      },
+    },
+    async (request, reply) => {
+      const reach = await service.getReach(buildReachWindows(request.query));
+      return reply.code(200).send({ data: reach });
+    }
+  );
+
+  /**
+   * GET /balance/sin-compra
+   * Detail of the Clientes sin compra count, with each customer's latest seller.
+   */
+  server.get(
+    '/balance/sin-compra',
+    {
+      schema: {
+        description: 'Customers who bought in the 12 months before the period and not in it, with their latest seller.',
+        tags: ['balance'],
+        querystring: BalanceReachQueryStringSchema,
+        response: {
+          200: SuccessResponseSchema(FestivalSinCompraSchema),
+        },
+      },
+    },
+    async (request, reply) => {
+      const rows = await service.getSinCompraList(buildReachWindows(request.query));
+      return reply.code(200).send({ data: rows });
+    }
+  );
+
+  /**
+   * GET /balance/sin-compra/export
+   * Same listing as /balance/sin-compra, streamed as a styled Excel file.
+   */
+  server.get(
+    '/balance/sin-compra/export',
+    {
+      schema: {
+        description: 'Export the analysis clientes-sin-compra listing as a styled Excel file.',
+        tags: ['balance'],
+        querystring: BalanceSinCompraExportQueryStringSchema,
+        // NOTE: no response schema — the handler sends a raw xlsx Buffer.
+      },
+    },
+    async (request, reply) => {
+      const query = request.query;
+      const rows = await service.getSinCompraList(buildReachWindows(query));
+      const buffer = await buildSinCompraExportWorkbook({
+        rows,
+        periodCaption: 'Periodo',
+        ...(query.reportTitle && { reportTitle: query.reportTitle }),
+        ...(query.periodLabel && { periodLabel: query.periodLabel }),
+        ...(query.generatedLabel && { generatedLabel: query.generatedLabel }),
+      });
+
+      return sendXlsx(reply, buffer, query.filename, 'clientes-sin-compra');
     }
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { startOfMonth, subMonths } from 'date-fns';
 import { Button } from '@heroui/react';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -85,6 +85,11 @@ export function EstadoDetailPage() {
   const { preset = '' } = useParams();
   const navigate = useNavigate();
   const view = PRESET_VIEWS[preset];
+  // Team roles open a seller's clients from the Estado sellers table (?seller=&sellerName=)
+  const [searchParams] = useSearchParams();
+  const sellerId = searchParams.get('seller');
+  const sellerName = searchParams.get('sellerName');
+  const sellerFilters = useMemo(() => (sellerId ? { seller_id: sellerId } : undefined), [sellerId]);
 
   // Most details pin their criterion's fixed rolling window; peso keeps the global
   // temporality selector (its roster is fixed to 12 months server-side).
@@ -97,7 +102,7 @@ export function EstadoDetailPage() {
   return (
     <div>
       <PageHeader
-        title={view?.title ?? 'Clientes'}
+        title={sellerName ? `${view?.title ?? 'Clientes'} · ${sellerName}` : (view?.title ?? 'Clientes')}
         showDateFilter={!!view?.temporality}
         subtitle={view?.subtitle ?? ''}
       />
@@ -119,6 +124,7 @@ export function EstadoDetailPage() {
       ) : (
         <AnalyticsListSection
           groupBy="customer_id"
+          {...(sellerFilters ? { filters: sellerFilters } : {})}
           customerPreset={view.customerPreset}
           dateOverride={dateOverride}
           reportTitle={view.title}
