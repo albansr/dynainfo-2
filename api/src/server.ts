@@ -18,6 +18,8 @@ import { qube6Routes } from './features/qube6/qube6.routes.js';
 import { festivalRoutes } from './features/festival/festival.routes.js';
 import { authRoutes } from './features/auth/auth.routes.js';
 import { usersRoutes } from './features/users/users.routes.js';
+import { changelogRoutes } from './features/changelog/changelog.routes.js';
+import { startDigestScheduler } from './features/changelog/changelog.digest.job.js';
 import { getEnvConfig } from './core/config/env.js';
 import { setupErrorHandler } from './core/errors/error-handler.js';
 import {
@@ -157,6 +159,7 @@ async function buildServer() {
         { name: 'balance', description: 'Balance sheet endpoints' },
         { name: 'list', description: 'List endpoints' },
         { name: 'labels', description: 'Column values endpoints' },
+        { name: 'changelog', description: 'Public Novedades page and email subscription' },
         { name: 'health', description: 'Health check endpoints' },
       ],
     },
@@ -292,6 +295,17 @@ async function buildServer() {
     },
     { prefix: '/api' }
   );
+  // Public (no session) and in its own plugin: it adds a form-body parser for
+  // one-click unsubscribe that must not leak into the rest of /api
+  await fastify.register(changelogRoutes, { prefix: '/api' });
+
+  if (config.CHANGELOG_DIGEST_ENABLED) {
+    const stopDigestScheduler = startDigestScheduler();
+    fastify.addHook('onClose', (_instance, done) => {
+      stopDigestScheduler();
+      done();
+    });
+  }
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

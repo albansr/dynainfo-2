@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { db } from '../../db/postgres/client.js';
 import { users, session as sessionTable } from '../../db/postgres/schema.js';
 import { eq } from 'drizzle-orm';
+import { primaryWebOrigin } from '../../config/web-origin.js';
 
 interface DynaJWTPayload {
   uid: string;
@@ -155,16 +156,9 @@ export const dynaSSO = (): BetterAuthPlugin => {
               },
             });
 
-            // 5. Redirect to dashboard. ORIGIN_URL may carry several comma-separated
-            // origins (production + preview); use the first (production) one so the
-            // redirect target stays a single valid URL.
-            const primaryOrigin = process.env['ORIGIN_URL']
-              ?.split(',')[0]
-              ?.trim();
-            const redirectUrl =
-              process.env['NODE_ENV'] === 'production'
-                ? `${primaryOrigin}/dashboard`
-                : 'http://localhost:4000/dashboard';
+            // 5. Redirect to dashboard on the primary (production) web origin, so
+            // the redirect target stays a single valid URL.
+            const redirectUrl = `${primaryWebOrigin()}/dashboard`;
 
             return new Response(null, {
               status: 302,

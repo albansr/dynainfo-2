@@ -81,6 +81,14 @@ const envSchema = z.object({
 
   // Optional table prefix
   TABLE_PREFIX: z.string().optional().default(''),
+
+  // Daily Novedades digest scheduler. Off unless explicitly enabled, so a local
+  // stack with a real RESEND_API_KEY never emails subscribers by accident.
+  CHANGELOG_DIGEST_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .default('false')
+    .transform((val) => val === 'true'),
 });
 
 /**

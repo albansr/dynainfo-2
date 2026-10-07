@@ -16,6 +16,7 @@ The detailed rules live in **`.claude/rules/`** — they are mandatory:
 | [`testing.md`](rules/testing.md) | Vitest (API), mocking external systems, principles first |
 | [`git.md`](rules/git.md) | Branch naming, commit rules (no "fix", no AI attribution, never push), PRs against `dev` |
 | [`docs.md`](rules/docs.md) | PRD/TDD conventions + the `/feature` → `/implement` flow |
+| [`changelog.md`](rules/changelog.md) | Novedades: entries in code, public subscription, daily digest from the API (every user-facing change ships an entry) |
 
 ## Tech Stack
 
@@ -29,7 +30,7 @@ dynainfo-2/
 ├── api/                    # Fastify API (port 5002; /docs, /health)
 │   └── src/
 │       ├── core/          # auth (Better Auth + Dyna SSO), db (postgres/clickhouse), config, errors, utils
-│       ├── features/      # auth, balance, festival, labels, list, qube6, users (service + routes + schemas)
+│       ├── features/      # auth, balance, changelog, festival, labels, list, qube6, users (service + routes + schemas)
 │       └── server.ts
 ├── web/                    # React + Vite (port 4000)
 │   └── src/
