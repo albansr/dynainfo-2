@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { SelectItem, Input, Button, Chip } from '@heroui/react';
+import { SelectItem, Input, Chip } from '@heroui/react';
 import { AppSelect } from '@/core/components/AppSelect';
 import { PageHeader } from '@/core/components/PageHeader';
 import { useAuthStore } from '@/core/store/authStore';
@@ -25,10 +25,10 @@ function DemoRoleSwitcher() {
   const needsGroup = role === 'DISTRIBUTION';
   const needsSeller = role === 'SELLER';
 
-  const apply = () => {
-    const nextScope = needsGroup || needsSeller ? scope.trim() || null : null;
-    setDemoRole(role, nextScope);
-    toast.success(`Rol de demo aplicado: ${DEMO_ROLES.find((r) => r.value === role)?.label ?? role}`);
+  const apply = (nextRole: string, nextScope: string) => {
+    const scoped = nextRole === 'DISTRIBUTION' || nextRole === 'SELLER';
+    setDemoRole(nextRole, scoped ? nextScope.trim() || null : null);
+    toast.success(`Rol de demo aplicado: ${DEMO_ROLES.find((r) => r.value === nextRole)?.label ?? nextRole}`);
   };
 
   return (
@@ -49,7 +49,7 @@ function DemoRoleSwitcher() {
           selectedKeys={[role]}
           onSelectionChange={(keys) => {
             const v = Array.from(keys)[0] as string;
-            if (v) { setRole(v); setScope(''); }
+            if (v) { setRole(v); setScope(''); apply(v, ''); }
           }}
         >
           {DEMO_ROLES.map((r) => (
@@ -62,7 +62,11 @@ function DemoRoleSwitcher() {
             label="Grupo regional"
             className="max-w-xs"
             selectedKeys={scope ? [scope] : []}
-            onSelectionChange={(keys) => setScope((Array.from(keys)[0] as string) ?? '')}
+            onSelectionChange={(keys) => {
+              const g = (Array.from(keys)[0] as string) ?? '';
+              setScope(g);
+              apply(role, g);
+            }}
           >
             {Object.keys(REGIONAL_GROUPS).map((g) => (
               <SelectItem key={g}>{`Grupo ${g} (${REGIONAL_GROUPS[g]!.join(', ')})`}</SelectItem>
@@ -78,10 +82,10 @@ function DemoRoleSwitcher() {
             placeholder="Código de vendedor"
             value={scope}
             onValueChange={setScope}
+            onBlur={() => apply(role, scope)}
+            onKeyDown={(e) => { if (e.key === 'Enter') apply(role, scope); }}
           />
         )}
-
-        <Button color="primary" onPress={apply}>Aplicar rol</Button>
       </div>
 
       <p className="text-xs text-zinc-400 mt-3">

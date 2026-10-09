@@ -146,6 +146,23 @@ describe('Balance Routes', () => {
       expect(mockGetBalanceSheet).toHaveBeenCalledWith({ filters: [] });
     });
 
+    it('expands the virtual brand_group bucket into real provider filters', async () => {
+      mockGetBalanceSheet.mockResolvedValue({});
+
+      await app.inject({ method: 'GET', url: '/balance?brand_group=exclusivas' });
+      await app.inject({ method: 'GET', url: '/balance?brand_group=aliadas' });
+
+      expect(mockGetBalanceSheet).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        filters: [{ field: 'ProveedorComercial', operator: 'in', value: ['VERA', 'FORTE'] }],
+      }));
+      expect(mockGetBalanceSheet).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        filters: [
+          { field: 'ProveedorComercial', operator: 'neq', value: 'VERA' },
+          { field: 'ProveedorComercial', operator: 'neq', value: 'FORTE' },
+        ],
+      }));
+    });
+
     it('should return 500 on service error', async () => {
       mockGetBalanceSheet.mockRejectedValue(new Error('Database connection failed'));
 
