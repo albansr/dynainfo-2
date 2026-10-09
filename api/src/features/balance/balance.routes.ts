@@ -19,14 +19,24 @@ import { buildSinCompraExportWorkbook } from '../festival/festival.export.workbo
 import { sendXlsx } from '../../core/utils/export-filename.js';
 import { SuccessResponseSchema, DateStringSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
+import { expandBrandGroupFilters } from '../../core/config/brand-groups.config.js';
 
+
+/**
+ * Dynamic filters from a query, with the virtual `brand_group` bucket (set when
+ * drilling into Marcas Exclusivas / Aliadas) expanded into real provider
+ * conditions — the metric tables have no `brand_group` column.
+ */
+function parseBalanceFilters(query: Record<string, unknown>) {
+  return expandBrandGroupFilters(parseDynamicFilters(query));
+}
 
 /**
  * Reach windows from a query: the selected period and the 12 months before it,
  * both with the same dashboard filters (channel, provider, role scope…).
  */
 function buildReachWindows(query: { startDate: string; endDate: string } & Record<string, unknown>): ReachWindows {
-  const dynamicFilters = parseDynamicFilters(query);
+  const dynamicFilters = parseBalanceFilters(query);
   return {
     periodFilters: combineFilters(
       dynamicFilters,
@@ -88,7 +98,7 @@ export function balanceRoutes(
       const dateFilters = parseQueryParamsToFilters(params);
 
       // Parse dynamic filters from all other query params
-      const dynamicFilters = parseDynamicFilters(query);
+      const dynamicFilters = parseBalanceFilters(query);
 
       // Combine all filters
       const allFilters = combineFilters(dynamicFilters, dateFilters);
@@ -152,7 +162,7 @@ export function balanceRoutes(
       if (query['startDate']) params.startDate = String(query['startDate']);
       if (query['endDate']) params.endDate = String(query['endDate']);
       const dateFilters = parseQueryParamsToFilters(params);
-      const dynamicFilters = parseDynamicFilters(query);
+      const dynamicFilters = parseBalanceFilters(query);
       const allFilters = combineFilters(dynamicFilters, dateFilters);
 
       const series = await service.getBalanceSeries({ filters: allFilters, granularity });
