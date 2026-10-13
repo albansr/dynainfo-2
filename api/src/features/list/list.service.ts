@@ -296,29 +296,46 @@ export class ListService {
     filters: FilterCondition[],
     facturadoOnly: boolean
   ): Promise<{ kept: Array<Record<string, number | string>>; totalSales: number }> {
-    const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
+    return ListService.paretoKept(await this.customerRows(filters, facturadoOnly));
+  }
+
+  /**
+   * Customers (sales desc) with BALANCE_METRICS and their YoY variation, over
+   * the full grouped result. With `partitionBy`, one row per (partition,
+   * customer) in a single query — the same rows as one call per partition value.
+   */
+  private customerRows(
+    filters: FilterCondition[],
+    facturadoOnly: boolean,
+    partitionBy?: string
+  ): Promise<Array<Record<string, number | string>>> {
+    return this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
       metrics: BALANCE_METRICS,
       currentPeriodFilters: filters,
       groupBy: 'customer_id',
-      limit: EXPORT_ROW_HARD_CAP,
+      ...(partitionBy ? { partitionBy } : { limit: EXPORT_ROW_HARD_CAP }),
       orderBy: 'sales_total',
       orderDirection: 'desc',
       facturadoOnly,
     });
+  }
 
-    const salesOf = (row: Record<string, number | string>): number =>
-      typeof row['sales_total'] === 'number' ? row['sales_total'] : 0;
-    const totalSales = rows.reduce((sum, row) => sum + salesOf(row), 0);
+  /**
+   * Pareto cut over customers sorted by sales desc: keep them until their
+   * cumulative sales reach PESO_SALES_SHARE of the total. With no sales at
+   * all, keep nothing.
+   */
+  private static paretoKept(
+    rows: Array<Record<string, number | string>>
+  ): { kept: Array<Record<string, number | string>>; totalSales: number } {
+    const totalSales = rows.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
     const threshold = totalSales * PESO_SALES_SHARE;
-
-    // Keep the sales-desc clients until their cumulative sales reach the
-    // threshold. With no sales at all, keep nothing.
     const kept: Array<Record<string, number | string>> = [];
     let cumulative = 0;
     for (const row of rows) {
       if (totalSales <= 0) break;
       kept.push(row);
-      cumulative += salesOf(row);
+      cumulative += ListService.numField(row, 'sales_total');
       if (cumulative >= threshold) break;
     }
     return { kept, totalSales };
@@ -467,32 +484,26 @@ export class ListService {
     const now = new Date();
     const start = new Date(now);
     start.setMonth(start.getMonth() - monthsBack);
-    const fmt = (d: Date): string =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return [
-      { field: 'date', operator: 'gte', value: fmt(start) },
-      { field: 'date', operator: 'lte', value: fmt(now) },
+      { field: 'date', operator: 'gte', value: ListService.localDate(start) },
+      { field: 'date', operator: 'lte', value: ListService.localDate(now) },
     ];
   }
 
+  /** YYYY-MM-DD in local time. */
+  private static localDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   /**
-   * Aggregate a classification lens over its window: clients (grouped) matching
+   * Aggregate a classification lens over its customer rows: clients matching
    * the evolution direction, with their billing and sales-weighted margin. Used
    * for the Estado riesgo (declining) and promesa (growing) cards.
    */
-  private async getClassificationStat(
-    filters: FilterCondition[],
+  private static classificationStat(
+    rows: Array<Record<string, number | string>>,
     evolution: 'declining' | 'growing'
-  ): Promise<{ count: number; sales: number; marginPct: number }> {
-    const rows = await this.analyticsBuilder.buildGroupedMultiTableYoYQuery({
-      metrics: BALANCE_METRICS,
-      currentPeriodFilters: filters,
-      groupBy: 'customer_id',
-      limit: EXPORT_ROW_HARD_CAP,
-      orderBy: 'sales_total',
-      orderDirection: 'desc',
-      facturadoOnly: false,
-    });
+  ): { count: number; sales: number; marginPct: number } {
     const match = rows.filter((row) => {
       const evo = ListService.numField(row, 'sales_total_vs_last_year');
       return evolution === 'declining' ? evo < 0 : evo > 0;
@@ -500,6 +511,54 @@ export class ListService {
     const sales = match.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
     const margin = match.reduce((sum, row) => sum + ListService.numField(row, 'gross_margin'), 0);
     return { count: match.length, sales, marginPct: sales > 0 ? (margin / sales) * 100 : 0 };
+  }
+
+  /** Estado figures from their raw pieces (counts + the customer rows of each lens). */
+  private static toSellerStatus(parts: {
+    activos: number;
+    sinCompraMes: number;
+    sinCompra: number;
+    riesgoRows: Array<Record<string, number | string>>;
+    promesaRows: Array<Record<string, number | string>>;
+    pesoRows: Array<Record<string, number | string>>;
+  }): SellerStatus {
+    const riesgo = ListService.classificationStat(parts.riesgoRows, 'declining');
+    const promesa = ListService.classificationStat(parts.promesaRows, 'growing');
+    const peso = ListService.paretoKept(parts.pesoRows);
+    // Declining key clients: of the 80%-of-sales set, those down vs last year.
+    const declining = peso.kept.filter((row) => ListService.numField(row, 'sales_total_vs_last_year') < 0);
+    const pesoDecline = declining.reduce(
+      (sum, row) =>
+        sum + Math.max(0, ListService.numField(row, 'sales_total_last_year') - ListService.numField(row, 'sales_total')),
+      0
+    );
+    const decliningSales = declining.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
+    return {
+      numerica: parts.activos - parts.sinCompraMes,
+      activos: parts.activos,
+      sinCompra: parts.sinCompra,
+      riesgo: riesgo.count,
+      riesgoSales: riesgo.sales,
+      riesgoMarginPct: riesgo.marginPct,
+      promesa: promesa.count,
+      promesaSales: promesa.sales,
+      promesaMarginPct: promesa.marginPct,
+      pesoTotal: peso.kept.length,
+      pesoRetrocediendo: declining.length,
+      pesoDecline,
+      pesoDeclineSharePct: peso.totalSales > 0 ? (decliningSales / peso.totalSales) * 100 : 0,
+    };
+  }
+
+  /** The fixed Estado windows (the page ignores the global temporality). */
+  private static estadoWindows(): { currentMonth: FilterCondition[]; last3m: FilterCondition[]; last12m: FilterCondition[] } {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const windowFrom = (start: Date): FilterCondition[] => [
+      { field: 'date', operator: 'gte', value: ListService.localDate(start) },
+      { field: 'date', operator: 'lte', value: ListService.localDate(now) },
+    ];
+    return { currentMonth: windowFrom(monthStart), last3m: ListService.rollingWindow(3), last12m: ListService.rollingWindow(12) };
   }
 
   /**
@@ -520,25 +579,10 @@ export class ListService {
     const requestFilters = params.filters ?? parseQueryParamsToFilters(params);
     // Seller scope (and any non-date filter); the Estado windows are fixed here.
     const baseFilters = requestFilters.filter((f) => f.field !== 'date');
-
-    const now = new Date();
-    const monthsBack = (n: number): Date => {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - n);
-      return d;
-    };
-    const fmt = (d: Date): string =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const windowFrom = (start: Date): FilterCondition[] => [
-      { field: 'date', operator: 'gte', value: fmt(start) },
-      { field: 'date', operator: 'lte', value: fmt(now) },
-    ];
-    const currentMonth = windowFrom(new Date(now.getFullYear(), now.getMonth(), 1));
-    const last3m = windowFrom(monthsBack(3));
-    const last12m = windowFrom(monthsBack(12));
+    const { currentMonth, last3m, last12m } = ListService.estadoWindows();
 
     const masterFilters = masterUniverseFilters(baseFilters);
-    const [activos, sinCompraMes, sinCompra, riesgoStat, promesaStat, peso] = await Promise.all([
+    const [activos, sinCompraMes, sinCompra, riesgoRows, promesaRows, pesoRows] = await Promise.all([
       // Coverage: active customers of the master, and those with no purchase this month.
       this.analyticsBuilder.buildDistinctCountQuery({
         sources: [{ table: CUSTOMER_MASTER_TABLE, field: 'customer_id' }],
@@ -553,35 +597,12 @@ export class ListService {
         universe: { table: 'transactions', field: 'customer_id', filters: baseFilters, within: ACTIVE_CUSTOMERS },
         exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last3m] },
       }),
-      this.getClassificationStat([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], 'declining'),
-      this.getClassificationStat([...baseFilters, ...last12m, ...customerPresetFilters('promesa')], 'growing'),
-      this.computePesoKeptRows([...baseFilters, ...last12m], false),
+      this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], false),
+      this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('promesa')], false),
+      this.customerRows([...baseFilters, ...last12m], false),
     ]);
 
-    // Declining key clients: of the 80%-of-sales set, those down vs last year.
-    const declining = peso.kept.filter((row) => ListService.numField(row, 'sales_total_vs_last_year') < 0);
-    const pesoDecline = declining.reduce(
-      (sum, row) =>
-        sum + Math.max(0, ListService.numField(row, 'sales_total_last_year') - ListService.numField(row, 'sales_total')),
-      0
-    );
-    const decliningSales = declining.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
-
-    return {
-      numerica: activos - sinCompraMes,
-      activos,
-      sinCompra,
-      riesgo: riesgoStat.count,
-      riesgoSales: riesgoStat.sales,
-      riesgoMarginPct: riesgoStat.marginPct,
-      promesa: promesaStat.count,
-      promesaSales: promesaStat.sales,
-      promesaMarginPct: promesaStat.marginPct,
-      pesoTotal: peso.kept.length,
-      pesoRetrocediendo: declining.length,
-      pesoDecline,
-      pesoDeclineSharePct: peso.totalSales > 0 ? (decliningSales / peso.totalSales) * 100 : 0,
-    };
+    return ListService.toSellerStatus({ activos, sinCompraMes, sinCompra, riesgoRows, promesaRows, pesoRows });
   }
 
   /**
@@ -644,11 +665,12 @@ export class ListService {
 
   /**
    * Estado figures for every seller in scope (sellers with sales in the last 12
-   * months under the request filters, e.g. a director's regionals). Each row is
-   * the exact getSellerStatus of that seller, so a cell always matches the
-   * client detail it opens. Cached for hours (per filter set, shared by every
-   * user with the same scope): the Estado windows only move daily and the full
-   * computation takes minutes, so it should run about once per scope per shift.
+   * months under the request filters, e.g. a director's regionals). Each row
+   * equals getSellerStatus of that seller — so a cell always matches the client
+   * detail it opens — but every figure comes from one query grouped (or
+   * partitioned) by seller_id instead of one set of queries per seller.
+   * Cached for hours (per filter set, shared by every user with the same
+   * scope): the Estado windows only move daily.
    */
   async getSellerStatusBySeller(params: { filters: FilterCondition[] }): Promise<SellerStatusBySeller> {
     const baseFilters = params.filters.filter((f) => f.field !== 'date');
@@ -656,48 +678,78 @@ export class ListService {
     const cached = ListService.bySellerCache.get(cacheKey);
     if (cached && cached.expires > Date.now()) return cached.rows;
 
-    const now = new Date();
-    const from = new Date(now);
-    from.setMonth(from.getMonth() - 12);
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    const last12m: FilterCondition[] = [
-      ...baseFilters,
-      { field: 'date', operator: 'gte', value: iso(from) },
-      { field: 'date', operator: 'lte', value: iso(now) },
-    ];
-    const [sellers, names] = await Promise.all([
+    const { currentMonth, last3m, last12m } = ListService.estadoWindows();
+    const masterFilters = masterUniverseFilters(baseFilters);
+    const bySeller = 'seller_id';
+    const [sellers, names, activos, sinCompraMes, sinCompra, riesgoRows, promesaRows, pesoRows] = await Promise.all([
       this.analyticsBuilder.buildGroupedDistinctCountQuery({
         sources: [{ table: 'transactions', field: 'customer_id' }],
-        filters: last12m,
-        groupBy: 'seller_id',
+        filters: [...baseFilters, ...last12m],
+        groupBy: bySeller,
       }),
       this.analyticsBuilder.buildGroupedAttributeQuery({
         table: 'transactions',
         attribute: 'seller_name',
-        filters: last12m,
-        groupBy: 'seller_id',
+        filters: [...baseFilters, ...last12m],
+        groupBy: bySeller,
       }),
+      this.analyticsBuilder.buildGroupedDistinctCountQuery({
+        sources: [{ table: CUSTOMER_MASTER_TABLE, field: 'customer_id' }],
+        filters: masterFilters,
+        groupBy: bySeller,
+      }),
+      this.analyticsBuilder.buildGroupedDistinctCountExcludingQuery({
+        universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: masterFilters },
+        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...currentMonth] },
+        groupBy: bySeller,
+      }),
+      this.analyticsBuilder.buildGroupedDistinctCountExcludingQuery({
+        universe: { table: 'transactions', field: 'customer_id', filters: baseFilters, within: ACTIVE_CUSTOMERS },
+        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last3m] },
+        groupBy: bySeller,
+      }),
+      this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], false, bySeller),
+      this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('promesa')], false, bySeller),
+      this.customerRows([...baseFilters, ...last12m], false, bySeller),
     ]);
 
-    const ids = [...sellers.keys()].filter(Boolean);
-    const rows: SellerStatusBySeller = [];
-    // Bounded concurrency: each seller status runs several ClickHouse queries.
-    for (let i = 0; i < ids.length; i += ListService.BY_SELLER_CONCURRENCY) {
-      const batch = ids.slice(i, i + ListService.BY_SELLER_CONCURRENCY);
-      const statuses = await Promise.all(
-        batch.map((id) =>
-          this.getSellerStatus({ groupBy: 'customer_id', filters: [...baseFilters, { field: 'seller_id', operator: 'eq', value: id }] })
-        )
-      );
-      batch.forEach((id, index) => rows.push({ seller_id: id, seller_name: names.get(id) ?? id, ...statuses[index]! }));
-    }
-    rows.sort((a, b) => a.seller_name.localeCompare(b.seller_name));
+    const riesgo = ListService.byPartition(riesgoRows);
+    const promesa = ListService.byPartition(promesaRows);
+    const peso = ListService.byPartition(pesoRows);
+    const rows: SellerStatusBySeller = [...sellers.keys()]
+      .filter(Boolean)
+      .map((id) => ({
+        seller_id: id,
+        seller_name: names.get(id) ?? id,
+        ...ListService.toSellerStatus({
+          activos: activos.get(id) ?? 0,
+          sinCompraMes: sinCompraMes.get(id) ?? 0,
+          sinCompra: sinCompra.get(id) ?? 0,
+          riesgoRows: riesgo.get(id) ?? [],
+          promesaRows: promesa.get(id) ?? [],
+          pesoRows: peso.get(id) ?? [],
+        }),
+      }))
+      .sort((a, b) => a.seller_name.localeCompare(b.seller_name));
 
     ListService.bySellerCache.set(cacheKey, { rows, expires: Date.now() + ListService.BY_SELLER_TTL_MS });
     return rows;
   }
 
-  private static readonly BY_SELLER_CONCURRENCY = 16;
+  /** Split partitioned rows by their `partition` key, keeping their order (sales desc). */
+  private static byPartition(
+    rows: Array<Record<string, number | string>>
+  ): Map<string, Array<Record<string, number | string>>> {
+    const groups = new Map<string, Array<Record<string, number | string>>>();
+    for (const row of rows) {
+      const key = String(row['partition'] ?? '');
+      const group = groups.get(key);
+      if (group) group.push(row);
+      else groups.set(key, [row]);
+    }
+    return groups;
+  }
+
   private static readonly BY_SELLER_TTL_MS = 3 * 60 * 60 * 1000;
   private static readonly bySellerCache = new Map<string, { rows: SellerStatusBySeller; expires: number }>();
 }

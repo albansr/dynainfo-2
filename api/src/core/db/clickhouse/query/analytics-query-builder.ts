@@ -155,6 +155,13 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
      * sellers with only committed orders). Not compatible with `search`.
      */
     includeAllGroups?: boolean;
+    /**
+     * Second grouping key (e.g. seller_id): one row per (partition, group),
+     * returned as `partition`. Equivalent to running the query once per
+     * partition value with that value as a filter, in a single query. Tables
+     * without the column contribute zeros. Not compatible with includeAllGroups.
+     */
+    partitionBy?: string;
   }): Promise<Array<Record<string, number | string>>> {
     const {
       metrics,
@@ -168,10 +175,15 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       facturadoOnly = false,
       search,
       includeAllGroups = false,
+      partitionBy,
     } = config;
 
     // Validate groupBy field
     this.filterBuilder.validateFieldName(groupBy);
+    if (partitionBy) {
+      this.filterBuilder.validateFieldName(partitionBy);
+      if (includeAllGroups) throw new Error('partitionBy is not compatible with includeAllGroups');
+    }
 
     // Comparison period: explicit static range when provided, else same range -1 year
     const previousYearFilters = comparisonFilters
@@ -198,7 +210,8 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       groupBy,
       includeTotalCount,
       search,
-      includeAllGroups
+      includeAllGroups,
+      partitionBy
     );
 
     // Add calculated metrics (pass skipped tables so formulas use literal aliases instead of CTE refs)
@@ -214,7 +227,8 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
       offset,
       orderBy,
       orderDirection,
-      includeAllGroups
+      includeAllGroups,
+      partitionBy
     );
 
     const resultSet = await this.client.query({
@@ -371,7 +385,8 @@ ${previousWhere}
     groupBy: string,
     includeTotalCount = false,
     search?: string,
-    includeAllGroups = false
+    includeAllGroups = false,
+    partitionBy?: string
   ): { ctes: string[]; finalSelects: string[]; tablesWithDimension: string[]; skippedTables: Set<string> } {
     const ctes: string[] = [];
     const finalSelects: string[] = [];
@@ -390,6 +405,7 @@ ${previousWhere}
       const tableName = `${this.tablePrefix}${table}`;
       const cols = columnMap.get(tableName);
       if (!(cols?.has(idField) ?? false)) return false;
+      if (partitionBy && !(cols?.has(partitionBy) ?? false)) return false;
       return !this.filtersForTable(currentPeriodFilters, table).some(
         (f) => f.table === table && !(cols?.has(f.field) ?? false)
       );
@@ -442,6 +458,8 @@ ${previousWhere}
       finalSelects.push(
         `COALESCE(${idCoalesceArgs.join(', ')}) AS id`
       );
+      // Rows are driven by the first table's current CTE, which always carries it
+      if (partitionBy) finalSelects.push(`${drivingTable}_current._partition AS partition`);
       finalSelects.push(
         nameCoalesceArgs.length > 0
           ? `COALESCE(${nameCoalesceArgs.join(', ')}) AS name`
@@ -469,13 +487,13 @@ ${previousWhere}
             cteName: currentCteName, tableMetrics,
             filters: tableCurrentFilters, queryParams,
             paramPrefix: `current_${table}`, tableName, columnMap, aliasSuffix: '',
-            groupByConfig: { idField, nameField },
+            groupByConfig: { idField, nameField, partitionBy },
           }));
           ctes.push(this.buildBudgetCteSql({
             cteName: previousCteName, tableMetrics,
             filters: tablePreviousFilters, queryParams,
             paramPrefix: `previous_${table}`, tableName, columnMap, aliasSuffix: '_ly',
-            groupByConfig: { idField, nameField },
+            groupByConfig: { idField, nameField, partitionBy },
           }));
         } else {
           // Build table-aware WHERE clauses
@@ -511,15 +529,14 @@ ${previousWhere}
           // any() so one id (e.g. a NIT) with several name variants collapses to
           // a single row instead of fanning out into one row per name.
           const selectName = idField !== nameField && tableHasName(table);
-          const dimensionSelects = selectName
-            ? `trimBoth(${idField}) AS ${idField}, any(trimBoth(${nameField})) AS ${nameField}`
-            : `trimBoth(${idField}) AS ${idField}`;
+          const dimensionSelects = this.groupedDimensionSelects(idField, selectName ? nameField : undefined, partitionBy);
+          const groupByKeys = partitionBy ? '1, 2' : '1';
 
           ctes.push(`${currentCteName} AS (
   SELECT ${dimensionSelects}, ${currentMetrics}
   FROM ${tableName}
 ${currentWhere}
-  GROUP BY 1
+  GROUP BY ${groupByKeys}
 )`);
 
           // Previous year CTE with GROUP BY
@@ -531,7 +548,7 @@ ${currentWhere}
   SELECT ${dimensionSelects}, ${previousMetrics}
   FROM ${tableName}
 ${previousWhere}
-  GROUP BY 1
+  GROUP BY ${groupByKeys}
 )`);
         }
 
@@ -560,6 +577,18 @@ ${previousWhere}
   }
 
   /**
+   * Dimension columns of a grouped CTE: the trimmed id, the trimmed partition
+   * key (second GROUP BY position) when partitioning, and any() of the name.
+   */
+  private groupedDimensionSelects(idField: string, nameField?: string, partitionBy?: string): string {
+    return [
+      `trimBoth(${idField}) AS ${idField}`,
+      ...(partitionBy ? [`trimBoth(${partitionBy}) AS _partition`] : []),
+      ...(nameField ? [`any(trimBoth(${nameField})) AS ${nameField}`] : []),
+    ].join(', ');
+  }
+
+  /**
    * Build a budget CTE with date expansion to start of month and proration by business days.
    * Budget rows are stored on the 1st of each month. This expands the start date filter
    * to the beginning of the month and JOINs with dyna_fnc_dias_ppto to prorate by
@@ -574,7 +603,7 @@ ${previousWhere}
     tableName: string;
     columnMap: Map<string, Set<string>>;
     aliasSuffix: string;
-    groupByConfig?: { idField: string; nameField: string };
+    groupByConfig?: { idField: string; nameField: string; partitionBy?: string | undefined };
   }): string {
     const {
       cteName, tableMetrics, filters, queryParams, paramPrefix,
@@ -641,14 +670,14 @@ ${previousWhere}
     let dimensionSelectsPart = '';
     let groupByClause = '';
     if (groupByConfig) {
-      const { idField, nameField } = groupByConfig;
+      const { idField, nameField, partitionBy } = groupByConfig;
       // Group by the id only; take any() of the name so one id with several name
       // variants collapses to a single row (see the metrics CTE above).
-      const dimensionSelects = idField === nameField
-        ? `trimBoth(${idField}) AS ${idField}`
-        : `trimBoth(${idField}) AS ${idField}, any(trimBoth(${nameField})) AS ${nameField}`;
+      const dimensionSelects = this.groupedDimensionSelects(
+        idField, idField === nameField ? undefined : nameField, partitionBy
+      );
       dimensionSelectsPart = `${dimensionSelects}, `;
-      groupByClause = `\n  GROUP BY 1`;
+      groupByClause = `\n  GROUP BY ${partitionBy ? '1, 2' : '1'}`;
     }
 
     return `${cteName} AS (
@@ -692,7 +721,8 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
     offset?: number,
     orderBy: string = 'sales',
     orderDirection: OrderDirection = 'desc',
-    includeAllGroups = false
+    includeAllGroups = false,
+    partitionBy?: string
   ): string {
     // Validate ordering parameters
     this.validateOrderByField(orderBy);
@@ -702,6 +732,9 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
 
     // Get field mapping to know which field to use for JOINs
     const { idField } = getFieldPair(groupBy);
+    // Join on the group id, and on the partition key when partitioning
+    const on = (a: string, b: string): string =>
+      `${a}.${idField} = ${b}.${idField}${partitionBy ? ` AND ${a}._partition = ${b}._partition` : ''}`;
 
     let fromClause: string;
     if (includeAllGroups) {
@@ -729,16 +762,16 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
 
       // First LEFT JOIN the previous year of the first table
       joinClauses.push(
-        `LEFT JOIN ${firstTable}_previous ON ${firstTable}_current.${idField} = ${firstTable}_previous.${idField}`
+        `LEFT JOIN ${firstTable}_previous ON ${on(`${firstTable}_current`, `${firstTable}_previous`)}`
       );
 
       // Then LEFT JOIN other tables that have the dimension column
       for (const table of tablesWithDimension.slice(1)) {
         joinClauses.push(
-          `LEFT JOIN ${table}_current ON ${firstTable}_current.${idField} = ${table}_current.${idField}`
+          `LEFT JOIN ${table}_current ON ${on(`${firstTable}_current`, `${table}_current`)}`
         );
         joinClauses.push(
-          `LEFT JOIN ${table}_previous ON ${firstTable}_current.${idField} = ${table}_previous.${idField}`
+          `LEFT JOIN ${table}_previous ON ${on(`${firstTable}_current`, `${table}_previous`)}`
         );
       }
     }
@@ -1380,7 +1413,7 @@ ORDER BY ${orderBy} ASC
    * falls back to the whole universe minus that group's buyers.
    */
   async buildGroupedDistinctCountExcludingQuery(config: {
-    universe: { table: string; field: string; filters: FilterCondition[] };
+    universe: { table: string; field: string; filters: FilterCondition[]; within?: DistinctSource };
     exclude: { sources: Array<{ table: string; field: string }>; filters: FilterCondition[] };
     groupBy: string;
   }): Promise<Map<string, number>> {
@@ -1388,7 +1421,7 @@ ORDER BY ${orderBy} ASC
 
     this.filterBuilder.validateFieldName(groupBy);
 
-    const tableNames = [universe.table, ...exclude.sources.map((s) => s.table)].map(
+    const tableNames = [universe.table, ...(universe.within ? [universe.within.table] : []), ...exclude.sources.map((s) => s.table)].map(
       (t) => `${this.tablePrefix}${t}`
     );
     const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
@@ -1397,6 +1430,8 @@ ORDER BY ${orderBy} ASC
     const [universeSelect] = this.buildDistinctSourceSelects(
       [universe], universe.filters, columnMap, queryParams, 'guniverse', groupBy
     );
+    const within = this.buildWithinCondition('value', universe.within, columnMap, queryParams, 'gwithin');
+    if (within === null) return new Map();
 
     const excludeSelects = this.buildDistinctSourceSelects(
       exclude.sources, exclude.filters, columnMap, queryParams, 'gexclude', groupBy
@@ -1404,16 +1439,20 @@ ORDER BY ${orderBy} ASC
 
     let query: string;
     if (universeSelect) {
-      const exclusion = excludeSelects.length > 0
-        ? `WHERE (id, value) NOT IN (\n  SELECT id, value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
-        : '';
+      const conditions = [
+        ...(within ? [within] : []),
+        ...(excludeSelects.length > 0
+          ? [`(id, value) NOT IN (\n  SELECT id, value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`]
+          : []),
+      ];
       query = `
 SELECT id, uniqExact(value) AS count
 FROM (${universeSelect})
-${exclusion}
+${conditions.length > 0 ? `WHERE ${conditions.join('\n  AND ')}` : ''}
 GROUP BY id
 `;
     } else {
+      if (within) throw new Error('within requires the universe to carry the group column');
       // The universe table lacks the group column (e.g. a customer master
       // grouped by provider): each group counts the WHOLE universe minus the
       // universe members that bought that group. Groups only exist where the

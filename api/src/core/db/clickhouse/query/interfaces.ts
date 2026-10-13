@@ -51,6 +51,8 @@ export interface IAnalyticsQueryBuilder {
     search?: string;
     /** Also emit groups absent from the first table's current period. */
     includeAllGroups?: boolean;
+    /** Second grouping key: one row per (partition, group), returned as `partition`. */
+    partitionBy?: string;
   }): Promise<Array<Record<string, number | string>>>;
 
   /**
@@ -151,7 +153,7 @@ export interface IAnalyticsQueryBuilder {
    * count in another.
    */
   buildGroupedDistinctCountExcludingQuery(config: {
-    universe: { table: string; field: string; filters: import('./filter-builder.js').FilterCondition[] };
+    universe: { table: string; field: string; filters: import('./filter-builder.js').FilterCondition[]; within?: DistinctSource };
     exclude: {
       sources: Array<{ table: string; field: string }>;
       filters: import('./filter-builder.js').FilterCondition[];

@@ -644,6 +644,34 @@ describe('ListService', () => {
       expect(status).toMatchObject({ activos: 120, numerica: 75, sinCompra: 45 });
     });
 
+    it('builds the team table from queries grouped by seller, equal to each seller\'s status', async () => {
+      mockBuilder.buildGroupedDistinctCountQuery = vi.fn()
+        .mockResolvedValueOnce(new Map([['S1', 10], ['S2', 5]])) // sellers with sales in 12m
+        .mockResolvedValueOnce(new Map([['S1', 120], ['S2', 40]])); // activos (master)
+      mockBuilder.buildGroupedAttributeQuery = vi.fn().mockResolvedValue(new Map([['S1', 'S1-ANA'], ['S2', 'S2-LUIS']]));
+      mockBuilder.buildGroupedDistinctCountExcludingQuery = vi.fn()
+        .mockResolvedValueOnce(new Map([['S1', 45], ['S2', 40]])) // sin compra este mes
+        .mockResolvedValueOnce(new Map([['S1', 7]])); // se enfriaron
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockImplementation(async (config) => (
+        config.currentPeriodFilters.some((f) => f.value === 'Riesgo')
+          ? [
+            { partition: 'S1', id: 'C1', sales_total: 100, gross_margin: 25, sales_total_vs_last_year: -10 },
+            { partition: 'S2', id: 'C9', sales_total: 50, gross_margin: 5, sales_total_vs_last_year: 20 },
+          ]
+          : []
+      ));
+
+      const rows = await service.getSellerStatusBySeller({ filters: [{ field: 'channel', operator: 'eq', value: 'DISTRIBUCION' }] });
+
+      expect(rows.map((r) => [r.seller_id, r.seller_name, r.activos, r.numerica, r.sinCompra, r.riesgo, r.riesgoSales])).toEqual([
+        ['S1', 'S1-ANA', 120, 75, 7, 1, 100],
+        ['S2', 'S2-LUIS', 40, 0, 0, 0, 0],
+      ]);
+      const yoyCalls = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls.map(([c]) => c);
+      expect(yoyCalls).toHaveLength(3);
+      expect(yoyCalls.every((c) => c.partitionBy === 'seller_id' && c.groupBy === 'customer_id')).toBe(true);
+    });
+
     it('lists "sin compra este mes" from the master with the same universe as the count', async () => {
       const window: FilterCondition[] = [
         seller,
