@@ -646,7 +646,9 @@ export class ListService {
    * Estado figures for every seller in scope (sellers with sales in the last 12
    * months under the request filters, e.g. a director's regionals). Each row is
    * the exact getSellerStatus of that seller, so a cell always matches the
-   * client detail it opens. Cached briefly: the Estado windows only move daily.
+   * client detail it opens. Cached for hours (per filter set, shared by every
+   * user with the same scope): the Estado windows only move daily and the full
+   * computation takes minutes, so it should run about once per scope per shift.
    */
   async getSellerStatusBySeller(params: { filters: FilterCondition[] }): Promise<SellerStatusBySeller> {
     const baseFilters = params.filters.filter((f) => f.field !== 'date');
@@ -696,6 +698,6 @@ export class ListService {
   }
 
   private static readonly BY_SELLER_CONCURRENCY = 16;
-  private static readonly BY_SELLER_TTL_MS = 10 * 60 * 1000;
+  private static readonly BY_SELLER_TTL_MS = 3 * 60 * 60 * 1000;
   private static readonly bySellerCache = new Map<string, { rows: SellerStatusBySeller; expires: number }>();
 }
