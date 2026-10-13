@@ -101,7 +101,7 @@ export function SettingsPage() {
     <div>
       <PageHeader title="Configuración" showDateFilter={false} />
 
-      {import.meta.env.DEV && <DemoRoleSwitcher />}
+      <DemoRoleSwitcher />
 
       <div className="border border-zinc-200 rounded-lg p-4 sm:p-6">
         <h2 className="text-sm font-semibold text-zinc-700 mb-1">Presupuesto</h2>
