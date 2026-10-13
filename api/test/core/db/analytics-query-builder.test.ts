@@ -412,6 +412,22 @@ describe('AnalyticsQueryBuilder', () => {
       expect(query).not.toContain('pedidos_retenidos_current AS');
     });
 
+    it('zeroes a table that cannot apply a filter instead of leaving it unfiltered', async () => {
+      await builder.buildGroupedMultiTableYoYQuery({
+        metrics: [
+          { table: 'transactions', field: 'sales_price', aggregation: 'sum', alias: 'sales' },
+          { table: 'budget', field: 'sales_price', aggregation: 'sum', alias: 'budget' },
+        ],
+        // budget has no seller_id column in this mock
+        currentPeriodFilters: [{ field: 'seller_id', operator: 'eq', value: 'S1' }],
+        groupBy: 'IdRegional',
+      });
+
+      const { query } = vi.mocked(mockClient.query).mock.calls[1]![0] as { query: string };
+      expect(query).toContain('0 AS budget');
+      expect(query).not.toContain('budget_current AS');
+    });
+
     it('rejects partitionBy together with includeAllGroups', async () => {
       await expect(builder.buildGroupedMultiTableYoYQuery({
         metrics: [{ table: 'transactions', field: 'sales_price', aggregation: 'sum', alias: 'sales' }],

@@ -514,7 +514,7 @@ describe('ListService', () => {
 
       const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
       expect(call.currentPeriodFilters).toContainEqual({
-        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Riesgo',
+        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Riesgo', table: 'transactions',
       });
       expect(call.currentPeriodFilters).toContainEqual({
         field: 'seller_id', operator: 'eq', value: 'CL10',
@@ -530,7 +530,7 @@ describe('ListService', () => {
 
       const call = vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mock.calls[0]![0];
       expect(call.currentPeriodFilters).toContainEqual({
-        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Promesa',
+        field: 'aionsales_sales_short_customer', operator: 'eq', value: 'Promesa', table: 'transactions',
       });
     });
 

@@ -37,13 +37,15 @@ const CUSTOMER_SALES_CLASS = 'aionsales_sales_short_customer';
 /**
  * Extra filters a preset appends to the seller's client listing. The seller's
  * own `seller_id = scope` filter is applied separately and is never removed.
+ * The classification lives on the sales rows only: scoping it there picks the
+ * clients, and their pending orders still join by customer in the listing.
  */
 export function customerPresetFilters(preset: CustomerPreset): FilterCondition[] {
   switch (preset) {
     case 'riesgo':
-      return [{ field: CUSTOMER_SALES_CLASS, operator: 'eq', value: 'Riesgo' }];
+      return [{ field: CUSTOMER_SALES_CLASS, operator: 'eq', value: 'Riesgo', table: 'transactions' }];
     case 'promesa':
-      return [{ field: CUSTOMER_SALES_CLASS, operator: 'eq', value: 'Promesa' }];
+      return [{ field: CUSTOMER_SALES_CLASS, operator: 'eq', value: 'Promesa', table: 'transactions' }];
     case 'todos':
     default:
       return [];

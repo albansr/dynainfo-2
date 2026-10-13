@@ -19,7 +19,7 @@ import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useLis
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
 import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
-import { groupingShowsCartera } from '@/core/config/breakdownDimensions';
+import { listingShowsBudgetAndCartera } from '@/core/config/breakdownDimensions';
 
 /** Leading ABC-position column (#) for the seller peso (80%) list. */
 const RANK_COLUMN: ColumnDefinition = {
@@ -161,8 +161,6 @@ export function AnalyticsListSection({
   // by contribution. Other preset lists show no sequential count.
   const showRank = customerPreset === 'peso';
   const isProductListing = groupBy === 'product_id';
-  // RET. CARTERA only where dyna_cartera can break it down (else it always reads 0)
-  const hideRetained = hideRetainedColumn || !groupingShowsCartera(groupBy);
   const globalRange = useDateRange();
   const startDate = dateOverride?.startDate ?? globalRange.startDate;
   const endDate = dateOverride?.endDate ?? globalRange.endDate;
@@ -177,6 +175,12 @@ export function AnalyticsListSection({
     }
     return merged;
   }, [filters, applied]);
+
+  // Budget columns and RET. CARTERA only where dyna_budget / dyna_cartera can
+  // break them down by the grouping and every filter (else they always read 0)
+  const splitsBudgetAndCartera = listingShowsBudgetAndCartera(groupBy, effectiveFilters);
+  const hideBudget = hideBudgetColumns || !splitsBudgetAndCartera;
+  const hideRetained = hideRetainedColumn || !splitsBudgetAndCartera;
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -248,10 +252,10 @@ export function AnalyticsListSection({
 
   const columns = useMemo(() => {
     if (tableColumns) return tableColumns;
-    let cols = hideBudgetColumns
+    let cols = hideBudget
       ? getColumnsWithoutBudget(groupBy, hideRetained)
       : getColumnsWithDynamicLabel(groupBy);
-    if (hideRetained && !hideBudgetColumns) cols = cols.filter((col) => col.id !== 'retained');
+    if (hideRetained && !hideBudget) cols = cols.filter((col) => col.id !== 'retained');
     if (dimensionLabel) {
       cols = cols.map((col) =>
         col.id === 'regional' ? { ...col, header: { ...col.header, label: dimensionLabel } } : col
@@ -262,12 +266,12 @@ export function AnalyticsListSection({
     // Preset listings lead with a billing-rank column (#).
     if (showRank) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudgetColumns, hideRetained, groupBy, dimensionLabel, showRank, isProductListing]);
+  }, [tableColumns, hideBudget, hideRetained, groupBy, dimensionLabel, showRank, isProductListing]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
-    return hideBudgetColumns ? getColumnGroupsWithoutBudget() : getColumnGroups(preset);
-  }, [tableColumnGroups, hideBudgetColumns, preset]);
+    return hideBudget ? getColumnGroupsWithoutBudget() : getColumnGroups(preset);
+  }, [tableColumnGroups, hideBudget, preset]);
 
   const currentYear = endDate.getFullYear();
 
@@ -315,7 +319,7 @@ export function AnalyticsListSection({
             preset={preset}
             filters={effectiveFilters}
             totalsLabel={totalsLabel}
-            hideBudgetColumns={hideBudgetColumns}
+            hideBudgetColumns={hideBudget}
             hideRetainedColumn={hideRetained}
             showUnitColumns={isProductListing}
             nameOverrides={nameOverrides}

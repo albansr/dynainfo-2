@@ -395,12 +395,10 @@ ${previousWhere}
     // Get field mapping for id and name
     const { idField, nameField } = getFieldPair(groupBy);
 
-    // Determine which tables can contribute: they need the dimension column
-    // and no filter explicitly scoped to them referencing a missing column —
-    // such a filter cannot be applied, and the caller deliberately meant to
-    // constrain the table (e.g. Festival excludes comprometido, which has no
-    // rappel column, from rappel views). Unscoped filters keep the historical
-    // drop-silently behaviour.
+    // Determine which tables can contribute: they need the dimension column and
+    // every non-date filter's column. A filter a table cannot apply would leave
+    // it unfiltered (e.g. the whole cartera under a Categoría drill), so the
+    // table contributes zeros instead — as in the non-grouped balance.
     const tables = Array.from(metricsByTable.keys());
     const tablesWithDimension = tables.filter((table) => {
       const tableName = `${this.tablePrefix}${table}`;
@@ -408,7 +406,7 @@ ${previousWhere}
       if (!(cols?.has(idField) ?? false)) return false;
       if (partitionBy && !(cols?.has(partitionBy) ?? false)) return false;
       return !this.filtersForTable(currentPeriodFilters, table).some(
-        (f) => f.table === table && !(cols?.has(f.field) ?? false)
+        (f) => f.field !== 'date' && !(cols?.has(f.field) ?? false)
       );
     });
     const skippedTables = new Set(tables.filter((t) => !tablesWithDimension.includes(t)));
@@ -441,8 +439,8 @@ ${previousWhere}
 
     // Build COALESCE for name field (only from tables that carry it)
     const nameCoalesceArgs = tablesWithName.flatMap((table) => [
-      `${table}_current.${nameField}`,
-      `${table}_previous.${nameField}`,
+      `${table}_current._name`,
+      `${table}_previous._name`,
     ]);
 
     if (includeAllGroups) {
@@ -585,7 +583,9 @@ ${previousWhere}
     return [
       `trimBoth(${idField}) AS ${idField}`,
       ...(partitionBy ? [`trimBoth(${partitionBy}) AS _partition`] : []),
-      ...(nameField ? [`any(trimBoth(${nameField})) AS ${nameField}`] : []),
+      // Aliased apart from the column: a WHERE on the name (a filter or the
+      // search) must hit the raw column, not this aggregate
+      ...(nameField ? [`any(trimBoth(${nameField})) AS _name`] : []),
     ].join(', ');
   }
 
