@@ -273,13 +273,13 @@ export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, se
         </div>
       )}
 
-      {/* Alcance: items, numérica y clientes sin compra (compraron en los 12 meses
-          anteriores al periodo y no en el periodo) */}
+      {/* Alcance: items, numérica y clientes sin compra (clientes activos del
+          maestro sin compra en el periodo, como en Festival) */}
       <ReachMetricsBlock
         reach={reach}
         isLoading={reachLoading}
-        sinCompraTooltip="Clientes que compraron en los 12 meses anteriores al periodo y no han comprado en el periodo, dentro de los filtros de este tablero. El detalle muestra el vendedor de su última compra."
-        sinCompraDescription="Compraron en los 12 meses anteriores"
+        sinCompraTooltip="Clientes activos y no bloqueados del maestro comercial (regionales de venta) que no han comprado en el periodo, dentro de los filtros de este tablero. El detalle muestra el vendedor asignado a cada cliente."
+        sinCompraDescription="Clientes activos sin compra en el periodo"
         sinCompraDetail={
           <SinCompraModal
             endpoint="/api/balance/sin-compra"
@@ -287,7 +287,7 @@ export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, se
             startDate={startDate}
             endDate={endDate}
             reportTitle={[title, chip].filter(Boolean).join(' · ')}
-            description="compraron en los 12 meses anteriores y no en el periodo"
+            description="clientes activos sin compra en el periodo"
             filenamePrefix="ClientesSinCompra"
           />
         }

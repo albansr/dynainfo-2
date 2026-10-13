@@ -8,10 +8,14 @@ import type { FilterCondition } from '../db/clickhouse/query/filter-builder.js';
  * that concentrate the bulk of the budget) and is resolved in the list service,
  * not as a filter.
  *
- * 'sin_compra' lists the seller's historical buyers who did not buy in the window
- * (computed via exclusion), resolved in the list service too.
+ * Two "no purchase in the window" lenses, both limited to ACTIVE customers of
+ * the master and resolved in the list service via exclusion:
+ * - 'sin_compra_mes': the seller's assigned active customers (the master, like
+ *   Festival) — Estado's "sin compra este mes".
+ * - 'sin_compra': the seller's historical buyers who are still active — Estado's
+ *   "se enfriaron".
  */
-export const CUSTOMER_PRESETS = ['todos', 'riesgo', 'promesa', 'peso', 'sin_compra'] as const;
+export const CUSTOMER_PRESETS = ['todos', 'riesgo', 'promesa', 'peso', 'sin_compra', 'sin_compra_mes'] as const;
 
 export type CustomerPreset = (typeof CUSTOMER_PRESETS)[number];
 

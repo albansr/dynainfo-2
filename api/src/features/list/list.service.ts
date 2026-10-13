@@ -20,7 +20,23 @@ import {
   DEFAULT_CUSTOMER_PRESET,
   PESO_SALES_SHARE,
   customerPresetFilters,
+  type CustomerPreset,
 } from '../../core/config/customer-presets.config.js';
+import {
+  CUSTOMER_MASTER_TABLE,
+  activeCustomerFilters,
+  masterUniverseFilters,
+} from '../../core/config/customer-master.config.js';
+import { listActiveNonBuyers } from '../../core/utils/customer-master.js';
+
+/** Purchases that take a customer out of "sin compra": invoiced + pending orders (as Festival). */
+const PURCHASE_SOURCES = [
+  { table: 'transactions', field: 'customer_id' },
+  { table: 'pedidos_retenidos', field: 'customer_id' },
+];
+
+/** Active customers of the master, as the `within` source of a historical-buyers universe. */
+const ACTIVE_CUSTOMERS = { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: activeCustomerFilters() };
 
 /**
  * Hard cap on the number of rows an Excel export may contain.
@@ -91,9 +107,9 @@ export class ListService {
       return this.getPesoList(filters, { page, limit, facturadoOnly });
     }
 
-    // "Sin compra": the seller's historical buyers with no purchase in the window.
-    if (customerPreset === 'sin_compra') {
-      return this.getSinCompraList(filters, { page, limit });
+    // "Sin compra": active customers with no purchase in the window.
+    if (customerPreset === 'sin_compra' || customerPreset === 'sin_compra_mes') {
+      return this.getSinCompraList(filters, customerPreset, { page, limit });
     }
 
     // Calculate offset for pagination
@@ -190,8 +206,8 @@ export class ListService {
     }
 
     // "Sin compra" exports its whole exclusion set.
-    if (customerPreset === 'sin_compra') {
-      const { data } = await this.getSinCompraList(filters, { page: 1, limit: EXPORT_ROW_HARD_CAP });
+    if (customerPreset === 'sin_compra' || customerPreset === 'sin_compra_mes') {
+      const { data } = await this.getSinCompraList(filters, customerPreset, { page: 1, limit: EXPORT_ROW_HARD_CAP });
       return data;
     }
 
@@ -309,23 +325,30 @@ export class ListService {
   }
 
   /**
-   * "Sin compra" listing: the seller's historical buyers (same filters minus the
-   * date window) minus those who bought in the window, via the exclusion-details
-   * query. These clients have no sales in the window, so only id (NIT) and name
-   * come back; metrics render as zero.
+   * "Sin compra" listings, always ACTIVE customers of the master minus those
+   * who bought (invoiced or pending) in the window:
+   * - sin_compra_mes: the active customers assigned to the seller (the master).
+   * - sin_compra: the seller's historical buyers (same filters minus the date
+   *   window) that are still active in the master.
+   * These clients have no sales in the window, so only id (NIT) and name come
+   * back; metrics render as zero.
    */
   private async getSinCompraList(
     filters: FilterCondition[],
+    preset: Extract<CustomerPreset, 'sin_compra' | 'sin_compra_mes'>,
     params: { page: number; limit: number }
   ): Promise<ListResponse> {
-    const universeFilters = filters.filter((f) => f.field !== 'date');
-    const rows = await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
-      universe: { table: 'transactions', keyField: 'customer_id', filters: universeFilters },
-      attributes: ['customer_name'],
-      dateField: 'date',
-      exclude: { sources: [{ table: 'transactions', field: 'customer_id' }], filters },
-      orderBy: 'customer_name',
-    });
+    const baseFilters = filters.filter((f) => f.field !== 'date');
+    const exclude = { sources: PURCHASE_SOURCES, filters };
+    const rows = preset === 'sin_compra_mes'
+      ? await listActiveNonBuyers(this.analyticsBuilder, { universeFilters: masterUniverseFilters(baseFilters), exclude })
+      : await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
+        universe: { table: 'transactions', keyField: 'customer_id', filters: baseFilters, within: ACTIVE_CUSTOMERS },
+        attributes: ['customer_name'],
+        dateField: 'date',
+        exclude,
+        orderBy: 'customer_name',
+      });
 
     const start = (params.page - 1) * params.limit;
     const items = rows
@@ -482,7 +505,10 @@ export class ListService {
   /**
    * Seller "Estado" figures. The Estado page does not react to the global
    * temporality: each criterion has its own fixed rolling window (computed here).
-   * - sin compra: historical buyers with no purchase in the last 3 months.
+   * - activos: active customers of the master assigned to the scope (as Festival);
+   *   numerica = those who bought this month, so activos − numerica = sin compra
+   *   este mes.
+   * - sin compra: still-active historical buyers with no purchase in the last 3 months.
    * - riesgo: Riesgo-classified clients (last 12m) with negative evolution.
    * - promesa: Promesa-classified clients (last 12m) with positive evolution.
    * - peso: the 80%-of-sales clients (last 12m), how many are declining.
@@ -494,7 +520,6 @@ export class ListService {
     const requestFilters = params.filters ?? parseQueryParamsToFilters(params);
     // Seller scope (and any non-date filter); the Estado windows are fixed here.
     const baseFilters = requestFilters.filter((f) => f.field !== 'date');
-    const sources = [{ table: 'transactions', field: 'customer_id' }];
 
     const now = new Date();
     const monthsBack = (n: number): Date => {
@@ -512,14 +537,21 @@ export class ListService {
     const last3m = windowFrom(monthsBack(3));
     const last12m = windowFrom(monthsBack(12));
 
-    const [numerica, activos, sinCompra, riesgoStat, promesaStat, peso] = await Promise.all([
-      // Coverage: clients who bought this month, over the whole active base.
-      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: [...baseFilters, ...currentMonth] }),
-      this.analyticsBuilder.buildDistinctCountQuery({ sources, filters: baseFilters }),
-      // Historical buyers minus those who bought in the last 3 months.
+    const masterFilters = masterUniverseFilters(baseFilters);
+    const [activos, sinCompraMes, sinCompra, riesgoStat, promesaStat, peso] = await Promise.all([
+      // Coverage: active customers of the master, and those with no purchase this month.
+      this.analyticsBuilder.buildDistinctCountQuery({
+        sources: [{ table: CUSTOMER_MASTER_TABLE, field: 'customer_id' }],
+        filters: masterFilters,
+      }),
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: 'transactions', field: 'customer_id', filters: baseFilters },
-        exclude: { sources, filters: [...baseFilters, ...last3m] },
+        universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: masterFilters },
+        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...currentMonth] },
+      }),
+      // Still-active historical buyers minus those who bought in the last 3 months.
+      this.analyticsBuilder.buildDistinctCountExcludingQuery({
+        universe: { table: 'transactions', field: 'customer_id', filters: baseFilters, within: ACTIVE_CUSTOMERS },
+        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last3m] },
       }),
       this.getClassificationStat([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], 'declining'),
       this.getClassificationStat([...baseFilters, ...last12m, ...customerPresetFilters('promesa')], 'growing'),
@@ -536,7 +568,7 @@ export class ListService {
     const decliningSales = declining.reduce((sum, row) => sum + ListService.numField(row, 'sales_total'), 0);
 
     return {
-      numerica,
+      numerica: activos - sinCompraMes,
       activos,
       sinCompra,
       riesgo: riesgoStat.count,

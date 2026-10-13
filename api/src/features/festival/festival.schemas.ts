@@ -163,36 +163,6 @@ export const FESTIVAL_DATE_FIELDS = {
 } as const;
 
 /**
- * Universe for "clientes sin compra": the SIESA customer master (dyna_clientes,
- * one row per NIT × sucursal with the CURRENT assignment), not the sales
- * history — active, not blocked, assigned to a commercial regional. The
- * festival buyers subtracted from this universe come from the same sources as
- * `clientes_unicos`. Regionals outside this list (castigo, cobro jurídico,
- * retail, empleados, canales muertos…) are not festival targets.
- */
-export const FESTIVAL_UNIVERSE_TABLE = 'clientes';
-
-export const FESTIVAL_UNIVERSE_REGIONALS = [
-  '0001', // Costa Atlántica
-  '0002', // Andina (Medellín)
-  '0003', // Costa Pacífica (Cali)
-  '0004', // Bogotá Ciudad
-  '0015', // Canal Alternativo (Contact Center)
-  '0018', // Territorio Especial
-  '0019', // Centro
-  '0026', // Oriente
-  '0033', // Eje Centro
-];
-
-export function activeCustomerUniverseFilters(): FilterCondition[] {
-  return [
-    { field: 'activo', operator: 'eq', value: 'true', table: FESTIVAL_UNIVERSE_TABLE },
-    { field: 'bloqueado', operator: 'eq', value: 'false', table: FESTIVAL_UNIVERSE_TABLE },
-    { field: 'IdRegional', operator: 'in', value: FESTIVAL_UNIVERSE_REGIONALS, table: FESTIVAL_UNIVERSE_TABLE },
-  ];
-}
-
-/**
  * Expand a brand bucket into per-table filter conditions. The commercial
  * provider column is named differently per table (`ProveedorComercial` in
  * transactions, `proveedorComercial` in pedidos_retenidos), so each condition

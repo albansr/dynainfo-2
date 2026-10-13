@@ -4,7 +4,6 @@ import {
   FESTIVAL_METRICS,
   FESTIVAL_DEFAULT_GROUP_BY,
   FESTIVAL_DATE_FIELDS,
-  FESTIVAL_UNIVERSE_TABLE,
   brandGroupFilters,
   rappelGroupFilters,
   type FestivalBalance,
@@ -12,6 +11,8 @@ import {
   type FestivalDailyPoint,
   type FestivalSinCompraRow,
 } from './festival.schemas.js';
+import { CUSTOMER_MASTER_TABLE } from '../../core/config/customer-master.config.js';
+import { listActiveNonBuyers } from '../../core/utils/customer-master.js';
 
 /**
  * Coalesce a possibly-null/undefined query value to a number. ClickHouse
@@ -96,7 +97,7 @@ export class FestivalService {
         filters: params.currentFilters,
       }),
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: FESTIVAL_UNIVERSE_TABLE, field: 'customer_id', filters: params.universeFilters },
+        universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: params.universeFilters },
         exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
       }),
       this.salesGrowthToDate(params),
@@ -231,7 +232,7 @@ export class FestivalService {
         groupBy,
       }),
       this.analyticsBuilder.buildGroupedDistinctCountExcludingQuery({
-        universe: { table: FESTIVAL_UNIVERSE_TABLE, field: 'customer_id', filters: params.universeFilters },
+        universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: params.universeFilters },
         exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
         groupBy,
       }),
@@ -367,24 +368,14 @@ export class FestivalService {
    * universe/exclusion as the balance card, so the listing length always
    * matches the card.
    */
-  async getFestivalSinCompraList(params: {
+  getFestivalSinCompraList(params: {
     currentFilters: FilterCondition[];
     universeFilters: FilterCondition[];
   }): Promise<FestivalSinCompraRow[]> {
-    const rows = await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
-      universe: { table: FESTIVAL_UNIVERSE_TABLE, keyField: 'customer_id', filters: params.universeFilters },
-      attributes: ['customer_name', 'seller_id', 'seller_name'],
-      dateField: 'updated_at',
+    return listActiveNonBuyers(this.analyticsBuilder, {
+      universeFilters: params.universeFilters,
       exclude: { sources: distinctSources('customer_id'), filters: params.currentFilters },
-      orderBy: 'customer_name',
     });
-
-    return rows.map((r) => ({
-      customer_id: String(r['customer_id'] ?? ''),
-      customer_name: String(r['customer_name'] ?? ''),
-      seller_id: String(r['seller_id'] ?? ''),
-      seller_name: String(r['seller_name'] ?? ''),
-    }));
   }
 
   /**
@@ -476,7 +467,7 @@ export class FestivalService {
         filters,
       }),
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: FESTIVAL_UNIVERSE_TABLE, field: 'customer_id', filters: universeFilters },
+        universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: universeFilters },
         exclude: { sources: distinctSources('customer_id'), filters },
       }),
     ]);

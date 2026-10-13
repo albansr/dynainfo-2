@@ -3,7 +3,7 @@ import { FilterBuilder, type FilterCondition } from './filter-builder.js';
 import { MetricCalculator } from './metric-calculator.js';
 import { ColumnDiscoveryService } from './column-discovery.js';
 import type { MetricConfig } from './types.js';
-import type { IAnalyticsQueryBuilder } from './interfaces.js';
+import type { IAnalyticsQueryBuilder, DistinctSource } from './interfaces.js';
 import { getAllMetricAliases, getAllCalculatedMetricNames } from '../../../config/metrics.config.js';
 import { getFieldPair } from '../../../config/dimension-fields.config.js';
 
@@ -1215,18 +1215,36 @@ GROUP BY id
   }
 
   /**
+   * `<column> IN (distinct values of the within source)`: keeps only universe
+   * members also present there (e.g. historical buyers who are active in the
+   * customer master). '' when there is no within source; null when it can't
+   * apply its filters (an empty intersection).
+   */
+  private buildWithinCondition(
+    column: string,
+    within: DistinctSource | undefined,
+    columnMap: Map<string, Set<string>>,
+    queryParams: Record<string, string | string[]>,
+    paramPrefix: string
+  ): string | null {
+    if (!within) return '';
+    const [select] = this.buildDistinctSourceSelects([within], within.filters, columnMap, queryParams, paramPrefix);
+    return select ? `${column} IN (SELECT value FROM (${select}))` : null;
+  }
+
+  /**
    * Count distinct values of the universe source EXCLUDING values present in
    * any of the exclusion sources (e.g. active-year customers who did NOT buy
    * during an event window). Filters honour FilterCondition.table scoping; an
    * exclusion source with inapplicable filters excludes nothing.
    */
   async buildDistinctCountExcludingQuery(config: {
-    universe: { table: string; field: string; filters: FilterCondition[] };
+    universe: { table: string; field: string; filters: FilterCondition[]; within?: DistinctSource };
     exclude: { sources: Array<{ table: string; field: string }>; filters: FilterCondition[] };
   }): Promise<number> {
     const { universe, exclude } = config;
 
-    const tableNames = [universe.table, ...exclude.sources.map((s) => s.table)].map(
+    const tableNames = [universe.table, ...(universe.within ? [universe.within.table] : []), ...exclude.sources.map((s) => s.table)].map(
       (t) => `${this.tablePrefix}${t}`
     );
     const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
@@ -1237,17 +1255,23 @@ GROUP BY id
     );
     if (!universeSelect) return 0;
 
+    const within = this.buildWithinCondition('value', universe.within, columnMap, queryParams, 'within');
+    if (within === null) return 0;
+
     const excludeSelects = this.buildDistinctSourceSelects(
       exclude.sources, exclude.filters, columnMap, queryParams, 'exclude'
     );
-    const exclusion = excludeSelects.length > 0
-      ? `WHERE value NOT IN (\n  SELECT value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
-      : '';
+    const conditions = [
+      ...(within ? [within] : []),
+      ...(excludeSelects.length > 0
+        ? [`value NOT IN (\n  SELECT value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`]
+        : []),
+    ];
 
     const query = `
 SELECT uniqExact(value) AS count
 FROM (${universeSelect})
-${exclusion}
+${conditions.length > 0 ? `WHERE ${conditions.join('\n  AND ')}` : ''}
 `;
 
     const resultSet = await this.client.query({
@@ -1267,7 +1291,7 @@ ${exclusion}
    * latest universe row — e.g. a customer's current seller).
    */
   async buildDistinctDetailsExcludingQuery(config: {
-    universe: { table: string; keyField: string; filters: FilterCondition[] };
+    universe: { table: string; keyField: string; filters: FilterCondition[]; within?: DistinctSource };
     /** Attribute columns resolved per key from its most recent row. */
     attributes: string[];
     dateField: string;
@@ -1284,7 +1308,7 @@ ${exclusion}
       }
     }
 
-    const tableNames = [universe.table, ...exclude.sources.map((s) => s.table)].map(
+    const tableNames = [universe.table, ...(universe.within ? [universe.within.table] : []), ...exclude.sources.map((s) => s.table)].map(
       (t) => `${this.tablePrefix}${t}`
     );
     const columnMap = await this.columnDiscoveryService.getColumnsForTables(tableNames);
@@ -1301,24 +1325,40 @@ ${exclusion}
       universeFilters, queryParams, 'universe_detail', universeTable, columnMap
     );
 
+    const within = this.buildWithinCondition(
+      `trimBoth(${universe.keyField})`, universe.within, columnMap, queryParams, 'within_detail'
+    );
+    if (within === null) return [];
+
     const excludeSelects = this.buildDistinctSourceSelects(
       exclude.sources, exclude.filters, columnMap, queryParams, 'exclude_detail'
     );
-    const exclusion = excludeSelects.length > 0
-      ? `${where ? 'AND' : 'WHERE'} ${universe.keyField} NOT IN (\n  SELECT value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`
+    const conditions = [
+      ...(within ? [within] : []),
+      ...(excludeSelects.length > 0
+        ? [`trimBoth(${universe.keyField}) NOT IN (\n  SELECT value FROM (\n  ${excludeSelects.join('\n  UNION ALL\n  ')}\n  )\n)`]
+        : []),
+    ];
+    const exclusion = conditions.length > 0
+      ? `${where ? 'AND' : 'WHERE'} ${conditions.join('\n  AND ')}`
       : '';
 
     const attributeCols = attributes
       .map((a) => `argMax(${a}, ${dateField}) AS ${a}`)
       .join(',\n  ');
 
+    // Filter in a subquery: the argMax aliases reuse the column names, and a
+    // filter on one of them (e.g. seller_id) must hit the raw column.
     const query = `
 SELECT
   ${universe.keyField},
   ${attributeCols}
-FROM ${universeTable}
-${where}
-${exclusion}
+FROM (
+  SELECT ${[universe.keyField, dateField, ...attributes].join(', ')}
+  FROM ${universeTable}
+  ${where}
+  ${exclusion}
+)
 GROUP BY ${universe.keyField}
 ORDER BY ${orderBy} ASC
 `;

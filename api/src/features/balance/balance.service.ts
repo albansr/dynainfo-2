@@ -4,7 +4,8 @@ import type {
   BalanceQueryParams,
   BalanceReach,
 } from './balance.schemas.js';
-import type { FestivalSinCompraRow } from '../festival/festival.schemas.js';
+import { CUSTOMER_MASTER_TABLE } from '../../core/config/customer-master.config.js';
+import { listActiveNonBuyers, type ActiveNonBuyer } from '../../core/utils/customer-master.js';
 import { parseQueryParamsToFilters } from './balance.schemas.js';
 import { BALANCE_METRICS, PRODUCT_UNIT_METRICS } from '../../core/config/metrics.config.js';
 import { buildDynamicResponse } from '../../core/utils/response-builder.js';
@@ -15,24 +16,14 @@ function reachSources(field: string, facturadoOnly: boolean): Array<{ table: str
   return tables.map((table) => ({ table, field }));
 }
 
-/** Customer universe for "clientes sin compra": who bought (invoiced) in the history window. */
-const HISTORY_TABLE = 'transactions';
-
 /**
- * The 12 months before a period starting on `startDate` (YYYY-MM-DD):
- * [startDate − 12 months, startDate − 1 day]. Plain UTC date math.
+ * Filters for the reach block: the period itself, the active-customer universe
+ * narrowed by the board's filters, and whether the master covers the board.
  */
-export function historyWindow(startDate: string): { startDate: string; endDate: string } {
-  const [year = 0, month = 1, day = 1] = startDate.split('-').map(Number);
-  const from = new Date(Date.UTC(year - 1, month - 1, day));
-  const to = new Date(Date.UTC(year, month - 1, day - 1));
-  return { startDate: from.toISOString().slice(0, 10), endDate: to.toISOString().slice(0, 10) };
-}
-
-/** Filters for the reach block: the period itself and the 12 months before it. */
 export interface ReachWindows {
   periodFilters: FilterCondition[];
-  historyFilters: FilterCondition[];
+  universeFilters: FilterCondition[];
+  coversMaster: boolean;
   facturadoOnly: boolean;
 }
 
@@ -93,8 +84,9 @@ export class BalanceService {
   /**
    * Reach block for the period: Items (distinct products), Numérica (distinct
    * customers) — both deduped between invoiced and pending orders — and
-   * Clientes sin compra: customers who bought in the 12 months before the
-   * period and not in it, within the same dashboard filters.
+   * Clientes sin compra, like Festival: active customers of the master who did
+   * not buy in the period (same sources as Numérica). Null on boards the master
+   * does not cover (Exportaciones, Cadenas, Retail).
    */
   async getReach(windows: ReachWindows): Promise<BalanceReach> {
     const [clientesUnicos, productosUnicos, clientesSinCompra] = await Promise.all([
@@ -106,10 +98,12 @@ export class BalanceService {
         sources: reachSources('product_id', windows.facturadoOnly),
         filters: windows.periodFilters,
       }),
-      this.analyticsBuilder.buildDistinctCountExcludingQuery({
-        universe: { table: HISTORY_TABLE, field: 'customer_id', filters: windows.historyFilters },
-        exclude: { sources: reachSources('customer_id', windows.facturadoOnly), filters: windows.periodFilters },
-      }),
+      windows.coversMaster
+        ? this.analyticsBuilder.buildDistinctCountExcludingQuery({
+          universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: windows.universeFilters },
+          exclude: { sources: reachSources('customer_id', windows.facturadoOnly), filters: windows.periodFilters },
+        })
+        : null,
     ]);
     return {
       productos_unicos: productosUnicos,
@@ -120,22 +114,13 @@ export class BalanceService {
 
   /**
    * Detail of `clientes_sin_compra`: same universe and exclusion as getReach
-   * (so the list length matches the card), with the name and the seller of
-   * each customer's latest purchase in the history window.
+   * (so the list length matches the card), with each customer's assigned seller.
    */
-  async getSinCompraList(windows: ReachWindows): Promise<FestivalSinCompraRow[]> {
-    const rows = await this.analyticsBuilder.buildDistinctDetailsExcludingQuery({
-      universe: { table: HISTORY_TABLE, keyField: 'customer_id', filters: windows.historyFilters },
-      attributes: ['customer_name', 'seller_id', 'seller_name'],
-      dateField: 'date',
+  async getSinCompraList(windows: ReachWindows): Promise<ActiveNonBuyer[]> {
+    if (!windows.coversMaster) return [];
+    return listActiveNonBuyers(this.analyticsBuilder, {
+      universeFilters: windows.universeFilters,
       exclude: { sources: reachSources('customer_id', windows.facturadoOnly), filters: windows.periodFilters },
-      orderBy: 'customer_name',
     });
-    return rows.map((r) => ({
-      customer_id: String(r['customer_id'] ?? ''),
-      customer_name: String(r['customer_name'] ?? ''),
-      seller_id: String(r['seller_id'] ?? ''),
-      seller_name: String(r['seller_name'] ?? ''),
-    }));
   }
 }

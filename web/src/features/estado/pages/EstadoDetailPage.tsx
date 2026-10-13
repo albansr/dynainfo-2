@@ -51,7 +51,7 @@ interface PresetView {
 const PRESET_VIEWS: Record<string, PresetView> = {
   sin_compra_mes: {
     title: 'Clientes sin compra este mes',
-    customerPreset: 'sin_compra',
+    customerPreset: 'sin_compra_mes',
     start: (now) => startOfMonth(now),
     simple: true,
   },

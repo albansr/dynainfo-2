@@ -52,6 +52,30 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-13-clientes-sin-compra-activos',
+    date: '2026-10-13',
+    title: 'Clientes sin compra: solo clientes activos, igual en todo DynaInfo',
+    summary:
+      'Clientes sin compra se cuenta ahora igual en Festival Virtual, en los tableros de análisis y en Estado: los clientes activos del maestro comercial que no han comprado. Así la cifra señala a quién llamar, sin clientes inactivos ni bloqueados.',
+    published: true,
+    changes: [
+      {
+        category: 'mejorado',
+        items: [
+          '**Misma regla en todos los tableros**: Clientes sin compra son los clientes activos y no bloqueados del maestro comercial (regionales de venta) que no han comprado en el periodo, dentro de los filtros del tablero. El detalle muestra el vendedor asignado a cada cliente.',
+          '**Estado más fiel a tu cartera**: «Sin compra este mes» y los clientes activos parten de los clientes activos que tienes asignados, y «Se enfriaron» deja fuera a los clientes inactivos o bloqueados.',
+          '**Solo donde aplica**: en Exportaciones, Cadenas y Dynamica Retail la tarjeta de Clientes sin compra no se muestra, porque esos clientes no están en el maestro comercial. Items y Numérica siguen visibles.',
+        ],
+      },
+      {
+        category: 'corregido',
+        items: [
+          '**Detalle por vendedor en Festival Virtual**: la lista de clientes sin compra vuelve a cargar al bajar a un vendedor.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-07-mejoras-analisis',
     date: '2026-10-07',
     title: 'Más contexto en los tableros de análisis',

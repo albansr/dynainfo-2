@@ -17,13 +17,12 @@ import {
   FESTIVAL_RAPPEL_GROUP,
   FESTIVAL_DATE_FIELDS,
   FESTIVAL_PPTO_TABLE,
-  FESTIVAL_UNIVERSE_TABLE,
   brandGroupFilters,
   rappelGroupFilters,
   pptoPeriodoFilter,
-  activeCustomerUniverseFilters,
   type FestivalListQueryString,
 } from './festival.schemas.js';
+import { CUSTOMER_MASTER_TABLE, activeCustomerFilters } from '../../core/config/customer-master.config.js';
 import { buildFestivalExportWorkbook, buildSinCompraExportWorkbook } from './festival.export.workbook.js';
 import { SuccessResponseSchema } from '../../core/schemas/common.schemas.js';
 import { parseDynamicFilters, combineFilters } from '../../core/utils/filter-parser.js';
@@ -81,13 +80,13 @@ const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
     transactions: 'IdRegional',
     pedidos_retenidos: 'IdRegional',
     [FESTIVAL_PPTO_TABLE]: 'IdRegional',
-    [FESTIVAL_UNIVERSE_TABLE]: 'IdRegional',
+    [CUSTOMER_MASTER_TABLE]: 'IdRegional',
   },
   customer_id: {
     transactions: 'customer_id',
     pedidos_retenidos: 'customer_id',
     [FESTIVAL_PPTO_TABLE]: 'customer_id',
-    [FESTIVAL_UNIVERSE_TABLE]: 'customer_id',
+    [CUSTOMER_MASTER_TABLE]: 'customer_id',
   },
 };
 
@@ -153,7 +152,7 @@ function buildWindows(query: {
     ...dateRangeFilters(query.startDate, query.endDate),
     pptoPeriodoFilter(query.startDate),
   ]);
-  const universeFilters = combineFilters(dynamicFilters, activeCustomerUniverseFilters());
+  const universeFilters = combineFilters(dynamicFilters, activeCustomerFilters());
   if (query.compareStartDate && query.compareEndDate) {
     return {
       currentFilters,

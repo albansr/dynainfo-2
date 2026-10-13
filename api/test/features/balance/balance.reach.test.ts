@@ -17,7 +17,7 @@ vi.mock('../../../src/core/db/clickhouse/query/analytics-query-builder.js', () =
 }));
 
 const { balanceRoutes } = await import('../../../src/features/balance/balance.routes.js');
-const { historyWindow } = await import('../../../src/features/balance/balance.service.js');
+const { activeCustomerFilters } = await import('../../../src/core/config/customer-master.config.js');
 const { BALANCE_METRICS, PRODUCT_UNIT_METRICS } = await import('../../../src/core/config/metrics.config.js');
 
 const dbClient = { getClient: () => ({}) } as unknown as DatabaseClient;
@@ -26,14 +26,6 @@ const period = (start: string, end: string) => [
   { field: 'date', operator: 'gte', value: start },
   { field: 'date', operator: 'lte', value: end },
 ];
-
-describe('historyWindow', () => {
-  it('covers the 12 months before the period start', () => {
-    expect(historyWindow('2026-10-01')).toEqual({ startDate: '2025-10-01', endDate: '2026-09-30' });
-    expect(historyWindow('2026-01-01')).toEqual({ startDate: '2025-01-01', endDate: '2025-12-31' });
-    expect(historyWindow('2026-03-01')).toEqual({ startDate: '2025-03-01', endDate: '2026-02-28' });
-  });
-});
 
 describe('Balance reach routes', () => {
   let app: FastifyInstance;
@@ -106,16 +98,13 @@ describe('Balance reach routes', () => {
       );
     });
 
-    it('measures "sin compra" as last-12-months buyers who did not buy in the period, same filters', async () => {
+    it('measures "sin compra" as active master customers who did not buy in the period', async () => {
       await app.inject({ method: 'GET', url: '/balance/reach?startDate=2026-10-01&endDate=2026-10-07&channel=DISTRIBUCION' });
 
       const channel = { field: 'channel', operator: 'eq', value: 'DISTRIBUCION' };
       expect(builder.buildDistinctCountExcludingQuery).toHaveBeenCalledWith({
-        universe: {
-          table: 'transactions',
-          field: 'customer_id',
-          filters: [...period('2025-10-01', '2026-09-30'), channel],
-        },
+        // The channel only narrows the purchases: the master has no channel column
+        universe: { table: 'clientes', field: 'customer_id', filters: activeCustomerFilters() },
         exclude: {
           sources: [
             { table: 'transactions', field: 'customer_id' },
@@ -124,6 +113,32 @@ describe('Balance reach routes', () => {
           filters: [...period('2026-10-01', '2026-10-07'), channel],
         },
       });
+    });
+
+    it('narrows the universe by the regional, seller and customer the master carries', async () => {
+      await app.inject({
+        method: 'GET',
+        url: '/balance/reach?startDate=2026-10-01&endDate=2026-10-07&IdRegional=0002&seller_id=CL01&ProveedorComercial=VERA',
+      });
+
+      const [[excluding]] = builder.buildDistinctCountExcludingQuery.mock.calls;
+      expect(excluding.universe.filters).toEqual([
+        ...activeCustomerFilters(),
+        { field: 'IdRegional', operator: 'eq', value: '0002', table: 'clientes' },
+        { field: 'seller_id', operator: 'eq', value: 'CL01', table: 'clientes' },
+      ]);
+      expect(excluding.exclude.filters).toContainEqual({ field: 'ProveedorComercial', operator: 'eq', value: 'VERA' });
+    });
+
+    it.each([
+      ['channel=EXPORTACIONES'],
+      ['channel=CADENAS'],
+      ['IdRegional=RTL'],
+    ])('returns no "sin compra" on boards the master does not cover (%s)', async (filter) => {
+      const response = await app.inject({ method: 'GET', url: `/balance/reach?startDate=2026-10-01&endDate=2026-10-07&${filter}` });
+
+      expect(response.json().data).toEqual({ productos_unicos: 5540, clientes_unicos: 1562, clientes_sin_compra: null });
+      expect(builder.buildDistinctCountExcludingQuery).not.toHaveBeenCalled();
     });
 
     it('uses invoiced sales only for closed periods', async () => {
@@ -145,7 +160,7 @@ describe('Balance reach routes', () => {
   });
 
   describe('GET /balance/sin-compra', () => {
-    it('lists the same universe with the seller of each customer\'s latest purchase', async () => {
+    it('lists the same universe with the seller assigned in the master', async () => {
       builder.buildDistinctDetailsExcludingQuery.mockResolvedValue([
         { customer_id: '900085827', customer_name: 'ABC LTDA', seller_id: 'CL01', seller_name: 'CL01-TORRENTE' },
       ]);
@@ -161,12 +176,22 @@ describe('Balance reach routes', () => {
       ]);
       expect(builder.buildDistinctDetailsExcludingQuery).toHaveBeenCalledWith(
         expect.objectContaining({
-          universe: { table: 'transactions', keyField: 'customer_id', filters: period('2025-10-01', '2026-09-30') },
+          universe: { table: 'clientes', keyField: 'customer_id', filters: activeCustomerFilters() },
           attributes: ['customer_name', 'seller_id', 'seller_name'],
-          dateField: 'date',
+          dateField: 'updated_at',
           orderBy: 'customer_name',
         })
       );
+    });
+
+    it('lists nobody on boards the master does not cover', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/balance/sin-compra?startDate=2026-10-01&endDate=2026-10-07&channel=EXPORTACIONES',
+      });
+
+      expect(response.json().data).toEqual([]);
+      expect(builder.buildDistinctDetailsExcludingQuery).not.toHaveBeenCalled();
     });
 
     it('exports the listing as an xlsx download with a UTF-8 file name', async () => {

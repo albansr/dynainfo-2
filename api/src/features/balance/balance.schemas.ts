@@ -91,8 +91,8 @@ export function parseBooleanParam(query: Record<string, unknown>, name: string):
 
 /**
  * Query parameters for the reach block and its "clientes sin compra" detail.
- * The period is required: "sin compra" is measured against the 12 months
- * before it. Accepts dynamic filters like /balance.
+ * The period is required: "sin compra" is measured against the purchases in
+ * it. Accepts dynamic filters like /balance.
  */
 export const BalanceReachQueryStringSchema = Type.Object(
   {
@@ -123,8 +123,8 @@ export const BalanceSinCompraExportQueryStringSchema = Type.Object(
 export const BalanceReachSchema = Type.Object({
   productos_unicos: Type.Number({ description: 'Items: distinct products sold in the period' }),
   clientes_unicos: Type.Number({ description: 'Numérica: distinct customers who bought in the period' }),
-  clientes_sin_compra: Type.Number({
-    description: 'Customers who bought in the 12 months before the period and have not bought in it',
+  clientes_sin_compra: Type.Union([Type.Number(), Type.Null()], {
+    description: 'Active customers of the master who did not buy in the period; null on boards the master does not cover',
   }),
 });
 
