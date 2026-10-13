@@ -2,7 +2,7 @@
  * Customer preset lenses for the SELLER client listing (grouped by customer_id).
  * Mirrors the backend `customer-presets.config.ts` ids. 'todos' is the default.
  */
-export const CUSTOMER_PRESETS = ['todos', 'riesgo', 'promesa', 'peso', 'sin_compra'] as const;
+export const CUSTOMER_PRESETS = ['todos', 'riesgo', 'promesa', 'peso', 'sin_compra', 'sin_compra_mes'] as const;
 
 export type CustomerPreset = (typeof CUSTOMER_PRESETS)[number];
 
@@ -15,6 +15,7 @@ export const CUSTOMER_PRESET_OPTIONS: { id: CustomerPreset; label: string }[] = 
   { id: 'promesa', label: 'Promesa' },
   { id: 'peso', label: 'Con peso (80%)' },
   { id: 'sin_compra', label: 'Sin compra' },
+  { id: 'sin_compra_mes', label: 'Sin compra este mes' },
 ];
 
 /** Narrow an unknown URL value to a valid preset, defaulting to 'todos'. */

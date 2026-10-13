@@ -9,7 +9,8 @@ export interface ReachValues {
   productos_unicos: number;
   /** Numérica: distinct customers served. */
   clientes_unicos: number;
-  clientes_sin_compra: number;
+  /** Null on boards the customer master does not cover (the card is hidden). */
+  clientes_sin_compra: number | null;
 }
 
 interface ReachMetricsBlockProps {
@@ -23,12 +24,14 @@ interface ReachMetricsBlockProps {
   sinCompraDetail: ReactNode;
 }
 
-const count = (value: number | undefined) => (value ?? 0).toLocaleString('es-CO');
+const count = (value: number | null | undefined) => (value ?? 0).toLocaleString('es-CO');
 
 /**
  * Reach block shared by Festival Virtual and the analysis boards: ITEMS,
  * NUMÉRICA and CLIENTES SIN COMPRA (with its detail). Each board passes its own
- * data and its own definition of "sin compra".
+ * data and its own definition of "sin compra". Boards whose reach comes back
+ * with a null "sin compra" (channels outside the customer master) show only
+ * Items and Numérica.
  */
 export function ReachMetricsBlock({
   reach,
@@ -37,6 +40,8 @@ export function ReachMetricsBlock({
   sinCompraDescription,
   sinCompraDetail,
 }: ReachMetricsBlockProps) {
+  const showSinCompra = reach?.clientes_sin_compra !== null;
+
   return (
     <div className="mt-8 border border-zinc-200 rounded-lg p-4 sm:p-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
@@ -54,7 +59,7 @@ export function ReachMetricsBlock({
           isLoading={isLoading}
           centered
         />
-        <MetricCard
+        {showSinCompra && <MetricCard
           label={
             <span className="inline-flex items-center gap-1">
               CLIENTES SIN COMPRA
@@ -72,7 +77,7 @@ export function ReachMetricsBlock({
           description={sinCompraDescription}
           isLoading={isLoading}
           centered
-        />
+        />}
       </div>
     </div>
   );

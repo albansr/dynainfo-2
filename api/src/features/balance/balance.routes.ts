@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
-import { BalanceService, historyWindow, type ReachWindows } from './balance.service.js';
+import { BalanceService, type ReachWindows } from './balance.service.js';
+import { masterUniverseFilters, coversCustomerMaster } from '../../core/config/customer-master.config.js';
 import { AnalyticsQueryBuilder } from '../../core/db/clickhouse/query/analytics-query-builder.js';
 import type { DatabaseClient } from '../../core/db/clickhouse/client.js';
 import type { BalanceQueryParams } from './balance.schemas.js';
@@ -32,8 +33,9 @@ function parseBalanceFilters(query: Record<string, unknown>) {
 }
 
 /**
- * Reach windows from a query: the selected period and the 12 months before it,
- * both with the same dashboard filters (channel, provider, role scope…).
+ * Reach windows from a query: the selected period and the active-customer
+ * universe, both under the same dashboard filters (channel, provider, role
+ * scope…), plus whether the master covers this board at all.
  */
 function buildReachWindows(query: { startDate: string; endDate: string } & Record<string, unknown>): ReachWindows {
   const dynamicFilters = parseBalanceFilters(query);
@@ -42,7 +44,8 @@ function buildReachWindows(query: { startDate: string; endDate: string } & Recor
       dynamicFilters,
       parseQueryParamsToFilters({ startDate: query.startDate, endDate: query.endDate })
     ),
-    historyFilters: combineFilters(dynamicFilters, parseQueryParamsToFilters(historyWindow(query.startDate))),
+    universeFilters: masterUniverseFilters(dynamicFilters),
+    coversMaster: coversCustomerMaster(dynamicFilters),
     facturadoOnly: parseBooleanParam(query, 'facturadoOnly'),
   };
 }
@@ -174,7 +177,7 @@ export function balanceRoutes(
   /**
    * GET /balance/reach
    * Reach block for the period: Items, Numérica and Clientes sin compra
-   * (bought in the 12 months before the period, not in it). Same filters as /balance.
+   * (active customers of the master who did not buy in it). Same filters as /balance.
    */
   server.get(
     '/balance/reach',
@@ -196,13 +199,13 @@ export function balanceRoutes(
 
   /**
    * GET /balance/sin-compra
-   * Detail of the Clientes sin compra count, with each customer's latest seller.
+   * Detail of the Clientes sin compra count, with each customer's assigned seller.
    */
   server.get(
     '/balance/sin-compra',
     {
       schema: {
-        description: 'Customers who bought in the 12 months before the period and not in it, with their latest seller.',
+        description: 'Active customers of the master who did not buy in the period, with their assigned seller.',
         tags: ['balance'],
         querystring: BalanceReachQueryStringSchema,
         response: {

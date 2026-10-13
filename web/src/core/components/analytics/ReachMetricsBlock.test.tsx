@@ -9,7 +9,7 @@ describe('ReachMetricsBlock', () => {
         reach={{ productos_unicos: 5540, clientes_unicos: 1562, clientes_sin_compra: 6657 }}
         isLoading={false}
         sinCompraTooltip="Definición"
-        sinCompraDescription="Compraron en los 12 meses anteriores"
+        sinCompraDescription="Clientes activos sin compra"
         sinCompraDetail={<button type="button">Ver quiénes son</button>}
       />
     );
@@ -20,7 +20,7 @@ describe('ReachMetricsBlock', () => {
     expect(screen.getByText('1.562')).toBeInTheDocument();
     expect(screen.getByText('CLIENTES SIN COMPRA')).toBeInTheDocument();
     expect(screen.getByText('6.657')).toBeInTheDocument();
-    expect(screen.getByText('Compraron en los 12 meses anteriores')).toBeInTheDocument();
+    expect(screen.getByText('Clientes activos sin compra')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver quiénes son' })).toBeInTheDocument();
   });
 
@@ -36,5 +36,21 @@ describe('ReachMetricsBlock', () => {
     );
 
     expect(screen.getAllByText('0')).toHaveLength(3);
+  });
+
+  it('hides Clientes sin compra on boards the customer master does not cover', () => {
+    render(
+      <ReachMetricsBlock
+        reach={{ productos_unicos: 12, clientes_unicos: 7, clientes_sin_compra: null }}
+        isLoading={false}
+        sinCompraTooltip=""
+        sinCompraDescription=""
+        sinCompraDetail={null}
+      />
+    );
+
+    expect(screen.getByText('ITEMS')).toBeInTheDocument();
+    expect(screen.getByText('NUMÉRICA')).toBeInTheDocument();
+    expect(screen.queryByText('CLIENTES SIN COMPRA')).not.toBeInTheDocument();
   });
 });

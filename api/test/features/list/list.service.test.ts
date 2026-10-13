@@ -3,6 +3,7 @@ import { ListService } from '../../../src/features/list/list.service.js';
 import type { IAnalyticsQueryBuilder, FilterCondition } from '../../../src/core/db/clickhouse/query/interfaces.js';
 import type { ListQueryParams } from '../../../src/features/list/list.schemas.js';
 import { generateMockQueryResult } from '../../helpers/test-data-builder.js';
+import { activeCustomerFilters } from '../../../src/core/config/customer-master.config.js';
 
 describe('ListService', () => {
   let service: ListService;
@@ -603,6 +604,70 @@ describe('ListService', () => {
       expect(result.data.map((d) => d.id)).toEqual(['A']);
       expect((result.data[0] as unknown as { abcRank?: number }).abcRank).toBe(1);
       expect(result.data[0].sales_total).toBe(0);
+    });
+  });
+
+  describe('sin compra (active customers only)', () => {
+    const seller: FilterCondition = { field: 'seller_id', operator: 'eq', value: 'CL10' };
+    const purchases = [
+      { table: 'transactions', field: 'customer_id' },
+      { table: 'pedidos_retenidos', field: 'customer_id' },
+    ];
+
+    beforeEach(() => {
+      mockBuilder.buildDistinctCountQuery = vi.fn().mockResolvedValue(120);
+      mockBuilder.buildDistinctCountExcludingQuery = vi.fn().mockResolvedValue(45);
+      mockBuilder.buildDistinctDetailsExcludingQuery = vi.fn().mockResolvedValue([
+        { customer_id: '900', customer_name: 'ABC LTDA' },
+      ]);
+      vi.mocked(mockBuilder.buildGroupedMultiTableYoYQuery).mockResolvedValue([]);
+    });
+
+    it('measures Estado coverage over the seller\'s active customers in the master', async () => {
+      const status = await service.getSellerStatus({ filters: [seller] });
+
+      expect(mockBuilder.buildDistinctCountQuery).toHaveBeenCalledWith({
+        sources: [{ table: 'clientes', field: 'customer_id' }],
+        filters: [...activeCustomerFilters(), { ...seller, table: 'clientes' }],
+      });
+      const [[sinCompraMes, enfriaron]] = [vi.mocked(mockBuilder.buildDistinctCountExcludingQuery).mock.calls.map(([c]) => c)];
+      expect(sinCompraMes!.universe).toEqual({
+        table: 'clientes', field: 'customer_id', filters: [...activeCustomerFilters(), { ...seller, table: 'clientes' }],
+      });
+      expect(sinCompraMes!.exclude.sources).toEqual(purchases);
+      // "Se enfriaron": historical buyers still active in the master
+      expect(enfriaron!.universe).toEqual({
+        table: 'transactions', field: 'customer_id', filters: [seller],
+        within: { table: 'clientes', field: 'customer_id', filters: activeCustomerFilters() },
+      });
+      // numérica + sin compra este mes = activos
+      expect(status).toMatchObject({ activos: 120, numerica: 75, sinCompra: 45 });
+    });
+
+    it('lists "sin compra este mes" from the master with the same universe as the count', async () => {
+      const window: FilterCondition[] = [
+        seller,
+        { field: 'date', operator: 'gte', value: '2026-10-01' },
+        { field: 'date', operator: 'lte', value: '2026-10-13' },
+      ];
+      const result = await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'sin_compra_mes', filters: window });
+
+      expect(mockBuilder.buildDistinctDetailsExcludingQuery).toHaveBeenCalledWith(expect.objectContaining({
+        universe: { table: 'clientes', keyField: 'customer_id', filters: [...activeCustomerFilters(), { ...seller, table: 'clientes' }] },
+        exclude: { sources: purchases, filters: window },
+      }));
+      expect(result.data.map((r) => [r.id, r.name])).toEqual([['900', 'ABC LTDA']]);
+    });
+
+    it('lists "se enfriaron" as historical buyers still active in the master', async () => {
+      await service.getBalanceList({ groupBy: 'customer_id', customerPreset: 'sin_compra', filters: [seller] });
+
+      expect(mockBuilder.buildDistinctDetailsExcludingQuery).toHaveBeenCalledWith(expect.objectContaining({
+        universe: {
+          table: 'transactions', keyField: 'customer_id', filters: [seller],
+          within: { table: 'clientes', field: 'customer_id', filters: activeCustomerFilters() },
+        },
+      }));
     });
   });
 

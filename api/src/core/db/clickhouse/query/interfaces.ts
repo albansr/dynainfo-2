@@ -2,6 +2,13 @@ import type { MetricConfig } from './types.js';
 
 export type { FilterCondition } from './filter-builder.js';
 
+/** One table's distinct values of `field` under `filters` (table-scoped like every filter). */
+export interface DistinctSource {
+  table: string;
+  field: string;
+  filters: import('./filter-builder.js').FilterCondition[];
+}
+
 /**
  * Dependency Injection interfaces
  * Allows for better testability and loose coupling
@@ -114,7 +121,8 @@ export interface IAnalyticsQueryBuilder {
    * an event). Filters honour FilterCondition.table scoping.
    */
   buildDistinctCountExcludingQuery(config: {
-    universe: { table: string; field: string; filters: import('./filter-builder.js').FilterCondition[] };
+    /** `within`: keep only universe values also present in that source (intersection). */
+    universe: { table: string; field: string; filters: import('./filter-builder.js').FilterCondition[]; within?: DistinctSource };
     exclude: {
       sources: Array<{ table: string; field: string }>;
       filters: import('./filter-builder.js').FilterCondition[];
@@ -127,7 +135,7 @@ export interface IAnalyticsQueryBuilder {
    * resolved from the key's most recent universe row (argMax over dateField).
    */
   buildDistinctDetailsExcludingQuery(config: {
-    universe: { table: string; keyField: string; filters: import('./filter-builder.js').FilterCondition[] };
+    universe: { table: string; keyField: string; filters: import('./filter-builder.js').FilterCondition[]; within?: DistinctSource };
     attributes: string[];
     dateField: string;
     exclude: {
