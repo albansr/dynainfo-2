@@ -5,6 +5,7 @@ import { AppSelect } from '@/core/components/AppSelect';
 import { PageHeader } from '@/core/components/PageHeader';
 import { useAuthStore } from '@/core/store/authStore';
 import { REGIONAL_GROUPS, ROLE_LABELS } from '@/core/config/access';
+import { isDemoRoleEnabled } from '@/core/config/constants';
 
 // BOARD (Junta General) is hidden from the demo switcher for now.
 const DEMO_ROLES: { value: string; label: string }[] = [
@@ -101,7 +102,7 @@ export function SettingsPage() {
     <div>
       <PageHeader title="Configuración" showDateFilter={false} />
 
-      <DemoRoleSwitcher />
+      {isDemoRoleEnabled() && <DemoRoleSwitcher />}
 
       <div className="border border-zinc-200 rounded-lg p-4 sm:p-6">
         <h2 className="text-sm font-semibold text-zinc-700 mb-1">Presupuesto</h2>

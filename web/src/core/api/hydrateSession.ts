@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/core/store/authStore';
+import { isDemoRoleEnabled } from '@/core/config/constants';
 import { authApi } from '@/core/api/authApi';
 import { normalizeAuthResponse } from '@/core/utils/normalizeAuthResponse';
 
@@ -16,9 +17,10 @@ export async function hydrateSessionFromServer(): Promise<boolean> {
   if (!response?.user || !response.session) return false;
 
   const { user, session } = normalizeAuthResponse(response);
-  // Demo role override: apply the persisted override over the real session.
+  // Demo role override: apply the persisted override over the real session,
+  // except on the production domain (a role picked elsewhere never leaks in).
   const { demoRole, demoScope } = useAuthStore.getState();
-  const finalUser = demoRole
+  const finalUser = demoRole && isDemoRoleEnabled()
     ? { ...user, dynaRole: demoRole, scope: demoScope }
     : user;
 
