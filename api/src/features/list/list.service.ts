@@ -28,7 +28,7 @@ import {
   masterUniverseFilters,
 } from '../../core/config/customer-master.config.js';
 import { listActiveNonBuyers } from '../../core/utils/customer-master.js';
-import { listsGroupsWithoutSales } from '../../core/config/table-filters.config.js';
+import { listsGroupsWithoutSales } from '../../core/config/list-groupings.config.js';
 
 /** Purchases that take a customer out of "sin compra": invoiced + pending orders (as Festival). */
 const PURCHASE_SOURCES = [

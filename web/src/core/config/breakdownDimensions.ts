@@ -149,22 +149,33 @@ export function getBreakdownCategories(filters: FilterMap): DimCategory[] {
 }
 
 /**
- * Dimensions the budget (dyna_budget) and RET. CARTERA (dyna_cartera) are
- * actually broken down by: seller, regional, provider and channel (cartera via
- * its regionals), plus the provider buckets and time groupings. Their customer,
- * product and category columns are empty (or, for cartera products, internal
- * item codes), so any other dimension always reads 0 there.
+ * Dimensions the budget (dyna_budget) is actually broken down by: seller,
+ * regional, provider and channel (its customer/product/category columns are
+ * empty), plus the provider buckets and time groupings.
  */
-const BUDGET_AND_CARTERA_DIMENSIONS: ReadonlySet<string> = new Set([
+const BUDGET_DIMENSIONS: ReadonlySet<string> = new Set([
   'seller_id', 'IdRegional', 'ProveedorComercial', 'channel', 'brand_group', 'month', 'quarter', 'year',
 ]);
 
+/** Dimensions RET. CARTERA (dyna_cartera) is broken down by: the budget's plus customer and product. */
+const CARTERA_DIMENSIONS: ReadonlySet<string> = new Set([
+  ...BUDGET_DIMENSIONS, 'customer_id', 'customer_name', 'product_id',
+]);
+
+/** The grouping and every filter in play can be split by the table's dimensions. */
+const splitsBy = (dimensions: ReadonlySet<string>, groupBy: GroupByDimension, filters: FilterMap): boolean =>
+  dimensions.has(groupBy) && Object.keys(filters).every((dim) => dimensions.has(dim));
+
 /**
- * Whether a listing shows the budget columns (PPTO, cumplimiento, margen ppto)
- * and RET. CARTERA: only when the grouping and every filter in play can split
- * them — elsewhere they always read 0, so the columns are hidden.
+ * Whether a listing shows the budget columns (PPTO, cumplimiento, margen ppto):
+ * only when the grouping and every filter can split the budget — elsewhere they
+ * always read 0, so the columns are hidden.
  */
-export function listingShowsBudgetAndCartera(groupBy: GroupByDimension, filters: FilterMap = {}): boolean {
-  return BUDGET_AND_CARTERA_DIMENSIONS.has(groupBy)
-    && Object.keys(filters).every((dim) => BUDGET_AND_CARTERA_DIMENSIONS.has(dim));
+export function listingShowsBudget(groupBy: GroupByDimension, filters: FilterMap = {}): boolean {
+  return splitsBy(BUDGET_DIMENSIONS, groupBy, filters);
+}
+
+/** Whether a listing shows RET. CARTERA (same rule, over dyna_cartera's dimensions). */
+export function listingShowsCartera(groupBy: GroupByDimension, filters: FilterMap = {}): boolean {
+  return splitsBy(CARTERA_DIMENSIONS, groupBy, filters);
 }
