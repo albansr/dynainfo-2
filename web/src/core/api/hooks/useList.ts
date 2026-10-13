@@ -6,7 +6,7 @@ import { useMergedFilters } from './useMergedFilters';
 import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
 import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
 
-export type GroupByDimension = 'seller_id' | 'IdRegional' | 'channel' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'brand_group' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'customer_city' | 'customer_department' | 'ClasifRiesgo' | 'Categoria' | 'SubCategoria' | 'FamiliaProducto' | 'Linea' | 'month' | 'quarter' | 'year';
+export type GroupByDimension = 'seller_id' | 'IdRegional' | 'channel' | 'customer_id' | 'customer_name' | 'customer_country' | 'product_id' | 'ProveedorComercial' | 'Marca' | 'brand_group' | 'SegmentacionCliente' | 'SegmentacionProducto' | 'CentroOperaciones' | 'customer_city' | 'customer_department' | 'ClasifRiesgo' | 'Categoria' | 'SubCategoria' | 'FamiliaProducto' | 'Linea' | 'segmentacion_ventas_festival' | 'month' | 'quarter' | 'year';
 
 export interface ListItemResponse {
   id: string;
