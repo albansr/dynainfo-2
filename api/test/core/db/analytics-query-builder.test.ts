@@ -387,6 +387,41 @@ describe('AnalyticsQueryBuilder', () => {
   });
 
   describe('buildGroupedMultiTableYoYQuery', () => {
+    it('partitions the grouping by a second key in a single query', async () => {
+      const metrics: MetricConfig[] = [
+        { table: 'transactions', field: 'sales_price', aggregation: 'sum', alias: 'sales' },
+        { table: 'pedidos_retenidos', field: 'sales_price', aggregation: 'sum', alias: 'orders' },
+      ];
+
+      await builder.buildGroupedMultiTableYoYQuery({
+        metrics,
+        currentPeriodFilters: [{ field: 'date', operator: 'gte', value: '2025-01-01' }],
+        groupBy: 'IdRegional',
+        partitionBy: 'seller_id',
+      });
+
+      const { query } = vi.mocked(mockClient.query).mock.calls[1]![0] as { query: string };
+      expect(query).toContain('trimBoth(seller_id) AS _partition');
+      expect(query).toContain('GROUP BY 1, 2');
+      expect(query).toContain('transactions_current._partition AS partition');
+      expect(query).toContain(
+        'LEFT JOIN transactions_previous ON transactions_current.IdRegional = transactions_previous.IdRegional AND transactions_current._partition = transactions_previous._partition'
+      );
+      // pedidos_retenidos has no seller_id column here: it contributes zeros
+      expect(query).toContain('0 AS orders');
+      expect(query).not.toContain('pedidos_retenidos_current AS');
+    });
+
+    it('rejects partitionBy together with includeAllGroups', async () => {
+      await expect(builder.buildGroupedMultiTableYoYQuery({
+        metrics: [{ table: 'transactions', field: 'sales_price', aggregation: 'sum', alias: 'sales' }],
+        currentPeriodFilters: [],
+        groupBy: 'IdRegional',
+        partitionBy: 'seller_id',
+        includeAllGroups: true,
+      })).rejects.toThrow('partitionBy is not compatible with includeAllGroups');
+    });
+
     it('should execute query with pagination parameters', async () => {
       const mockResultSet = {
         json: vi.fn().mockResolvedValue([
