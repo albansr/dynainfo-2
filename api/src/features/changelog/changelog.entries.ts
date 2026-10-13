@@ -52,6 +52,23 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-13-agrupar-por-canal-de-venta',
+    date: '2026-10-13',
+    title: 'Agrupar por canal de venta en todos los análisis',
+    summary:
+      'Ahora puedes ver cualquier análisis repartido por canal de venta: Vendedores, Tienda Virtual y Call Center, el mismo reparto que ya tenía Festival Virtual.',
+    published: true,
+    changes: [
+      {
+        category: 'nuevo',
+        items: [
+          '**Canal de venta en «Agrupar por»**: elige Canal de venta para ver ventas, margen y evolución de Vendedores, Tienda Virtual y Call Center en Compañía General, en cada canal y en las marcas. Es distinto de «Canal», que separa Distribución, Cadenas, Exportaciones y Retail.',
+          '**Filtra y baja al detalle**: filtra por un canal de venta o pulsa uno para ver qué vendedores venden por él.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-13-clientes-sin-compra-activos',
     date: '2026-10-13',
     title: 'Clientes sin compra: solo clientes activos, igual en todo DynaInfo',
