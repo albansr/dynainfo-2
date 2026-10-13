@@ -19,7 +19,7 @@ import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useLis
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
 import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
-import { listingShowsBudgetAndCartera } from '@/core/config/breakdownDimensions';
+import { listingShowsBudget, listingShowsCartera } from '@/core/config/breakdownDimensions';
 
 /** Leading ABC-position column (#) for the seller peso (80%) list. */
 const RANK_COLUMN: ColumnDefinition = {
@@ -178,9 +178,8 @@ export function AnalyticsListSection({
 
   // Budget columns and RET. CARTERA only where dyna_budget / dyna_cartera can
   // break them down by the grouping and every filter (else they always read 0)
-  const splitsBudgetAndCartera = listingShowsBudgetAndCartera(groupBy, effectiveFilters);
-  const hideBudget = hideBudgetColumns || !splitsBudgetAndCartera;
-  const hideRetained = hideRetainedColumn || !splitsBudgetAndCartera;
+  const hideBudget = hideBudgetColumns || !listingShowsBudget(groupBy, effectiveFilters);
+  const hideRetained = hideRetainedColumn || !listingShowsCartera(groupBy, effectiveFilters);
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');

@@ -6,7 +6,6 @@ import type { MetricConfig } from './types.js';
 import type { IAnalyticsQueryBuilder, DistinctSource } from './interfaces.js';
 import { getAllMetricAliases, getAllCalculatedMetricNames } from '../../../config/metrics.config.js';
 import { getFieldPair } from '../../../config/dimension-fields.config.js';
-import { adaptFiltersForTable } from '../../../config/table-filters.config.js';
 
 /**
  * Valid fields for ORDER BY clause
@@ -270,7 +269,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
    * (see FilterCondition.table). `table` is the bare name, without prefix.
    */
   private filtersForTable(filters: FilterCondition[], table: string): FilterCondition[] {
-    return adaptFiltersForTable(filters.filter((f) => !f.table || f.table === table), table);
+    return filters.filter((f) => !f.table || f.table === table);
   }
 
   /**
@@ -744,10 +743,13 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
       // committed orders but no invoiced sales yet) still get a row. Note the
       // `search` predicate only lives in the driving table's CTE, so spine
       // mode does not support search.
+      // NULL ids are skipped: a table that carries the column but leaves it
+      // empty (the budget has no customers) must not add a catch-all row.
       ctes.push(`all_ids AS (
   SELECT DISTINCT ${idField} FROM (
   ${tablesWithDimension.map((t) => `SELECT ${idField} FROM ${t}_current`).join('\n  UNION ALL\n  ')}
   )
+  WHERE ${idField} IS NOT NULL
 )`);
       fromClause = 'all_ids';
       for (const table of tablesWithDimension) {
@@ -777,7 +779,8 @@ CROSS JOIN ${Array.from(metricsByTable.keys()).map((t) => `${t}_previous`).join(
       }
     }
 
-    // Build pagination clause if limit is provided
+    // Ties (many groups with 0 sales) are broken by id so pages never overlap
+    // or skip rows. Build pagination clause if limit is provided
     const paginationClause = limit !== undefined
       ? `\nLIMIT ${limit}${offset !== undefined ? ` OFFSET ${offset}` : ''}`
       : '';
@@ -789,7 +792,7 @@ SELECT
   ${finalSelects.join(',\n  ')}
 FROM ${fromClause}
 ${joinClauses.join('\n')}
-ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}${paginationClause}
+ORDER BY ${orderBy} ${validatedDirection.toUpperCase()}, id ASC${paginationClause}
 `;
   }
 
