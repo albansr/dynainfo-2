@@ -6,6 +6,7 @@ import type { MetricConfig } from './types.js';
 import type { IAnalyticsQueryBuilder, DistinctSource } from './interfaces.js';
 import { getAllMetricAliases, getAllCalculatedMetricNames } from '../../../config/metrics.config.js';
 import { getFieldPair } from '../../../config/dimension-fields.config.js';
+import { adaptFiltersForTable } from '../../../config/table-filters.config.js';
 
 /**
  * Valid fields for ORDER BY clause
@@ -269,7 +270,7 @@ export class AnalyticsQueryBuilder implements IAnalyticsQueryBuilder {
    * (see FilterCondition.table). `table` is the bare name, without prefix.
    */
   private filtersForTable(filters: FilterCondition[], table: string): FilterCondition[] {
-    return filters.filter((f) => !f.table || f.table === table);
+    return adaptFiltersForTable(filters.filter((f) => !f.table || f.table === table), table);
   }
 
   /**
