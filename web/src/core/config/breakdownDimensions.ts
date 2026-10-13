@@ -27,6 +27,9 @@ export const DIM_CATEGORIES: DimCategory[] = [
     label: '',
     dims: [
       { key: 'channel', label: 'Canal' },
+      // Sales channel of each invoice (Vendedores / Tienda Virtual / Call Center),
+      // the same field Festival Virtual groups by. Only sales and orders carry it.
+      { key: 'segmentacion_ventas_festival', label: 'Canal de venta' },
       { key: 'IdRegional', label: 'Regional' },
       { key: 'brand_group', label: 'Marcas (Aliadas y Exclusivas)' },
     ],

@@ -436,10 +436,14 @@ ${previousWhere}
       `${table}_previous.${idField}`,
     ]);
 
+    // The CTEs expose the name as `_name` (see groupedDimensionSelects), or
+    // only the id when id and name are the same column (e.g. Categoria)
+    const nameColumn = idField === nameField ? idField : '_name';
+
     // Build COALESCE for name field (only from tables that carry it)
     const nameCoalesceArgs = tablesWithName.flatMap((table) => [
-      `${table}_current._name`,
-      `${table}_previous._name`,
+      `${table}_current.${nameColumn}`,
+      `${table}_previous.${nameColumn}`,
     ]);
 
     if (includeAllGroups) {
