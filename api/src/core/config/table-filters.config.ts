@@ -51,3 +51,17 @@ function channelAsRegionalFilters(f: FilterCondition): FilterCondition[] {
   // An unknown channel has no regionals: match nothing rather than everything
   return [{ ...base, operator: 'in', value: regionals.length > 0 ? regionals : ['__none__'] }];
 }
+
+/**
+ * Groupings every metric table splits cleanly (sales, orders, budget and
+ * cartera all carry them filled in). Listings by these include groups with no
+ * sales in the period (e.g. a seller with only budget or cartera), so their
+ * budget and RET. CARTERA are not dropped. Other groupings stay driven by the
+ * sales rows: budget and cartera leave customers/products empty there, which
+ * would surface as a misleading "Sin Determinar" row.
+ */
+const GROUPINGS_FROM_EVERY_SOURCE = new Set(['seller_id', 'IdRegional', 'ProveedorComercial', 'channel']);
+
+export function listsGroupsWithoutSales(groupBy: string): boolean {
+  return GROUPINGS_FROM_EVERY_SOURCE.has(groupBy);
+}

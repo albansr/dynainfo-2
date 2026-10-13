@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { adaptFiltersForTable } from '../../../src/core/config/table-filters.config.js';
+import { adaptFiltersForTable, listsGroupsWithoutSales } from '../../../src/core/config/table-filters.config.js';
 import type { FilterCondition } from '../../../src/core/db/clickhouse/query/filter-builder.js';
 
 describe('adaptFiltersForTable', () => {
@@ -27,5 +27,15 @@ describe('adaptFiltersForTable', () => {
   it('matches nothing for an unknown channel instead of the whole company', () => {
     expect(adaptFiltersForTable([{ field: 'channel', operator: 'eq', value: 'OTRO' }], 'cartera'))
       .toEqual([{ field: 'IdRegional', operator: 'in', value: ['__none__'], trim: true }]);
+  });
+});
+
+describe('listsGroupsWithoutSales', () => {
+  it('includes groups with only budget or cartera where every table splits the grouping', () => {
+    for (const g of ['seller_id', 'IdRegional', 'ProveedorComercial', 'channel']) expect(listsGroupsWithoutSales(g)).toBe(true);
+  });
+
+  it('stays driven by sales where budget or cartera leave the grouping empty', () => {
+    for (const g of ['customer_id', 'customer_name', 'product_id', 'Categoria']) expect(listsGroupsWithoutSales(g)).toBe(false);
   });
 });
