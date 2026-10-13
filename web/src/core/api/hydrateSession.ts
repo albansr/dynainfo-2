@@ -16,9 +16,9 @@ export async function hydrateSessionFromServer(): Promise<boolean> {
   if (!response?.user || !response.session) return false;
 
   const { user, session } = normalizeAuthResponse(response);
-  // Demo role override: apply the persisted override over the real session.
+  // Demo role override (development only): apply the persisted override over the real session.
   const { demoRole, demoScope } = useAuthStore.getState();
-  const finalUser = demoRole
+  const finalUser = import.meta.env.DEV && demoRole
     ? { ...user, dynaRole: demoRole, scope: demoScope }
     : user;
 
