@@ -28,6 +28,7 @@ import {
   masterUniverseFilters,
 } from '../../core/config/customer-master.config.js';
 import { listActiveNonBuyers } from '../../core/utils/customer-master.js';
+import { listsGroupsWithoutSales } from '../../core/config/table-filters.config.js';
 
 /** Purchases that take a customer out of "sin compra": invoiced + pending orders (as Festival). */
 const PURCHASE_SOURCES = [
@@ -129,7 +130,8 @@ export class ListService {
         orderBy,
         orderDirection,
         facturadoOnly,
-        ...(search && { search }),
+        // Search narrows the sales rows; it cannot drive the all-sources spine
+        ...(search ? { search } : { includeAllGroups: listsGroupsWithoutSales(groupBy) }),
       }),
       this.getCodeByGroup(groupBy, filters),
     ]);
@@ -221,6 +223,7 @@ export class ListService {
         orderBy,
         orderDirection,
         facturadoOnly,
+        includeAllGroups: listsGroupsWithoutSales(groupBy),
       }),
       this.getCodeByGroup(groupBy, filters),
     ]);

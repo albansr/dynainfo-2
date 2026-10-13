@@ -255,7 +255,7 @@ export function DashboardView({ title, chip, chipMuted, breadcrumbs, filters, se
         <div className="mt-8 border border-zinc-200 rounded-lg p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
             <MetricCard
-              label="CARTERA"
+              label="RET. CARTERA"
               value={`$ ${balanceData ? formatCurrency(balanceData.cartera) : '0'}`}
               description={`Cumpl. ppto con cartera: ${balanceData ? formatPercentage(balanceData.cartera_compliance_pct) : '0'}%`}
               isLoading={isLoading}

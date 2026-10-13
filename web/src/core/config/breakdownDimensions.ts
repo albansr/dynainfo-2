@@ -149,24 +149,22 @@ export function getBreakdownCategories(filters: FilterMap): DimCategory[] {
 }
 
 /**
- * Groupings whose column exists in dyna_cartera (receivables), the only ones
- * that can break RET. CARTERA down — any other grouping always reads 0 there,
- * so the column is hidden. Products are left out on purpose: their listing
- * shows UNIDADES and COSTO PROMEDIO instead.
+ * Dimensions the budget (dyna_budget) and RET. CARTERA (dyna_cartera) are
+ * actually broken down by: seller, regional, provider and channel (cartera via
+ * its regionals), plus the provider buckets and time groupings. Their customer,
+ * product and category columns are empty (or, for cartera products, internal
+ * item codes), so any other dimension always reads 0 there.
  */
-const CARTERA_GROUPINGS: ReadonlySet<GroupByDimension> = new Set<GroupByDimension>([
-  'seller_id',
-  'IdRegional',
-  'customer_id',
-  'customer_name',
-  'ProveedorComercial',
-  'brand_group',
-  'month',
-  'quarter',
-  'year',
+const BUDGET_AND_CARTERA_DIMENSIONS: ReadonlySet<string> = new Set([
+  'seller_id', 'IdRegional', 'ProveedorComercial', 'channel', 'brand_group', 'month', 'quarter', 'year',
 ]);
 
-/** Whether a listing grouped by `groupBy` shows the RET. CARTERA column. */
-export function groupingShowsCartera(groupBy: GroupByDimension): boolean {
-  return CARTERA_GROUPINGS.has(groupBy);
+/**
+ * Whether a listing shows the budget columns (PPTO, cumplimiento, margen ppto)
+ * and RET. CARTERA: only when the grouping and every filter in play can split
+ * them — elsewhere they always read 0, so the columns are hidden.
+ */
+export function listingShowsBudgetAndCartera(groupBy: GroupByDimension, filters: FilterMap = {}): boolean {
+  return BUDGET_AND_CARTERA_DIMENSIONS.has(groupBy)
+    && Object.keys(filters).every((dim) => BUDGET_AND_CARTERA_DIMENSIONS.has(dim));
 }
