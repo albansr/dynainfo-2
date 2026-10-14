@@ -23,6 +23,7 @@ interface DimensionBreakdownProps {
   extraDims?: { key: GroupByDimension; label: string }[];
   /** Column passthrough so a view keeps the look of its former page. */
   totalsLabel?: string;
+  /** Force-hide the budget columns; otherwise they show wherever the budget splits by the grouping. */
   hideBudgetColumns?: boolean;
   hideRetainedColumn?: boolean;
   nameOverrides?: Record<string, string>;
@@ -40,7 +41,7 @@ export function DimensionBreakdown({
   reportTitle,
   extraDims,
   totalsLabel,
-  hideBudgetColumns = true,
+  hideBudgetColumns = false,
   hideRetainedColumn = false,
   nameOverrides,
 }: DimensionBreakdownProps) {
