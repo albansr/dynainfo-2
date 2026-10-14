@@ -52,6 +52,24 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-14-presupuesto-en-detalle-y-marcas',
+    date: '2026-10-14',
+    title: 'El presupuesto aparece al bajar al detalle y en Marcas Aliadas',
+    summary:
+      'Las columnas de presupuesto ya se ven en el detalle y en Marcas Aliadas, siempre que el presupuesto se pueda repartir por lo que estás viendo.',
+    published: true,
+    changes: [
+      {
+        category: 'corregido',
+        items: [
+          '**Presupuesto en el detalle**: al bajar al detalle, por ejemplo de Marcas Exclusivas a sus proveedores, la tabla muestra el presupuesto, el cumplimiento y el margen presupuestado de cada fila. Lo mismo al agrupar por regional, vendedor, canal o periodo.',
+          '**Presupuesto en Marcas Aliadas**: el tablero de Marcas Aliadas ahora muestra el presupuesto de cada proveedor, igual que Marcas Exclusivas.',
+          '**Sigue oculto donde no aplica**: el presupuesto no se reparte por cliente, producto ni categoría, así que en esas agrupaciones las columnas no aparecen en vez de marcar 0.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-13-agrupar-por-canal-de-venta',
     date: '2026-10-13',
     title: 'Agrupar por canal de venta en todos los análisis',

@@ -165,9 +165,12 @@ const CARTERA_DIMENSIONS: ReadonlySet<string> = new Set([
   ...BUDGET_DIMENSIONS, 'customer_id', 'customer_name', 'product_id',
 ]);
 
+/** Dimension of a filter key, without its operator suffix (`ProveedorComercial[neq][]` → `ProveedorComercial`). */
+const filterDimension = (key: string): string => key.replace(/\[.*$/, '');
+
 /** The grouping and every filter in play can be split by the table's dimensions. */
 const splitsBy = (dimensions: ReadonlySet<string>, groupBy: GroupByDimension, filters: FilterMap): boolean =>
-  dimensions.has(groupBy) && Object.keys(filters).every((dim) => dimensions.has(dim));
+  dimensions.has(groupBy) && Object.keys(filters).every((key) => dimensions.has(filterDimension(key)));
 
 /**
  * Whether a listing shows the budget columns (PPTO, cumplimiento, margen ppto):

@@ -30,4 +30,11 @@ describe('listingShowsBudget / listingShowsCartera', () => {
     expect(listingShowsBudget('IdRegional', { channel: 'DISTRIBUCION', IdRegional: ['0002', '0004'] })).toBe(true);
     expect(listingShowsCartera('seller_id', { brand_group: 'exclusivas', seller_id: 'MD14' })).toBe(true);
   });
+
+  it('reads filters with an operator suffix by their dimension (Marcas Aliadas)', () => {
+    const aliadas = { 'ProveedorComercial[neq][]': ['VERA', 'FORTE'] };
+    expect(listingShowsBudget('ProveedorComercial', aliadas)).toBe(true);
+    expect(listingShowsCartera('ProveedorComercial', aliadas)).toBe(true);
+    expect(listingShowsBudget('ProveedorComercial', { 'Categoria[neq][]': ['X'] })).toBe(false);
+  });
 });
