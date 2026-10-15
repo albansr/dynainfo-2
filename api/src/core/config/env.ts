@@ -89,6 +89,11 @@ const envSchema = z.object({
     .optional()
     .default('false')
     .transform((val) => val === 'true'),
+
+  // Support ("Soporte"): who is emailed about new requests and user replies
+  // (comma-separated). Empty sends nothing.
+  // Read at send time by features/support/support.notifier.ts.
+  SUPPORT_NOTIFY_EMAILS: z.string().optional().default(''),
 });
 
 /**

@@ -10,6 +10,7 @@ import {
   type ChangelogEntry,
   type ChangelogImage,
 } from './changelog.entries.js';
+import { escapeHtml } from '../../core/utils/html.js';
 
 export interface DigestLinks {
   /** Web app origin: base for the /novedades page and entry images. */
@@ -52,14 +53,6 @@ export function zonedDateHour(now: Date, timeZone: string): { date: string; hour
     date: `${part('year')}-${part('month')}-${part('day')}`,
     hour: Number(part('hour')),
   };
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 /** Render one level of `**bold**` to HTML, escaping everything else. */

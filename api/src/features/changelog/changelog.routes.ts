@@ -1,6 +1,7 @@
-import type { FastifyPluginCallback, FastifyRequest } from 'fastify';
+import type { FastifyPluginCallback } from 'fastify';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import { matchWebOrigin, resolveWebOrigin } from '../../core/config/web-origin.js';
+import { resolveWebOrigin } from '../../core/config/web-origin.js';
+import { requestWebOrigin } from '../../core/utils/request-origin.js';
 import { ChangelogService } from './changelog.service.js';
 import { publishedEntries } from './changelog.entries.js';
 import {
@@ -9,18 +10,6 @@ import {
   SubscribeBodySchema,
   UnsubscribeQuerySchema,
 } from './changelog.schemas.js';
-
-/** The request's web origin (Origin, or failing that the Referer's) if it is one of ours. */
-function requestWebOrigin(request: FastifyRequest): string | null {
-  const { origin, referer } = request.headers;
-  if (origin) return matchWebOrigin(origin);
-  if (!referer) return null;
-  try {
-    return matchWebOrigin(new URL(referer).origin);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Public Novedades routes — no session (no `authenticate` preHandler).
