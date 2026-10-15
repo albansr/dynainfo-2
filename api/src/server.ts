@@ -19,6 +19,8 @@ import { festivalRoutes } from './features/festival/festival.routes.js';
 import { authRoutes } from './features/auth/auth.routes.js';
 import { usersRoutes } from './features/users/users.routes.js';
 import { changelogRoutes } from './features/changelog/changelog.routes.js';
+import { supportRoutes } from './features/support/support.routes.js';
+import { startSupportAutoClose } from './features/support/support.autoclose.job.js';
 import { startDigestScheduler } from './features/changelog/changelog.digest.job.js';
 import { getEnvConfig } from './core/config/env.js';
 import { setupErrorHandler } from './core/errors/error-handler.js';
@@ -298,6 +300,15 @@ async function buildServer() {
   // Public (no session) and in its own plugin: it adds a form-body parser for
   // one-click unsubscribe that must not leak into the rest of /api
   await fastify.register(changelogRoutes, { prefix: '/api' });
+  // Session-gated, in its own plugin: the create route raises its body limit for the screenshot
+  await fastify.register(supportRoutes, { prefix: '/api' });
+
+  // Idempotent hourly close of requests resolved more than a week ago
+  const stopSupportAutoClose = startSupportAutoClose();
+  fastify.addHook('onClose', (_instance, done) => {
+    stopSupportAutoClose();
+    done();
+  });
 
   if (config.CHANGELOG_DIGEST_ENABLED) {
     const stopDigestScheduler = startDigestScheduler();
