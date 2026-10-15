@@ -17,10 +17,11 @@ export class APIError extends Error {
   }
 }
 
-export async function apiClient<T>(
-  endpoint: string,
-  options?: RequestInit
-): Promise<T> {
+/**
+ * Fetch an API endpoint with the session cookie. Throws APIError on non-2xx;
+ * a 401 means the session is invalid → the user is treated as logged out.
+ */
+async function request(endpoint: string, options?: RequestInit): Promise<Response> {
   const url = `${API_URL}${endpoint}`;
 
   const response = await fetch(url, {
@@ -46,5 +47,19 @@ export async function apiClient<T>(
     );
   }
 
+  return response;
+}
+
+export async function apiClient<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  const response = await request(endpoint, options);
   return response.json();
+}
+
+/** Binary response (e.g. an image) from an authenticated endpoint. */
+export async function apiBlob(endpoint: string): Promise<Blob> {
+  const response = await request(endpoint);
+  return response.blob();
 }

@@ -17,6 +17,8 @@ const FilteredDetailPage = lazy(() => import('@/features/dashboard/pages/Filtere
 const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const EstadoPage = lazy(() => import('@/features/estado/pages/EstadoPage').then((m) => ({ default: m.EstadoPage })));
 const EstadoDetailPage = lazy(() => import('@/features/estado/pages/EstadoDetailPage').then((m) => ({ default: m.EstadoDetailPage })));
+const SupportPage = lazy(() => import('@/features/support/pages/SupportPage').then((m) => ({ default: m.SupportPage })));
+const SupportTicketPage = lazy(() => import('@/features/support/pages/SupportTicketPage').then((m) => ({ default: m.SupportTicketPage })));
 const NovedadesPage = lazy(() => import('@/features/changelog/pages/NovedadesPage').then((m) => ({ default: m.NovedadesPage })));
 const NovedadesBajaPage = lazy(() => import('@/features/changelog/pages/NovedadesBajaPage').then((m) => ({ default: m.NovedadesBajaPage })));
 
@@ -113,6 +115,26 @@ function App() {
                   <RouteGuard requireAuth={true}>
                     <AppLayout>
                       <SettingsPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/soporte"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <SupportPage />
+                    </AppLayout>
+                  </RouteGuard>
+                }
+              />
+              <Route
+                path="/soporte/:number"
+                element={
+                  <RouteGuard requireAuth={true}>
+                    <AppLayout>
+                      <SupportTicketPage />
                     </AppLayout>
                   </RouteGuard>
                 }

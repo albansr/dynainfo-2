@@ -1,11 +1,16 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Chip } from '@heroui/react';
-import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon, LifebuoyIcon } from '@heroicons/react/24/outline';
 import { getMenuSections } from '@/core/config/access';
 import { NavBadge } from '@/core/components/NavBadge';
+import { ViewAsBanner } from '@/core/components/ViewAsBanner';
+import { useAuthStore } from '@/core/store/authStore';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLogout } from '@/features/auth/hooks/useLogout';
+import { SupportDrawer } from '@/features/support/components/SupportDrawer';
+import { useSupportSummary } from '@/features/support/hooks/useSupport';
+import { useSupportDrawerStore } from '@/features/support/store/supportDrawerStore';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -34,6 +39,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const openSupport = useSupportDrawerStore((s) => s.open);
+  // Agents (real ADMIN, even while viewing as another role) see the open requests count
+  const isSupportAgent = useAuthStore((s) => s.realDynaRole === 'ADMIN');
+  const { data: supportSummary } = useSupportSummary(isSupportAgent);
 
   const isEmbedded = useMemo(() => {
     try { return window.self !== window.top; } catch { return true; }
@@ -138,6 +147,22 @@ export function AppLayout({ children }: AppLayoutProps) {
         </nav>
 
         <div className="mt-auto border-t border-zinc-200 p-3">
+          <button
+            type="button"
+            onClick={() => {
+              handleLinkClick();
+              openSupport();
+            }}
+            className="mb-2 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-200"
+          >
+            <LifebuoyIcon className="h-5 w-5" aria-hidden="true" />
+            <span className="flex-1 text-left">Ayuda y soporte</span>
+            {isSupportAgent && (supportSummary?.open ?? 0) > 0 && (
+              <Chip size="sm" color="primary" variant="flat" aria-label={`${supportSummary?.open} solicitudes abiertas`}>
+                {supportSummary?.open}
+              </Chip>
+            )}
+          </button>
           {user && (
             <Dropdown placement="top-start">
               <DropdownTrigger>
@@ -254,10 +279,12 @@ export function AppLayout({ children }: AppLayoutProps) {
           {!isEmbedded && <img src="/brand.png" alt="DynaInfo" className="h-8" />}
         </header>
 
+        <ViewAsBanner />
         <main className={`flex-1 overflow-y-auto py-4 px-4 ${isEmbedded ? '' : 'xl:px-10'} m-2 bg-white shadow rounded-xl`}>
           {children}
         </main>
       </div>
+      <SupportDrawer />
     </div>
   );
 }

@@ -52,6 +52,24 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-15-ayuda-y-soporte',
+    date: '2026-10-15',
+    title: 'Ayuda y soporte desde cualquier pantalla',
+    summary:
+      'Si algo no funciona o una cifra no cuadra, cuéntanoslo desde DynaInfo sin salir de la pantalla. Guardamos lo que estás viendo para poder revisarlo a la primera.',
+    published: false,
+    changes: [
+      {
+        category: 'nuevo',
+        items: [
+          '**Ayuda y soporte en el menú**: abajo en el menú lateral, en todas las pantallas. Elige si es un error, un dato incorrecto, un tema de acceso o una sugerencia, y cuéntanos qué pasa.',
+          '**Sin explicar dónde estabas**: la solicitud lleva la pantalla, los filtros y las fechas que tenías puestos, y si quieres una captura de pantalla.',
+          '**Sigue tus solicitudes**: en Soporte ves el estado de cada una y puedes responder. Te avisamos por correo cuando te contestamos y cuando queda resuelta.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-14-presupuesto-en-detalle-y-marcas',
     date: '2026-10-14',
     title: 'El presupuesto aparece al bajar al detalle y en Marcas Aliadas',

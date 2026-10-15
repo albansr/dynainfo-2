@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardBody, Skeleton } from '@heroui/react';
 import { useChangelogEntries } from '../hooks/useChangelog';
 import { ChangelogEntryCard } from '../components/ChangelogEntryCard';
@@ -6,6 +8,14 @@ import { SubscribeForm } from '../components/SubscribeForm';
 
 function EntriesList() {
   const { data: entries, isLoading, isError } = useChangelogEntries();
+  const { hash } = useLocation();
+
+  // Entries load after the page, so the browser can't jump to /novedades#<id> on
+  // its own (support emails link the entry that solved a request)
+  useEffect(() => {
+    if (!entries || !hash) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
+  }, [entries, hash]);
 
   if (isLoading) {
     return (

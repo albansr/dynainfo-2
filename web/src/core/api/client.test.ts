@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { apiClient, APIError } from './client';
+import { apiBlob, apiClient, APIError } from './client';
 import { useAuthStore, type User } from '@/core/store/authStore';
 
 const user: User = {
@@ -12,6 +12,7 @@ function mockFetch(status: number, body: unknown = {}) {
     ok: status >= 200 && status < 300,
     status,
     json: () => Promise.resolve(body),
+    blob: () => Promise.resolve(new Blob(['img'], { type: 'image/jpeg' })),
   } as unknown as Response;
   globalThis.fetch = vi.fn().mockResolvedValue(res);
 }
@@ -35,5 +36,22 @@ describe('apiClient', () => {
     mockFetch(500, { detail: 'boom' });
     await expect(apiClient('/api/x')).rejects.toMatchObject({ status: 500 });
     expect(useAuthStore.getState().user).not.toBeNull();
+  });
+});
+
+describe('apiBlob', () => {
+  beforeEach(() => useAuthStore.setState({ user, isAuthenticated: true }));
+  afterEach(() => vi.restoreAllMocks());
+
+  it('returns the binary body with the session cookie', async () => {
+    mockFetch(200);
+    const blob = await apiBlob('/api/img');
+    expect(blob.type).toBe('image/jpeg');
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/img'), expect.objectContaining({ credentials: 'include' }));
+  });
+
+  it('shares the error handling (404 → APIError)', async () => {
+    mockFetch(404, { detail: 'No encontramos esta solicitud' });
+    await expect(apiBlob('/api/img')).rejects.toMatchObject({ status: 404, message: 'No encontramos esta solicitud' });
   });
 });
