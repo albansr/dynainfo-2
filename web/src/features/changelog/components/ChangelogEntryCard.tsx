@@ -20,7 +20,7 @@ function RichItem({ text }: { text: string }) {
 
 export function ChangelogEntryCard({ entry }: { entry: ChangelogEntry }) {
   return (
-    <Card as="article" shadow="none" className="border border-default-200">
+    <Card as="article" id={entry.id} shadow="none" className="scroll-mt-6 border border-default-200">
       <CardBody className="gap-4 p-6">
         <header className="flex flex-col gap-1">
           <time dateTime={entry.date} className="text-xs text-default-500">

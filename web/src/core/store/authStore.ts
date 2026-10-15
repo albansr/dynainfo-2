@@ -29,6 +29,9 @@ interface AuthState {
   /** Demo-only role override (applied over the real session for the demo user). */
   demoRole: string | null;
   demoScope: string | null;
+  /** Role and scope from the server session, before any override (set on hydration, not persisted). */
+  realDynaRole: string | null;
+  realScope: string | null;
 }
 
 interface AuthActions {
@@ -42,6 +45,8 @@ interface AuthActions {
   clearAuth: () => void;
   /** Apply a demo role override; patches the current user immediately. */
   setDemoRole: (demoRole: string | null, demoScope: string | null) => void;
+  /** Record the server session's own role and scope (before overrides). */
+  setRealRole: (realDynaRole: string | null, realScope: string | null) => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -55,6 +60,8 @@ const initialState: AuthState = {
   error: null,
   demoRole: null,
   demoScope: null,
+  realDynaRole: null,
+  realScope: null,
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -94,6 +101,9 @@ export const useAuthStore = create<AuthStore>()(
 
       clearAuth: () =>
         set(initialState),
+
+      setRealRole: (realDynaRole, realScope) =>
+        set({ realDynaRole, realScope }),
 
       setDemoRole: (demoRole, demoScope) =>
         set((state) => ({
