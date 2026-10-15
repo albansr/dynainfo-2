@@ -13,7 +13,9 @@ const service = {
   getScreenshot: vi.fn(),
   addMessage: vi.fn(),
   updateTicket: vi.fn(),
-  openCount: vi.fn(),
+  giveFeedback: vi.fn(),
+  summary: vi.fn(),
+  mySummary: vi.fn(),
 };
 
 vi.mock('../../../src/features/support/support.service.js', () => ({
@@ -24,7 +26,9 @@ vi.mock('../../../src/features/support/support.service.js', () => ({
     getScreenshot = service.getScreenshot;
     addMessage = service.addMessage;
     updateTicket = service.updateTicket;
-    openCount = service.openCount;
+    giveFeedback = service.giveFeedback;
+    summary = service.summary;
+    mySummary = service.mySummary;
   },
 }));
 
@@ -33,7 +37,15 @@ vi.mock('../../../src/core/middleware/requireSession.js', () => ({
   requireSession: async (request: FastifyRequest) => {
     const role = request.headers['x-test-role'];
     if (typeof role !== 'string') throw new UnauthorizedError('No autenticado');
-    request.sessionUser = { id: 'u1', email: 'ana@dyna.co', name: 'Ana', dynaRole: role, scope: null };
+    const legacyRole = request.headers['x-test-legacy-role'];
+    request.sessionUser = {
+      id: 'u1',
+      email: 'ana@dyna.co',
+      name: 'Ana',
+      role: typeof legacyRole === 'string' ? legacyRole : 'user',
+      dynaRole: role,
+      scope: null,
+    };
   },
   sessionUserOf: (request: FastifyRequest) => request.sessionUser,
 }));
@@ -53,6 +65,12 @@ const context = {
   userAgent: 'test',
   viewport: { width: 1440, height: 900 },
 };
+const DETAIL = {
+  number: 12, type: 'data', subject: 's', description: 'd', status: 'in_progress', priority: 'high',
+  changelogEntryId: null, awaitingTeam: true, satisfied: null, lastActivityAt: NOW, resolvedAt: null, createdAt: NOW,
+  hasScreenshot: false, requester: { name: 'Ana', email: 'ana@dyna.co' }, context: { path: '/' }, messages: [],
+};
+
 const validTicket = { type: 'error', subject: 'No carga', description: 'La tabla no carga nunca', context };
 
 describe('Support Routes', () => {
@@ -131,7 +149,7 @@ describe('Support Routes', () => {
   describe('GET /support/tickets', () => {
     it('lists with query validation and serializes dates', async () => {
       service.listTickets.mockResolvedValue({
-        data: [{ number: 1, type: 'error', subject: 's', status: 'open', priority: 'medium', lastActivityAt: NOW, createdAt: NOW }],
+        data: [{ number: 1, type: 'error', subject: 's', status: 'open', priority: 'medium', awaitingTeam: true, lastActivityAt: NOW, createdAt: NOW }],
         total: 1,
         page: 1,
         limit: 20,
@@ -198,12 +216,8 @@ describe('Support Routes', () => {
     });
 
     it('lets an agent triage and read the open count', async () => {
-      service.openCount.mockResolvedValue(3);
-      service.updateTicket.mockResolvedValue({
-        number: 12, type: 'data', subject: 's', description: 'd', status: 'in_progress', priority: 'high',
-        changelogEntryId: null, lastActivityAt: NOW, resolvedAt: null, createdAt: NOW, hasScreenshot: false,
-        requester: { name: 'Ana', email: 'ana@dyna.co' }, context: { path: '/' }, messages: [],
-      });
+      service.summary.mockResolvedValue({ open: 3, awaitingTeam: 2 });
+      service.updateTicket.mockResolvedValue(DETAIL);
 
       const patch = await app.inject({ method: 'PATCH', url: '/support/tickets/12', headers: ADMIN, payload: { status: 'in_progress', priority: 'high' } });
       const empty = await app.inject({ method: 'PATCH', url: '/support/tickets/12', headers: ADMIN, payload: {} });
@@ -212,7 +226,39 @@ describe('Support Routes', () => {
       expect(patch.statusCode).toBe(200);
       expect(patch.json().context).toEqual({ path: '/' });
       expect(empty.statusCode).toBe(400);
-      expect(summary.json()).toEqual({ open: 3 });
+      expect(summary.json()).toEqual({ open: 3, awaitingTeam: 2 });
+    });
+
+    it('a superadmin is an agent too', async () => {
+      service.summary.mockResolvedValue({ open: 0, awaitingTeam: 0 });
+      const res = await app.inject({ method: 'GET', url: '/support/summary', headers: { 'x-test-role': 'SELLER', 'x-test-legacy-role': 'superadmin' } });
+      expect(res.statusCode).toBe(200);
+    });
+  });
+
+  describe('GET /support/summary/mine', () => {
+    it('is for any signed-in user', async () => {
+      service.mySummary.mockResolvedValue({ active: 2, awaitingMe: 1 });
+
+      const res = await app.inject({ method: 'GET', url: '/support/summary/mine', headers: SELLER });
+      const none = await app.inject({ method: 'GET', url: '/support/summary/mine' });
+
+      expect(res.json()).toEqual({ active: 2, awaitingMe: 1 });
+      expect(none.statusCode).toBe(401);
+    });
+  });
+
+  describe('POST /support/tickets/:number/feedback', () => {
+    it('passes the answer to the service and validates it', async () => {
+      service.giveFeedback.mockResolvedValue({ ...DETAIL, status: 'closed', satisfied: true });
+
+      const ok = await app.inject({ method: 'POST', url: '/support/tickets/12/feedback', headers: SELLER, payload: { solved: true } });
+      const bad = await app.inject({ method: 'POST', url: '/support/tickets/12/feedback', headers: SELLER, payload: { solved: 'si' } });
+
+      expect(ok.statusCode).toBe(200);
+      expect(ok.json().satisfied).toBe(true);
+      expect(service.giveFeedback).toHaveBeenCalledWith(expect.anything(), 12, { solved: true });
+      expect(bad.statusCode).toBe(400);
     });
   });
 });

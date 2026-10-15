@@ -50,6 +50,23 @@ export const SupportContextSchema = Type.Object(
     scope: Type.Union([Type.Null(), Type.String({ maxLength: 80 })]),
     // Overwritten on the server from the session; the client value is ignored
     realDynaRole: Type.Optional(Type.Union([Type.Null(), Type.String({ maxLength: 40 })])),
+    // Human-readable description built by the web (page name, filters by label), so
+    // agents and emails don't read raw query keys
+    summary: Type.Optional(
+      Type.Object(
+        {
+          page: Type.String({ maxLength: 200 }),
+          items: Type.Array(
+            Type.Object(
+              { label: Type.String({ maxLength: 60 }), value: Type.String({ maxLength: 300 }) },
+              { additionalProperties: false },
+            ),
+            { maxItems: 20 },
+          ),
+        },
+        { additionalProperties: false },
+      ),
+    ),
     userAgent: Type.String({ maxLength: 500 }),
     viewport: Type.Object(
       { width: Type.Integer({ minimum: 0 }), height: Type.Integer({ minimum: 0 }) },
@@ -91,6 +108,8 @@ export const CreateMessageBodySchema = Type.Object(
   {
     body: Type.String({ minLength: 1, maxLength: 5000 }),
     internal: Type.Optional(Type.Boolean()),
+    // Agents: reply and mark resolved in one step (one email: the resolution)
+    resolve: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -106,6 +125,16 @@ export const UpdateTicketBodySchema = Type.Object(
 );
 export type UpdateTicketBody = Static<typeof UpdateTicketBodySchema>;
 
+export const FeedbackBodySchema = Type.Object(
+  {
+    // "¿Se solucionó?" on a resolved request: true closes it, false reopens it
+    solved: Type.Boolean(),
+    body: Type.Optional(Type.String({ minLength: 1, maxLength: 5000 })),
+  },
+  { additionalProperties: false },
+);
+export type FeedbackBody = Static<typeof FeedbackBodySchema>;
+
 const PersonSchema = Type.Object({ name: Type.Union([Type.String(), Type.Null()]), email: Type.String() });
 
 const TicketSummarySchema = Type.Object({
@@ -114,6 +143,7 @@ const TicketSummarySchema = Type.Object({
   subject: Type.String(),
   status: TicketStatusSchema,
   priority: TicketPrioritySchema,
+  awaitingTeam: Type.Boolean(),
   lastActivityAt: DateTimeSchema,
   createdAt: DateTimeSchema,
   // Agents only (the requester of each ticket)
@@ -145,6 +175,8 @@ export const TicketDetailSchema = Type.Object({
   status: TicketStatusSchema,
   priority: TicketPrioritySchema,
   changelogEntryId: Type.Union([Type.String(), Type.Null()]),
+  awaitingTeam: Type.Boolean(),
+  satisfied: Type.Union([Type.Boolean(), Type.Null()]),
   lastActivityAt: DateTimeSchema,
   resolvedAt: Type.Union([DateTimeSchema, Type.Null()]),
   createdAt: DateTimeSchema,
@@ -153,8 +185,21 @@ export const TicketDetailSchema = Type.Object({
   // Full context for agents; only path, search and dateRange for the requester
   context: Type.Object({}, { additionalProperties: true }),
   messages: Type.Array(MessageSchema),
+  // Agents only: the requester's other requests and others from the same screen
+  related: Type.Optional(
+    Type.Array(
+      Type.Object({
+        number: Type.Integer(),
+        subject: Type.String(),
+        status: TicketStatusSchema,
+        sameRequester: Type.Boolean(),
+        lastActivityAt: DateTimeSchema,
+      }),
+    ),
+  ),
 });
 
 export const CreatedTicketSchema = Type.Object({ number: Type.Integer() });
 export const MessageResponseSchema = MessageSchema;
-export const SummaryResponseSchema = Type.Object({ open: Type.Integer() });
+export const MySummaryResponseSchema = Type.Object({ active: Type.Integer(), awaitingMe: Type.Integer() });
+export const SummaryResponseSchema = Type.Object({ open: Type.Integer(), awaitingTeam: Type.Integer() });

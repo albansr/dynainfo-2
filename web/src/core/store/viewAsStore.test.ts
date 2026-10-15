@@ -11,7 +11,7 @@ describe('useViewAsStore', () => {
   beforeEach(() => {
     sessionStorage.clear();
     useViewAsStore.setState({ viewAs: null });
-    useAuthStore.setState({ user: realAdmin, realDynaRole: 'ADMIN', realScope: null, demoRole: null, demoScope: null });
+    useAuthStore.setState({ user: realAdmin, realDynaRole: 'ADMIN', realScope: null, realRole: 'user', demoRole: null, demoScope: null });
   });
 
   it('lets a real ADMIN view as a requester role and go back', () => {
@@ -26,8 +26,16 @@ describe('useViewAsStore', () => {
     expect(useViewAsStore.getState().viewAs).toBeNull();
   });
 
-  it('does nothing when the real role is not ADMIN (even if the UI shows ADMIN)', () => {
-    useAuthStore.setState({ realDynaRole: 'SELLER', realScope: 'MD14' });
+  it('lets a superadmin view as a role too', () => {
+    useAuthStore.setState({ realDynaRole: null, realRole: 'superadmin' });
+
+    useViewAsStore.getState().start({ dynaRole: 'SELLER', scope: 'MD14', ticketNumber: 4 });
+
+    expect(useAuthStore.getState().user).toMatchObject({ dynaRole: 'SELLER', scope: 'MD14' });
+  });
+
+  it('does nothing when the real role is not an agent (even if the UI shows ADMIN)', () => {
+    useAuthStore.setState({ realDynaRole: 'SELLER', realScope: 'MD14', realRole: 'user' });
 
     useViewAsStore.getState().start({ dynaRole: 'BOARD', scope: null, ticketNumber: 3 });
 

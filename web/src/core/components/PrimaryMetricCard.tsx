@@ -1,5 +1,6 @@
 import { Skeleton } from '@heroui/react';
 import type { ReactNode } from 'react';
+import { ReportDataButton } from '@/features/support/components/ReportDataButton';
 
 interface PrimaryMetricCardProps {
   label: string;
@@ -20,9 +21,10 @@ export function PrimaryMetricCard({
   isLoading = false,
 }: PrimaryMetricCardProps) {
   return (
-    <div className="col-span-1 lg:col-span-2 flex flex-col justify-center sm:border-r border-zinc-200 sm:pr-8">
-      <p className="text-xs font-semibold text-zinc-600 tracking-wider mb-4">
+    <div className="group col-span-1 lg:col-span-2 flex flex-col justify-center sm:border-r border-zinc-200 sm:pr-8">
+      <p className="flex items-center gap-1 text-xs font-semibold text-zinc-600 tracking-wider mb-4">
         {label}
+        {!isLoading && <ReportDataButton metric={label} value={typeof mainValue === 'string' ? mainValue : undefined} />}
       </p>
       {isLoading ? (
         <Skeleton className="h-8 w-48 rounded-lg mb-3" />

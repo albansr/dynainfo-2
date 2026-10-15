@@ -7,6 +7,8 @@ export interface User {
   emailVerified: boolean;
   name: string;
   image: string | null;
+  /** Authorization role of the user table (superadmin | admin | user). */
+  role?: string | null;
   dynaRole: string | null;
   scope: string | null;
   createdAt: Date;
@@ -32,6 +34,8 @@ interface AuthState {
   /** Role and scope from the server session, before any override (set on hydration, not persisted). */
   realDynaRole: string | null;
   realScope: string | null;
+  /** user.role from the server session (superadmin | admin | user). */
+  realRole: string | null;
 }
 
 interface AuthActions {
@@ -46,7 +50,7 @@ interface AuthActions {
   /** Apply a demo role override; patches the current user immediately. */
   setDemoRole: (demoRole: string | null, demoScope: string | null) => void;
   /** Record the server session's own role and scope (before overrides). */
-  setRealRole: (realDynaRole: string | null, realScope: string | null) => void;
+  setRealRole: (real: { dynaRole: string | null; scope: string | null; role: string | null }) => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -62,6 +66,7 @@ const initialState: AuthState = {
   demoScope: null,
   realDynaRole: null,
   realScope: null,
+  realRole: null,
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -102,8 +107,8 @@ export const useAuthStore = create<AuthStore>()(
       clearAuth: () =>
         set(initialState),
 
-      setRealRole: (realDynaRole, realScope) =>
-        set({ realDynaRole, realScope }),
+      setRealRole: ({ dynaRole, scope, role }) =>
+        set({ realDynaRole: dynaRole, realScope: scope, realRole: role }),
 
       setDemoRole: (demoRole, demoScope) =>
         set((state) => ({
@@ -129,3 +134,15 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 );
+
+/**
+ * Whether the signed-in user handles support requests: real Dyna ADMIN, or a
+ * superadmin of the user table. Same rule as the API (which is the real gate).
+ */
+export function isSupportAgentRole(dynaRole: string | null | undefined, role: string | null | undefined): boolean {
+  return dynaRole === 'ADMIN' || role === 'superadmin';
+}
+
+/** Selector: support agent by the real session role (ignores demo and "view as"). */
+export const selectIsSupportAgent = (state: AuthState): boolean =>
+  isSupportAgentRole(state.realDynaRole, state.realRole);

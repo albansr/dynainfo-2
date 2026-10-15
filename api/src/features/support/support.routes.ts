@@ -9,8 +9,10 @@ import {
   CreatedTicketSchema,
   CreateMessageBodySchema,
   CreateTicketBodySchema,
+  FeedbackBodySchema,
   ListTicketsQuerySchema,
   ListTicketsResponseSchema,
+  MySummaryResponseSchema,
   MessageResponseSchema,
   SummaryResponseSchema,
   TicketDetailSchema,
@@ -119,6 +121,25 @@ export const supportRoutes: FastifyPluginCallback = (fastify, _opts, done) => {
     },
   );
 
+  server.post(
+    '/support/tickets/:number/feedback',
+    {
+      preHandler: [requireSession],
+      schema: {
+        description: 'The requester answers "¿Se solucionó?" on a resolved request (closes or reopens it)',
+        tags,
+        params: TicketParamsSchema,
+        body: FeedbackBodySchema,
+        response: { 200: TicketDetailSchema },
+      },
+    },
+    async (request, reply) => {
+      return reply
+        .code(200)
+        .send(await service.giveFeedback(sessionUserOf(request), request.params.number, request.body));
+    },
+  );
+
   server.patch(
     '/support/tickets/:number',
     {
@@ -139,17 +160,32 @@ export const supportRoutes: FastifyPluginCallback = (fastify, _opts, done) => {
   );
 
   server.get(
+    '/support/summary/mine',
+    {
+      preHandler: [requireSession],
+      schema: {
+        description: "The user's own active requests, and how many wait for their answer",
+        tags,
+        response: { 200: MySummaryResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      return reply.code(200).send(await service.mySummary(sessionUserOf(request)));
+    },
+  );
+
+  server.get(
     '/support/summary',
     {
       preHandler: [requireSession, requireSupportAgent],
       schema: {
-        description: 'Open support requests count (agents)',
+        description: 'Active support requests, and how many wait for the team (agents)',
         tags,
         response: { 200: SummaryResponseSchema },
       },
     },
     async (_request, reply) => {
-      return reply.code(200).send({ open: await service.openCount() });
+      return reply.code(200).send(await service.summary());
     },
   );
 

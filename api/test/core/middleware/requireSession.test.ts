@@ -22,7 +22,7 @@ describe('requireSession', () => {
 
   it('reads the session from the cookies and attaches the user with its DynaRole', async () => {
     mockGetSession.mockResolvedValue({
-      user: { id: 'u1', email: 'ana@dyna.co', name: 'Ana', dynaRole: 'SELLER', scope: 'MD14' },
+      user: { id: 'u1', email: 'ana@dyna.co', name: 'Ana', role: 'user', dynaRole: 'SELLER', scope: 'MD14' },
     });
     const req = request();
 
@@ -30,7 +30,7 @@ describe('requireSession', () => {
 
     const headers = mockGetSession.mock.calls[0]?.[0]?.headers as Headers;
     expect(headers.get('cookie')).toBe('better-auth.session_token=abc');
-    expect(req.sessionUser).toEqual({ id: 'u1', email: 'ana@dyna.co', name: 'Ana', dynaRole: 'SELLER', scope: 'MD14' });
+    expect(req.sessionUser).toEqual({ id: 'u1', email: 'ana@dyna.co', name: 'Ana', role: 'user', dynaRole: 'SELLER', scope: 'MD14' });
     expect(sessionUserOf(req).id).toBe('u1');
   });
 
@@ -40,7 +40,7 @@ describe('requireSession', () => {
 
     await requireSession(req);
 
-    expect(req.sessionUser).toMatchObject({ name: null, dynaRole: null, scope: null });
+    expect(req.sessionUser).toMatchObject({ name: null, role: null, dynaRole: null, scope: null });
   });
 
   it('sessionUserOf throws 401 when the guard did not run', () => {
@@ -49,12 +49,18 @@ describe('requireSession', () => {
 });
 
 describe('requireSupportAgent', () => {
-  const withRole = (dynaRole: string | null) =>
-    ({ sessionUser: { id: 'u1', email: 'a@b.co', name: null, dynaRole, scope: null } }) as unknown as FastifyRequest;
+  const withRole = (dynaRole: string | null, role: string | null = 'user') =>
+    ({ sessionUser: { id: 'u1', email: 'a@b.co', name: null, role, dynaRole, scope: null } }) as unknown as FastifyRequest;
 
   it('lets a real ADMIN through', async () => {
     await expect(requireSupportAgent(withRole('ADMIN'))).resolves.toBeUndefined();
-    expect(isSupportAgent({ dynaRole: 'ADMIN' })).toBe(true);
+    expect(isSupportAgent({ dynaRole: 'ADMIN', role: 'user' })).toBe(true);
+  });
+
+  it('lets a superadmin of the user table through, whatever their DynaRole', async () => {
+    await expect(requireSupportAgent(withRole(null, 'superadmin'))).resolves.toBeUndefined();
+    expect(isSupportAgent({ dynaRole: 'SELLER', role: 'superadmin' })).toBe(true);
+    expect(isSupportAgent({ dynaRole: 'SELLER', role: 'admin' })).toBe(false);
   });
 
   it('rejects any other role, and a request without session user, with 403', async () => {

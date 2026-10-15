@@ -1,15 +1,15 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Listbox, ListboxSection, ListboxItem, User, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Chip } from '@heroui/react';
-import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon, LifebuoyIcon } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon, Cog6ToothIcon, LifebuoyIcon, InboxIcon } from '@heroicons/react/24/outline';
 import { getMenuSections } from '@/core/config/access';
 import { NavBadge } from '@/core/components/NavBadge';
 import { ViewAsBanner } from '@/core/components/ViewAsBanner';
-import { useAuthStore } from '@/core/store/authStore';
+import { useAuthStore, selectIsSupportAgent } from '@/core/store/authStore';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLogout } from '@/features/auth/hooks/useLogout';
 import { SupportDrawer } from '@/features/support/components/SupportDrawer';
-import { useSupportSummary } from '@/features/support/hooks/useSupport';
+import { useMySupportSummary, useSupportSummary } from '@/features/support/hooks/useSupport';
 import { useSupportDrawerStore } from '@/features/support/store/supportDrawerStore';
 
 interface AppLayoutProps {
@@ -40,9 +40,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const openSupport = useSupportDrawerStore((s) => s.open);
-  // Agents (real ADMIN, even while viewing as another role) see the open requests count
-  const isSupportAgent = useAuthStore((s) => s.realDynaRole === 'ADMIN');
+  // Agents (real ADMIN or superadmin, even while viewing as another role) get the
+  // "Solicitudes" inbox with how many requests wait for them
+  const isSupportAgent = useAuthStore(selectIsSupportAgent);
   const { data: supportSummary } = useSupportSummary(isSupportAgent);
+  // Non-agents: requests where the team replied and the user has to answer
+  const { data: mySupport } = useMySupportSummary(Boolean(user) && !isSupportAgent);
+  const awaitingMe = mySupport?.awaitingMe ?? 0;
 
   const isEmbedded = useMemo(() => {
     try { return window.self !== window.top; } catch { return true; }
@@ -51,6 +55,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const selectedKeys = useMemo(() => {
     return [location.pathname];
   }, [location.pathname]);
+  // Any support page (both tabs, or a request) highlights the agents' "Solicitudes"
+  const isSupportInbox = location.pathname.startsWith('/soporte');
+  const helpButtonClass =
+    'flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-200';
 
   const dynaRoleLabel = getDynaRoleLabel(user?.dynaRole);
 
@@ -142,27 +150,84 @@ export function AppLayout({ children }: AppLayoutProps) {
                   ))}
                 </ListboxSection>
               ))}
+
             </>
           </Listbox>
         </nav>
 
         <div className="mt-auto border-t border-zinc-200 p-3">
-          <button
-            type="button"
-            onClick={() => {
-              handleLinkClick();
-              openSupport();
-            }}
-            className="mb-2 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-200"
-          >
-            <LifebuoyIcon className="h-5 w-5" aria-hidden="true" />
-            <span className="flex-1 text-left">Ayuda y soporte</span>
-            {isSupportAgent && (supportSummary?.open ?? 0) > 0 && (
-              <Chip size="sm" color="primary" variant="flat" aria-label={`${supportSummary?.open} solicitudes abiertas`}>
-                {supportSummary?.open}
-              </Chip>
-            )}
-          </button>
+          {isSupportAgent ? (
+            // Agents reach their own requests from the "Mis solicitudes" tab of Solicitudes,
+            // so Ayuda y soporte goes straight to a new request
+            <button
+              type="button"
+              onClick={() => {
+                handleLinkClick();
+                openSupport();
+              }}
+              className={helpButtonClass}
+            >
+              <LifebuoyIcon className="h-5 w-5" aria-hidden="true" />
+              <span className="flex-1 text-left">Ayuda y soporte</span>
+            </button>
+          ) : (
+            <Dropdown placement="top-start">
+              <DropdownTrigger>
+                <button type="button" className={helpButtonClass}>
+                  <LifebuoyIcon className="h-5 w-5" aria-hidden="true" />
+                  <span className="flex-1 text-left">Ayuda y soporte</span>
+                  {awaitingMe > 0 && (
+                    <Chip size="sm" color="primary" variant="flat" aria-label={`${awaitingMe} respuestas del equipo`}>
+                      {awaitingMe}
+                    </Chip>
+                  )}
+                </button>
+              </DropdownTrigger>
+              <DropdownMenu
+                aria-label="Ayuda y soporte"
+                onAction={(key) => {
+                  handleLinkClick();
+                  if (key === 'new') openSupport();
+                  else navigate('/soporte?ver=mias');
+                }}
+              >
+                <DropdownItem key="new" className="cursor-pointer" description="Un error, un dato que no cuadra, un acceso o una idea">
+                  Nueva solicitud
+                </DropdownItem>
+                <DropdownItem
+                  key="mine"
+                  className="cursor-pointer"
+                  description={awaitingMe > 0 ? `Tienes ${awaitingMe} ${awaitingMe === 1 ? 'respuesta' : 'respuestas'} del equipo` : 'Sigue el estado y responde'}
+                  endContent={awaitingMe > 0 ? <Chip size="sm" color="primary" variant="flat">{awaitingMe}</Chip> : undefined}
+                >
+                  Mis solicitudes
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          )}
+          {/* Support inbox for agents (real ADMIN or superadmin): every user's requests */}
+          {isSupportAgent && (
+            <button
+              type="button"
+              onClick={() => {
+                handleLinkClick();
+                navigate('/soporte');
+              }}
+              aria-current={isSupportInbox ? 'page' : undefined}
+              className={`mt-1 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors ${
+                isSupportInbox ? 'bg-primary/10 font-semibold text-primary' : 'text-zinc-700 hover:bg-zinc-200'
+              }`}
+            >
+              <InboxIcon className="h-5 w-5" aria-hidden="true" />
+              <span className="flex-1 text-left">Solicitudes</span>
+              {(supportSummary?.awaitingTeam ?? 0) > 0 && (
+                <Chip size="sm" color="warning" variant="flat" aria-label={`${supportSummary?.awaitingTeam} solicitudes esperan respuesta`}>
+                  {supportSummary?.awaitingTeam}
+                </Chip>
+              )}
+            </button>
+          )}
+          <div className="my-3 border-t border-zinc-200" aria-hidden="true" />
           {user && (
             <Dropdown placement="top-start">
               <DropdownTrigger>

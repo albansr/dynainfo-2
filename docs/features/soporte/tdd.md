@@ -1,4 +1,4 @@
-> Living document · 2026-10-15 · DynaInfo 2.0
+> Living document · 2026-10-15 (iteration 2) · DynaInfo 2.0
 
 # Soporte — technical design
 
@@ -271,6 +271,35 @@ Follow `.claude/rules/testing.md`: no real Postgres, Resend or Better Auth.
 3. Install `modern-screenshot` in `web`; rebuild the web container.
 4. Novedades entry (category `nuevo`) in the same PR, e.g. "Ayuda y soporte desde cualquier pantalla", with a small mockup with fictional data.
 5. Branch `feature/support_tickets` → PR to `dev` → `master`.
+
+## Iteration 2 — UX review (2026-10-15)
+
+Changes after the product review of the first version. They supersede the earlier sections where they differ.
+
+**Who is an agent.** `dyna_role = ADMIN` **or** `user.role = superadmin`, read from the server session (`isSupportAgent` in the API; `isSupportAgentRole` / `selectIsSupportAgent` in the web). A user simulating ADMIN with the demo switcher is not an agent; `/soporte` tells them so.
+
+**Data model** (migration `0006_support_awaiting_and_feedback.sql`):
+- `support_ticket.awaiting_team` (boolean, default true): whose turn it is. A new request and every requester reply set it to true; a public agent reply sets it to false; internal notes leave it unchanged. Agents' list orders by it (team first, longest waiting on top).
+- `support_ticket.satisfied` (boolean, null): the requester's answer to "¿Se solucionó?".
+- `context.summary` (optional JSON): the web describes the context for people when sending (page name, filters by label, dates, role) with `describeContext`; agents and the team email read it instead of raw query keys.
+
+**API.**
+- `POST /support/tickets/:n/messages` accepts `resolve: true` (agents): replies and resolves in one step, sending only the resolution email.
+- `POST /support/tickets/:n/feedback` `{ solved, body? }` (requester, resolved requests only): solved closes it (`satisfied = true`); not solved reopens it for the team (`satisfied = false`) and emails the team.
+- `GET /support/summary` → `{ open, awaitingTeam }` (agents); `GET /support/summary/mine` → `{ active, awaitingMe }` (anyone).
+- Ticket detail adds `awaitingTeam`, `satisfied` and, for agents, `related`: the requester's other requests and requests from the same page and filters; closed ones only within 30 days.
+
+**Emails.** Team: requester, screen, filters, dates, role, whether there is a screenshot, and a "Responder" button to `/soporte/:n#responder`. Requester: the agent reply quotes the requester's last message; the resolved email has "Sí, todo bien" / "Sigue pasando" links (`?feedback=solved|not_solved`) and the concrete closing date; every email ends with why it was received. (No brand header, by decision.)
+
+**Web.**
+- Form: the screenshot is taken when the drawer opens (drawer and toasts excluded), previewed and removable; types in a 2×2 grid with icons; a guided question per type; optional subject (first line of the description otherwise); Ctrl/⌘ + Enter sends.
+- "¿Este dato no cuadra?": a flag on every metric card (on hover/focus, once loaded) and "¿Algún dato no cuadra?" above analysis tables open the form as "Dato incorrecto", pre-filled with the figure.
+- Request page: two columns. Left: status timeline (Enviada → En revisión → Resuelta → Cerrada) with what to expect, "¿Se solucionó?" card for resolved requests, chat-style thread (yours on the right, internal notes in amber), 3-line reply box. Right: "Lo que enviaste" (requester) or the agent panel (status and priority with colored dots, reproduce, requester, related).
+- Agents: quick replies, "Enviar y resolver", "Le toca" column, and **"Solicitudes"** in the side menu footer, right under "Ayuda y soporte", with the count of requests waiting for the team (`/soporte`, page titled "Solicitudes"). A plain "Soporte" in the main menu was dropped: the name didn't say it was the inbox of every user's requests.
+- Requesters (non-agents): "Ayuda y soporte" opens a menu with "Nueva solicitud" and "Mis solicitudes" (`/soporte?ver=mias`, page titled "Mis solicitudes"), with the number of requests waiting for their answer.
+- Agents: "Ayuda y soporte" opens the new-request form directly; their own requests are the "Mis solicitudes" tab of "Solicitudes" (a second entry would duplicate it). "Solicitudes" stays highlighted on both tabs and inside any request.
+- Status and priority selectors show a colored dot next to each label (the label carries the meaning).
+- Novedades: the entry has one mockup per item (`web/public/novedades/soporte-*.png`: ayuda, contexto, dato, menu, seguimiento, bandeja), all with fictional data.
 
 ## Glossary
 

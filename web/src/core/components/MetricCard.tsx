@@ -1,5 +1,6 @@
 import { Skeleton } from '@heroui/react';
 import type { ReactNode } from 'react';
+import { ReportDataButton } from '@/features/support/components/ReportDataButton';
 
 interface MetricCardProps {
   label: ReactNode;
@@ -31,9 +32,12 @@ export function MetricCard({
   size = 'md',
 }: MetricCardProps) {
   return (
-    <div className={`flex flex-col justify-center pt-4 sm:pt-0 border-t sm:border-t-0 border-zinc-200 ${centered ? 'sm:text-center' : ''}`}>
-      <p className="text-xs font-semibold text-zinc-600 tracking-wider mb-3">
+    <div className={`group flex flex-col justify-center pt-4 sm:pt-0 border-t sm:border-t-0 border-zinc-200 ${centered ? 'sm:text-center' : ''}`}>
+      <p className={`flex items-center gap-1 text-xs font-semibold text-zinc-600 tracking-wider mb-3 ${centered ? 'sm:justify-center' : ''}`}>
         {label}
+        {typeof label === 'string' && !isLoading && (
+          <ReportDataButton metric={label} value={typeof value === 'string' ? value : undefined} />
+        )}
       </p>
       {isLoading ? (
         <Skeleton className={`${skeletonSizes[size]} w-32 rounded-lg mb-2 ${centered ? 'sm:mx-auto' : ''}`} />

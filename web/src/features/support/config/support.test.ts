@@ -8,6 +8,7 @@ import {
   TICKET_TYPE,
   TICKET_TYPES,
   screenshotByDefault,
+  ticketSubject,
 } from './support';
 
 describe('support config', () => {
@@ -24,5 +25,16 @@ describe('support config', () => {
     expect(screenshotByDefault('access')).toBe(false);
     expect(screenshotByDefault('suggestion')).toBe(false);
     expect(screenshotByDefault(null)).toBe(false);
+  });
+});
+
+describe('ticketSubject', () => {
+  it('keeps a written subject, otherwise uses the first line of the description', () => {
+    expect(ticketSubject('  No carga Estado ', 'x')).toBe('No carga Estado');
+    expect(ticketSubject('', 'El presupuesto sale en 0\nen proveedores')).toBe('El presupuesto sale en 0');
+    expect(ticketSubject('ab', 'Sin asunto suficiente')).toBe('Sin asunto suficiente');
+    const long = 'a'.repeat(120);
+    expect(ticketSubject('', long)).toHaveLength(80);
+    expect(ticketSubject('', long).endsWith('…')).toBe(true);
   });
 });

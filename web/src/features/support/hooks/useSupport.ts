@@ -11,6 +11,8 @@ export interface SupportContext {
   dynaRole: string | null;
   scope: string | null;
   realDynaRole?: string | null;
+  /** Human-readable description (page name, filters by label), built when sending. */
+  summary?: { page: string; items: { label: string; value: string }[] };
   userAgent: string;
   viewport: { width: number; height: number };
 }
@@ -26,6 +28,8 @@ export interface TicketSummary {
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  /** Whose turn it is: true = the team has to answer. */
+  awaitingTeam: boolean;
   lastActivityAt: string;
   createdAt: string;
   requester?: Person;
@@ -48,6 +52,9 @@ export interface TicketDetail {
   status: TicketStatus;
   priority: TicketPriority;
   changelogEntryId: string | null;
+  awaitingTeam: boolean;
+  /** The requester's answer to "¿Se solucionó?" (null = not answered). */
+  satisfied: boolean | null;
   lastActivityAt: string;
   resolvedAt: string | null;
   createdAt: string;
@@ -56,6 +63,16 @@ export interface TicketDetail {
   /** Full for agents; only path, search and dateRange for the requester. */
   context: Partial<SupportContext>;
   messages: TicketMessage[];
+  /** Agents only: the requester's other requests and others from the same screen. */
+  related?: RelatedTicket[];
+}
+
+export interface RelatedTicket {
+  number: number;
+  subject: string;
+  status: TicketStatus;
+  sameRequester: boolean;
+  lastActivityAt: string;
 }
 
 export interface TicketListParams {
@@ -114,11 +131,21 @@ export function useSupportScreenshot(number: number, enabled: boolean) {
   });
 }
 
-/** Open requests count, for the agents' badge. */
+/** Active requests, and how many wait for the team (the agents' badge). */
 export function useSupportSummary(enabled: boolean) {
   return useQuery({
     queryKey: ['support', 'summary'],
-    queryFn: () => apiClient<{ open: number }>('/api/support/summary'),
+    queryFn: () => apiClient<{ open: number; awaitingTeam: number }>('/api/support/summary'),
+    enabled,
+    refetchInterval: 60_000,
+  });
+}
+
+/** The user's own active requests, and how many wait for their answer (the team replied). */
+export function useMySupportSummary(enabled: boolean) {
+  return useQuery({
+    queryKey: ['support', 'summary', 'mine'],
+    queryFn: () => apiClient<{ active: number; awaitingMe: number }>('/api/support/summary/mine'),
     enabled,
     refetchInterval: 60_000,
   });
@@ -142,7 +169,7 @@ export function useCreateTicket() {
 export function useAddMessage(number: number) {
   const invalidate = useInvalidateSupport();
   return useMutation({
-    mutationFn: (input: { body: string; internal: boolean }) =>
+    mutationFn: (input: { body: string; internal: boolean; resolve?: boolean }) =>
       apiClient<TicketMessage>(`/api/support/tickets/${number}/messages`, {
         method: 'POST',
         body: JSON.stringify(input),
@@ -162,6 +189,19 @@ export function useUpdateTicket(number: number) {
   return useMutation({
     mutationFn: (patch: TicketPatch) =>
       apiClient<TicketDetail>(`/api/support/tickets/${number}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+    onSuccess: invalidate,
+  });
+}
+
+/** The requester answers "¿Se solucionó?": solved closes the request, not solved reopens it. */
+export function useTicketFeedback(number: number) {
+  const invalidate = useInvalidateSupport();
+  return useMutation({
+    mutationFn: (input: { solved: boolean; body?: string }) =>
+      apiClient<TicketDetail>(`/api/support/tickets/${number}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
     onSuccess: invalidate,
   });
 }

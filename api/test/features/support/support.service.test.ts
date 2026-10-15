@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SupportService, decodeScreenshot, AUTO_CLOSE_DAYS } from '../../../src/features/support/support.service.js';
+import { SupportService, decodeScreenshot, autoCloseDate, AUTO_CLOSE_DAYS } from '../../../src/features/support/support.service.js';
 import type { SupportNotifier } from '../../../src/features/support/support.notifier.js';
 import { publishedEntries } from '../../../src/features/changelog/changelog.entries.js';
 import type { SessionUser } from '../../../src/core/middleware/requireSession.js';
@@ -47,9 +47,10 @@ const notifier = {
   resolved: vi.fn(),
 };
 
-const requester: SessionUser = { id: 'u-ana', email: 'ana@dyna.co', name: 'Ana', dynaRole: 'SELLER', scope: 'MD14' };
-const stranger: SessionUser = { id: 'u-leo', email: 'leo@dyna.co', name: 'Leo', dynaRole: 'MANAGER', scope: null };
-const agent: SessionUser = { id: 'u-admin', email: 'admin@dyna.co', name: 'Admin', dynaRole: 'ADMIN', scope: null };
+const requester: SessionUser = { id: 'u-ana', email: 'ana@dyna.co', name: 'Ana', role: 'user', dynaRole: 'SELLER', scope: 'MD14' };
+const stranger: SessionUser = { id: 'u-leo', email: 'leo@dyna.co', name: 'Leo', role: 'user', dynaRole: 'MANAGER', scope: null };
+const agent: SessionUser = { id: 'u-admin', email: 'admin@dyna.co', name: 'Admin', role: 'user', dynaRole: 'ADMIN', scope: null };
+const superadmin: SessionUser = { id: 'u-root', email: 'root@dyna.co', name: 'Root', role: 'superadmin', dynaRole: null, scope: null };
 
 const context = {
   path: '/distribucion/detalle',
@@ -78,6 +79,8 @@ function ticketRow(overrides: Record<string, unknown> = {}) {
     context,
     webOrigin: 'https://dynainfo.com.co',
     changelogEntryId: null,
+    awaitingTeam: true,
+    satisfied: null,
     lastActivityAt: NOW,
     resolvedAt: null,
     closedAt: null,
@@ -207,17 +210,40 @@ describe('SupportService', () => {
       expect(detail.context).toEqual({ path: context.path, search: context.search, dateRange: context.dateRange });
       expect(detail.hasScreenshot).toBe(true);
       expect(detail.requester).toEqual({ name: 'Ana', email: 'ana@dyna.co' });
+      expect(detail).not.toHaveProperty('related');
     });
 
-    it('gives agents the full context and names', async () => {
+    it('gives agents the full context, names and related requests', async () => {
       found();
-      results.push(messages, []);
+      // related() awaits its query first, so it takes the first queued result
+      results.push(
+        [
+          { number: 3, subject: 'Otra', status: 'open', userId: 'u-ana', lastActivityAt: NOW },
+          { number: 9, subject: 'Misma pantalla', status: 'closed', userId: 'u-leo', lastActivityAt: NOW },
+        ],
+        messages,
+        [],
+      );
 
       const detail = await service.getTicket(agent, 12);
 
       expect(detail.messages[0]?.authorName).toBe('Admin');
       expect(detail.context).toEqual(context);
       expect(detail.hasScreenshot).toBe(false);
+      expect(detail.related).toEqual([
+        { number: 3, subject: 'Otra', status: 'open', sameRequester: true, lastActivityAt: NOW },
+        { number: 9, subject: 'Misma pantalla', status: 'closed', sameRequester: false, lastActivityAt: NOW },
+      ]);
+    });
+
+    it('treats a superadmin as an agent', async () => {
+      found();
+      results.push([], messages, []);
+
+      const detail = await service.getTicket(superadmin, 12);
+
+      expect(detail.messages[0]?.authorName).toBe('Admin');
+      expect(detail.related).toEqual([]);
     });
 
     it('answers 404 for another user ticket and for unknown numbers', async () => {
@@ -258,23 +284,49 @@ describe('SupportService', () => {
 
       expect(created).toMatchObject({ body: 'Sigue pasando', authorName: 'Ana' });
       const [set] = opArgs('update.set') as Record<string, unknown>[];
-      expect(set).toMatchObject({ status: 'open', resolvedAt: null });
-      expect(notifier.requesterReply).toHaveBeenCalledWith(expect.objectContaining({ number: 12 }), 'Sigue pasando');
+      expect(set).toMatchObject({ status: 'open', resolvedAt: null, satisfied: null, awaitingTeam: true });
+      expect(notifier.requesterReply).toHaveBeenCalledWith(expect.objectContaining({ number: 12 }), 'Sigue pasando', {
+        reopened: true,
+      });
       expect(notifier.agentReply).not.toHaveBeenCalled();
     });
 
     it('an agent public reply notifies the requester and does not reopen', async () => {
       found({ status: 'resolved', resolvedAt: NOW });
-      results.push([message({ authorIsAgent: true, body: 'Revisado' })], undefined);
+      results.push([message({ authorIsAgent: true, body: 'Revisado' })], undefined, [{ body: 'Lo último que dije' }]);
 
       await service.addMessage(agent, 12, { body: 'Revisado' });
 
       const [set] = opArgs('update.set') as Record<string, unknown>[];
       expect(set).not.toHaveProperty('status');
+      expect(set).toMatchObject({ awaitingTeam: false });
       expect(notifier.agentReply).toHaveBeenCalledWith(
         expect.objectContaining({ requester: { name: 'Ana', email: 'ana@dyna.co' } }),
         'Revisado',
+        'Lo último que dije',
       );
+    });
+
+    it('quotes the description when the requester has not written yet', async () => {
+      found();
+      results.push([message({ authorIsAgent: true, body: 'Hola' })], undefined, []);
+
+      await service.addMessage(agent, 12, { body: 'Hola' });
+
+      expect(notifier.agentReply).toHaveBeenCalledWith(expect.anything(), 'Hola', 'En proveedores no sale');
+    });
+
+    it('an agent can reply and resolve in one step: one email, the resolution', async () => {
+      found();
+      results.push([message({ authorIsAgent: true, body: 'Ya está' })], undefined);
+
+      await service.addMessage(agent, 12, { body: 'Ya está', resolve: true });
+
+      const [set] = opArgs('update.set') as Record<string, unknown>[];
+      expect(set).toMatchObject({ status: 'resolved', awaitingTeam: false, closedAt: null });
+      expect(set?.['resolvedAt']).toBeInstanceOf(Date);
+      expect(notifier.resolved).toHaveBeenCalledWith(expect.objectContaining({ number: 12 }), 'Ya está', null, expect.any(Date));
+      expect(notifier.agentReply).not.toHaveBeenCalled();
     });
 
     it('an internal note notifies nobody', async () => {
@@ -284,12 +336,15 @@ describe('SupportService', () => {
       await service.addMessage(agent, 12, { body: 'nota', internal: true });
 
       expect(opArgs('insert.values')[0]).toMatchObject({ internal: true, authorIsAgent: true });
+      expect(opArgs('update.set')[0]).not.toHaveProperty('awaitingTeam');
       expect(notifier.agentReply).not.toHaveBeenCalled();
       expect(notifier.requesterReply).not.toHaveBeenCalled();
     });
 
-    it('forbids internal notes to requesters and replies on closed tickets', async () => {
+    it('forbids internal notes and resolving to requesters, and replies on closed tickets', async () => {
       await expect(service.addMessage(requester, 12, { body: 'x', internal: true })).rejects.toMatchObject({ statusCode: 403 });
+      await expect(service.addMessage(requester, 12, { body: 'x', resolve: true })).rejects.toMatchObject({ statusCode: 403 });
+      await expect(service.addMessage(agent, 12, { body: 'x', internal: true, resolve: true })).rejects.toMatchObject({ statusCode: 403 });
 
       found({ status: 'closed' });
       await expect(service.addMessage(requester, 12, { body: 'x' })).rejects.toMatchObject({ statusCode: 409 });
@@ -304,17 +359,19 @@ describe('SupportService', () => {
       results.push(undefined, [{ body: 'Ya está' }]);
       // getTicket after the update
       found({ status: 'resolved' });
-      results.push([], []);
+      results.push([], [], []);
 
       const detail = await service.updateTicket(agent, 12, { status: 'resolved', changelogEntryId: entry.id });
 
       const [set] = opArgs('update.set') as Record<string, unknown>[];
       expect(set).toMatchObject({ status: 'resolved', changelogEntryId: entry.id, closedAt: null });
       expect(set?.['resolvedAt']).toBeInstanceOf(Date);
-      expect(notifier.resolved).toHaveBeenCalledWith(expect.objectContaining({ number: 12 }), 'Ya está', {
-        id: entry.id,
-        title: entry.title,
-      });
+      expect(notifier.resolved).toHaveBeenCalledWith(
+        expect.objectContaining({ number: 12 }),
+        'Ya está',
+        { id: entry.id, title: entry.title },
+        expect.any(Date),
+      );
       expect(detail.status).toBe('resolved');
     });
 
@@ -322,7 +379,7 @@ describe('SupportService', () => {
       found({ status: 'resolved', resolvedAt: NOW });
       results.push(undefined);
       found();
-      results.push([], []);
+      results.push([], [], []);
 
       await service.updateTicket(agent, 12, { status: 'in_progress', priority: 'high' });
 
@@ -334,7 +391,7 @@ describe('SupportService', () => {
       found();
       results.push(undefined);
       found();
-      results.push([], []);
+      results.push([], [], []);
 
       await service.updateTicket(agent, 12, { status: 'closed' });
 
@@ -360,10 +417,62 @@ describe('SupportService', () => {
     });
   });
 
-  describe('openCount', () => {
-    it('counts open tickets', async () => {
-      results.push([{ value: 4 }]);
-      await expect(service.openCount()).resolves.toBe(4);
+  describe('summary', () => {
+    it('counts active requests and those waiting for the team', async () => {
+      results.push([{ open: 4, awaitingTeam: 3 }]);
+      await expect(service.summary()).resolves.toEqual({ open: 4, awaitingTeam: 3 });
+      results.push([]);
+      await expect(service.summary()).resolves.toEqual({ open: 0, awaitingTeam: 0 });
+    });
+  });
+
+  describe('mySummary', () => {
+    it("counts the user's active requests and those waiting for their answer", async () => {
+      results.push([{ active: 3, awaitingMe: 1 }]);
+      await expect(service.mySummary(requester)).resolves.toEqual({ active: 3, awaitingMe: 1 });
+      results.push([]);
+      await expect(service.mySummary(requester)).resolves.toEqual({ active: 0, awaitingMe: 0 });
+    });
+  });
+
+  describe('giveFeedback', () => {
+    it('"solved" closes the request and records the satisfaction', async () => {
+      found({ status: 'resolved', resolvedAt: NOW });
+      results.push(undefined);
+      found({ status: 'closed' });
+      results.push([], []);
+
+      const detail = await service.giveFeedback(requester, 12, { solved: true });
+
+      expect(opArgs('update.set')[0]).toMatchObject({ status: 'closed', satisfied: true });
+      expect(notifier.requesterReply).not.toHaveBeenCalled();
+      expect(detail.status).toBe('closed');
+    });
+
+    it('"not solved" reopens it for the team with the comment, and tells the team', async () => {
+      found({ status: 'resolved', resolvedAt: NOW });
+      results.push(undefined, undefined);
+      found();
+      results.push([], []);
+
+      await service.giveFeedback(requester, 12, { solved: false, body: ' Sigue igual ' });
+
+      expect(opArgs('insert.values')[0]).toMatchObject({ body: 'Sigue igual', authorIsAgent: false });
+      expect(opArgs('update.set')[0]).toMatchObject({ status: 'open', resolvedAt: null, satisfied: false, awaitingTeam: true });
+      expect(notifier.requesterReply).toHaveBeenCalledWith(expect.objectContaining({ number: 12 }), 'Sigue igual', { reopened: true });
+    });
+
+    it('only the requester, and only on resolved requests', async () => {
+      found({ status: 'resolved' });
+      await expect(service.giveFeedback(agent, 12, { solved: true })).rejects.toMatchObject({ statusCode: 403 });
+      found({ status: 'open' });
+      await expect(service.giveFeedback(requester, 12, { solved: true })).rejects.toMatchObject({ statusCode: 409 });
+    });
+  });
+
+  describe('autoCloseDate', () => {
+    it('is seven days after the resolution', () => {
+      expect(autoCloseDate(NOW).toISOString()).toBe('2026-10-22T12:00:00.000Z');
     });
   });
 });

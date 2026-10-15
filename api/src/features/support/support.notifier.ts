@@ -43,22 +43,36 @@ export class SupportNotifier {
     await this.send(supportNotifyEmails(), renderNewTicketEmail(ticket, linksFor(ticket)), ticket.number);
   }
 
-  async requesterReply(ticket: TicketMail, reply: string): Promise<void> {
-    await this.send(supportNotifyEmails(), renderRequesterReplyEmail(ticket, reply, linksFor(ticket)), ticket.number);
+  /** The requester replied, or answered "Sigue pasando" on a resolved request (`reopened`). */
+  async requesterReply(ticket: TicketMail, reply: string | null, { reopened }: { reopened: boolean }): Promise<void> {
+    await this.send(
+      supportNotifyEmails(),
+      renderRequesterReplyEmail(ticket, reply, reopened, linksFor(ticket)),
+      ticket.number,
+    );
   }
 
-  async agentReply(ticket: TicketMail, reply: string): Promise<void> {
-    await this.send([ticket.requester.email], renderAgentReplyEmail(ticket, reply, linksFor(ticket)), ticket.number);
+  async agentReply(ticket: TicketMail, reply: string, requesterWords: string): Promise<void> {
+    await this.send(
+      [ticket.requester.email],
+      renderAgentReplyEmail(ticket, reply, requesterWords, linksFor(ticket)),
+      ticket.number,
+    );
   }
 
   async resolved(
     ticket: TicketMail,
     lastReply: string | null,
     entry: { id: string; title: string } | null,
+    closesOn: Date,
   ): Promise<void> {
     const links = linksFor(ticket);
     const linked = entry ? { title: entry.title, url: `${links.webOrigin}/novedades#${entry.id}` } : null;
-    await this.send([ticket.requester.email], renderResolvedEmail(ticket, lastReply, linked, links), ticket.number);
+    await this.send(
+      [ticket.requester.email],
+      renderResolvedEmail(ticket, lastReply, linked, closesOn, links),
+      ticket.number,
+    );
   }
 
   private async send(to: string[], email: RenderedEmail, number: number): Promise<void> {
