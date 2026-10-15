@@ -2,17 +2,17 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@heroui/react';
 import { EyeIcon } from '@heroicons/react/24/outline';
 import { getRoleLabel } from '@/core/config/access';
-import { useAuthStore } from '@/core/store/authStore';
+import { useAuthStore, selectIsSupportAgent } from '@/core/store/authStore';
 import { useViewAsStore } from '@/core/store/viewAsStore';
 
 /** Permanent notice while a support agent views DynaInfo as a requester's role. */
 export function ViewAsBanner() {
   const viewAs = useViewAsStore((s) => s.viewAs);
   const stop = useViewAsStore((s) => s.stop);
-  const isRealAdmin = useAuthStore((s) => s.realDynaRole === 'ADMIN');
+  const isAgent = useAuthStore(selectIsSupportAgent);
   const navigate = useNavigate();
 
-  if (!viewAs || !isRealAdmin) return null;
+  if (!viewAs || !isAgent) return null;
   const role = getRoleLabel(viewAs.dynaRole) || 'Sin rol';
 
   return (

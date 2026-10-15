@@ -8,6 +8,8 @@ export interface SessionUser {
   id: string;
   email: string;
   name: string | null;
+  /** Authorization role of the user table (superadmin | admin | user). */
+  role: string | null;
   /** Profile role from the Dyna SSO (ADMIN, MANAGER, SELLER…). */
   dynaRole: string | null;
   scope: string | null;
@@ -24,6 +26,7 @@ interface RawSessionUser {
   id: string;
   email: string;
   name?: string | null;
+  role?: string | null;
   dynaRole?: string | null;
   scope?: string | null;
 }
@@ -43,6 +46,7 @@ export async function requireSession(request: FastifyRequest): Promise<void> {
     id: user.id,
     email: user.email,
     name: user.name ?? null,
+    role: user.role ?? null,
     dynaRole: user.dynaRole ?? null,
     scope: user.scope ?? null,
   };

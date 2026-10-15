@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination } from '@heroui/react';
+import { Chip, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination } from '@heroui/react';
 import { TICKET_TYPE } from '../config/support';
 import { TICKETS_PAGE_SIZE, type TicketSummary } from '../hooks/useSupport';
 import { formatRelative } from '../utils/relativeTime';
@@ -10,11 +10,13 @@ interface TicketListProps {
   total: number;
   page: number;
   onPageChange: (page: number) => void;
-  /** Agents' "Todas" view: adds Solicitante and Prioridad. */
+  /** Agents' "Todas" view: adds Solicitante, Le toca and Prioridad. */
   showAgentColumns: boolean;
   isLoading: boolean;
   emptyContent: string;
 }
+
+const isActive = (t: TicketSummary) => t.status === 'open' || t.status === 'in_progress';
 
 /** Support requests table; a row opens the request (keyboard included, via react-aria). */
 export function TicketList({ tickets, total, page, onPageChange, showAgentColumns, isLoading, emptyContent }: TicketListProps) {
@@ -26,7 +28,7 @@ export function TicketList({ tickets, total, page, onPageChange, showAgentColumn
     ...(showAgentColumns ? [{ key: 'requester', label: 'Solicitante' }] : []),
     { key: 'type', label: 'Tipo' },
     { key: 'status', label: 'Estado' },
-    ...(showAgentColumns ? [{ key: 'priority', label: 'Prioridad' }] : []),
+    ...(showAgentColumns ? [{ key: 'turn', label: 'Le toca' }, { key: 'priority', label: 'Prioridad' }] : []),
     { key: 'activity', label: 'Última actividad' },
   ];
 
@@ -44,6 +46,16 @@ export function TicketList({ tickets, total, page, onPageChange, showAgentColumn
         return <TicketStatusChip status={ticket.status} />;
       case 'priority':
         return <TicketPriorityChip priority={ticket.priority} />;
+      case 'turn':
+        return isActive(ticket) ? (
+          ticket.awaitingTeam ? (
+            <Chip size="sm" variant="flat" color="warning">
+              Al equipo
+            </Chip>
+          ) : (
+            <span className="text-default-500">Al usuario</span>
+          )
+        ) : null;
       default:
         return <span className="text-default-500">{formatRelative(ticket.lastActivityAt)}</span>;
     }

@@ -18,3 +18,18 @@ export function TicketPriorityChip({ priority }: { priority: TicketPriority }) {
     </Chip>
   );
 }
+
+/** Colored dot next to a label (status and priority selectors). The label carries the meaning. */
+export function Dot({ className }: { className: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} aria-hidden="true" />;
+}
+
+/** A status or priority option: dot + label (selector items and the selected value). */
+export function DotLabel({ dot, label }: { dot: string; label: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <Dot className={dot} />
+      {label}
+    </span>
+  );
+}

@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/core/store/authStore';
+import { useAuthStore, isSupportAgentRole } from '@/core/store/authStore';
 import { isDemoRoleEnabled } from '@/core/config/constants';
 import { useViewAsStore } from '@/core/store/viewAsStore';
 import { applyRoleOverrides } from '@/core/utils/roleOverrides';
@@ -19,17 +19,18 @@ export async function hydrateSessionFromServer(): Promise<boolean> {
   if (!response?.user || !response.session) return false;
 
   const { user, session } = normalizeAuthResponse(response);
-  // Role overrides over the real session: the support "view as" (real ADMIN
+  // Role overrides over the real session: the support "view as" (support agents
   // only, this tab only), then the demo role except on the production domain
   // (a role picked elsewhere never leaks in).
   const { demoRole, demoScope, setRealRole, setUserAndSession } = useAuthStore.getState();
   const finalUser = applyRoleOverrides(user, {
     viewAs: useViewAsStore.getState().viewAs,
+    canViewAs: isSupportAgentRole(user.dynaRole, user.role),
     demo: { dynaRole: demoRole, scope: demoScope },
     demoEnabled: isDemoRoleEnabled(),
   });
 
-  setRealRole(user.dynaRole, user.scope);
+  setRealRole({ dynaRole: user.dynaRole, scope: user.scope, role: user.role ?? null });
   setUserAndSession(finalUser, session);
   return true;
 }

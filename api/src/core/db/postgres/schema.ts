@@ -167,6 +167,10 @@ export const supportTickets = pgTable('support_ticket', {
   webOrigin: text('web_origin').notNull(),
   // Novedades entry that solved it (id from changelog.entries.ts)
   changelogEntryId: text('changelog_entry_id'),
+  // Whose turn it is: true until an agent answers publicly, back to true on a requester reply
+  awaitingTeam: boolean('awaiting_team').notNull().default(true),
+  // Requester's answer to "¿Se solucionó?" on a resolved request (null = not answered)
+  satisfied: boolean('satisfied'),
   lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
   // Drives the 7-day auto-close; cleared when the request is reopened
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
@@ -176,6 +180,7 @@ export const supportTickets = pgTable('support_ticket', {
 }, (table) => ({
   userActivityIdx: index('support_ticket_user_activity_idx').on(table.userId, table.lastActivityAt),
   statusIdx: index('support_ticket_status_idx').on(table.status),
+  awaitingIdx: index('support_ticket_awaiting_idx').on(table.awaitingTeam, table.lastActivityAt),
   statusResolvedIdx: index('support_ticket_status_resolved_idx').on(table.status, table.resolvedAt),
 }));
 

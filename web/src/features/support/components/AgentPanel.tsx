@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Button,
+  Link,
   Modal,
   ModalBody,
   ModalContent,
@@ -9,6 +11,7 @@ import {
   SelectItem,
   Tooltip,
 } from '@heroui/react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { AppSelect } from '@/core/components/AppSelect';
 import { getRoleLabel } from '@/core/config/access';
@@ -24,31 +27,36 @@ import {
 } from '../config/support';
 import { useUpdateTicket, type TicketDetail, type TicketPatch } from '../hooks/useSupport';
 import { useOpenTicketContext } from '../hooks/useOpenTicketContext';
-import { contextFilters, dateRangeText } from '../utils/supportContext';
+import { formatRelative } from '../utils/relativeTime';
+import { ContextFacts } from './ContextFacts';
+import { ScreenshotPreview } from './ScreenshotPreview';
+import { DotLabel, TicketStatusChip } from './TicketChips';
 
-function roleText(dynaRole: string | null | undefined, scope: string | null | undefined): string {
+function roleText(dynaRole: string | null | undefined, scope?: string | null): string {
   const role = getRoleLabel(dynaRole) || 'Sin rol';
   return scope ? `${role} · ${scope}` : role;
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-xs text-default-500">{label}</dt>
-      <dd className="break-words text-sm text-foreground">{children}</dd>
-    </div>
+    <section aria-label={title} className="flex flex-col gap-3">
+      <h2 className="text-sm font-semibold text-default-700">{title}</h2>
+      {children}
+    </section>
   );
 }
 
-/** Agents' side panel: triage (status, priority), the captured context and the reproduce actions. */
+/** Agents' side panel: triage, reproduce (context, screenshot, "Ver como su rol"), the requester and related requests. */
 export function AgentPanel({ ticket }: { ticket: TicketDetail }) {
   const update = useUpdateTicket(ticket.number);
   const openContext = useOpenTicketContext();
+  const navigate = useNavigate();
   const agentRole = useAuthStore((s) => s.realDynaRole);
   const [resolving, setResolving] = useState(false);
   const { context } = ticket;
-  const filters = contextFilters(context.search);
   const sameRole = (context.dynaRole ?? null) === agentRole;
+  // The UI role differs from the real one: the requester was using the demo role
+  const roleMismatch = context.realDynaRole !== undefined && (context.realDynaRole ?? null) !== (context.dynaRole ?? null);
 
   const save = (patch: TicketPatch, success: string) =>
     update.mutate(patch, {
@@ -63,90 +71,102 @@ export function AgentPanel({ ticket }: { ticket: TicketDetail }) {
   };
 
   return (
-    <aside className="flex flex-col gap-5 rounded-xl border border-default-200 p-4" aria-label="Gestión de la solicitud">
-      <AppSelect
-        label="Estado"
-        size="sm"
-        selectedKeys={[ticket.status]}
-        disallowEmptySelection
-        onSelectionChange={(keys) => {
-          const key = Array.from(keys)[0];
-          if (key) onStatus(key as TicketStatus);
-        }}
-      >
-        {TICKET_STATUSES.map((s) => (
-          <SelectItem key={s} className="cursor-pointer">
-            {TICKET_STATUS[s].label}
-          </SelectItem>
-        ))}
-      </AppSelect>
-      <AppSelect
-        label="Prioridad"
-        size="sm"
-        selectedKeys={[ticket.priority]}
-        disallowEmptySelection
-        onSelectionChange={(keys) => {
-          const key = Array.from(keys)[0] as TicketPriority | undefined;
-          if (key && key !== ticket.priority) save({ priority: key }, 'Prioridad actualizada');
-        }}
-      >
-        {TICKET_PRIORITIES.map((p) => (
-          <SelectItem key={p} className="cursor-pointer">
-            {TICKET_PRIORITY[p].label}
-          </SelectItem>
-        ))}
-      </AppSelect>
-
-      <div className="flex flex-col gap-2">
-        <Button variant="bordered" className="cursor-pointer" onPress={() => openContext(context)}>
-          Abrir donde estaba
-        </Button>
-        <Tooltip content="El usuario tiene tu mismo rol" isDisabled={!sameRole}>
-          <span>
-            <Button
-              variant="bordered"
-              className="w-full cursor-pointer"
-              isDisabled={sameRole}
-              onPress={() => openContext(context, { ticketNumber: ticket.number })}
-            >
-              Ver como su rol
-            </Button>
-          </span>
-        </Tooltip>
+    <aside className="flex flex-col gap-6 rounded-xl border border-default-200 p-4" aria-label="Gestión de la solicitud">
+      <div className="grid grid-cols-2 gap-3">
+        <AppSelect
+          label="Estado"
+          size="sm"
+          selectedKeys={[ticket.status]}
+          disallowEmptySelection
+          renderValue={() => <DotLabel {...TICKET_STATUS[ticket.status]} />}
+          onSelectionChange={(keys) => {
+            const key = Array.from(keys)[0];
+            if (key) onStatus(key as TicketStatus);
+          }}
+        >
+          {TICKET_STATUSES.map((s) => (
+            <SelectItem key={s} textValue={TICKET_STATUS[s].label} className="cursor-pointer">
+              <DotLabel {...TICKET_STATUS[s]} />
+            </SelectItem>
+          ))}
+        </AppSelect>
+        <AppSelect
+          label="Prioridad"
+          size="sm"
+          selectedKeys={[ticket.priority]}
+          disallowEmptySelection
+          renderValue={() => <DotLabel {...TICKET_PRIORITY[ticket.priority]} />}
+          onSelectionChange={(keys) => {
+            const key = Array.from(keys)[0] as TicketPriority | undefined;
+            if (key && key !== ticket.priority) save({ priority: key }, 'Prioridad actualizada');
+          }}
+        >
+          {TICKET_PRIORITIES.map((p) => (
+            <SelectItem key={p} textValue={TICKET_PRIORITY[p].label} className="cursor-pointer">
+              <DotLabel {...TICKET_PRIORITY[p]} />
+            </SelectItem>
+          ))}
+        </AppSelect>
       </div>
 
-      <section aria-label="Contexto">
-        <h2 className="mb-3 text-sm font-semibold text-default-700">Contexto</h2>
-        <dl className="flex flex-col gap-3">
-          <Fact label="Solicitante">
-            {ticket.requester.name ? `${ticket.requester.name} · ` : ''}
-            {ticket.requester.email}
-          </Fact>
-          <Fact label="Pantalla">{context.pageTitle ? `${context.pageTitle} · ` : ''}{context.path}</Fact>
-          {filters.length > 0 && (
-            <Fact label="Filtros">
-              <ul className="flex flex-col gap-0.5">
-                {filters.map((f) => (
-                  <li key={f.key}>
-                    {f.key}: {f.value}
-                  </li>
-                ))}
-              </ul>
-            </Fact>
-          )}
-          {context.dateRange && (
-            <Fact label="Fechas">{dateRangeText(context.dateRange)}</Fact>
-          )}
-          <Fact label="Rol en pantalla">{roleText(context.dynaRole, context.scope)}</Fact>
-          <Fact label="Rol real">{getRoleLabel(context.realDynaRole) || 'Sin rol'}</Fact>
-          {context.viewport && (
-            <Fact label="Pantalla del navegador">
-              {context.viewport.width} × {context.viewport.height}
-            </Fact>
-          )}
-          {context.userAgent && <Fact label="Navegador">{context.userAgent}</Fact>}
-        </dl>
-      </section>
+      <Section title="Reproducir">
+        {ticket.hasScreenshot && <ScreenshotPreview number={ticket.number} />}
+        <div className="flex flex-col gap-2">
+          <Button color="primary" variant="flat" className="cursor-pointer" onPress={() => openContext(context)}>
+            Abrir donde estaba
+          </Button>
+          <Tooltip content="El usuario tiene tu mismo rol" isDisabled={!sameRole}>
+            <span>
+              <Button
+                variant="bordered"
+                className="w-full cursor-pointer"
+                isDisabled={sameRole}
+                onPress={() => openContext(context, { ticketNumber: ticket.number })}
+              >
+                Ver como su rol ({roleText(context.dynaRole, context.scope)})
+              </Button>
+            </span>
+          </Tooltip>
+        </div>
+        <ContextFacts context={context} />
+        {roleMismatch && (
+          <p className="flex items-start gap-2 rounded-lg bg-warning-50 p-2 text-xs text-warning-800">
+            <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            Estaba simulando un rol: su rol real es {roleText(context.realDynaRole)}.
+          </p>
+        )}
+        {(context.viewport || context.userAgent) && (
+          <p className="text-xs text-default-400">
+            {context.viewport && `${context.viewport.width} × ${context.viewport.height} · `}
+            {context.userAgent}
+          </p>
+        )}
+      </Section>
+
+      <Section title="Solicitante">
+        <p className="text-sm">
+          {ticket.requester.name && <span className="font-medium">{ticket.requester.name} · </span>}
+          <span className="text-default-600">{ticket.requester.email}</span>
+        </p>
+      </Section>
+
+      {ticket.related && ticket.related.length > 0 && (
+        <Section title="Relacionadas">
+          <ul className="flex flex-col divide-y divide-default-100">
+            {ticket.related.map((r) => (
+              <li key={r.number} className="flex flex-col gap-1 py-2 first:pt-0">
+                <Link className="cursor-pointer text-sm" onPress={() => navigate(`/soporte/${r.number}`)}>
+                  #{r.number} · {r.subject}
+                </Link>
+                <span className="flex flex-wrap items-center gap-2 text-xs text-default-500">
+                  <TicketStatusChip status={r.status} />
+                  {r.sameRequester ? 'Mismo usuario' : 'Misma pantalla y filtros'} · {formatRelative(r.lastActivityAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <ResolveModal
         ticket={ticket}
@@ -202,7 +222,9 @@ function ResolveModal({ ticket, isOpen, isSaving, onClose, onConfirm }: ResolveM
               </SelectItem>
             ))}
           </AppSelect>
-          <p className="text-sm text-default-600">Enviaremos un correo a {name} avisando de que está resuelta.</p>
+          <p className="text-sm text-default-600">
+            Enviaremos un correo a {name} con tu última respuesta y le preguntaremos si se solucionó.
+          </p>
         </ModalBody>
         <ModalFooter>
           <Button variant="light" className="cursor-pointer" onPress={onClose}>

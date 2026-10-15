@@ -56,15 +56,54 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     date: '2026-10-15',
     title: 'Ayuda y soporte desde cualquier pantalla',
     summary:
-      'Si algo no funciona o una cifra no cuadra, cuéntanoslo desde DynaInfo sin salir de la pantalla. Guardamos lo que estás viendo para poder revisarlo a la primera.',
-    published: false,
+      'Si algo no funciona o una cifra no cuadra, cuéntanoslo desde DynaInfo sin salir de la pantalla. Guardamos lo que estás viendo para revisarlo a la primera, y sigues tu solicitud hasta que esté resuelta.',
+    published: true,
     changes: [
       {
         category: 'nuevo',
         items: [
-          '**Ayuda y soporte en el menú**: abajo en el menú lateral, en todas las pantallas. Elige si es un error, un dato incorrecto, un tema de acceso o una sugerencia, y cuéntanos qué pasa.',
-          '**Sin explicar dónde estabas**: la solicitud lleva la pantalla, los filtros y las fechas que tenías puestos, y si quieres una captura de pantalla.',
-          '**Sigue tus solicitudes**: en Soporte ves el estado de cada una y puedes responder. Te avisamos por correo cuando te contestamos y cuando queda resuelta.',
+          {
+            text: '**Ayuda y soporte en el menú**: abajo en el menú lateral, en todas las pantallas. Elige si es un error, un dato incorrecto, un tema de acceso o una sugerencia, y responde a una pregunta guiada. El asunto es opcional.',
+            image: {
+              src: '/novedades/soporte-ayuda.png',
+              alt: 'Formulario de Ayuda y soporte con los cuatro tipos de solicitud y la pregunta ¿Qué cifra ves y cuál esperabas?',
+            },
+          },
+          {
+            text: '**Sin explicar dónde estabas**: la solicitud lleva la pantalla, los filtros y las fechas que tenías puestos, y una captura de lo que estabas viendo que puedes revisar o quitar antes de enviar.',
+            image: {
+              src: '/novedades/soporte-contexto.png',
+              alt: 'Casilla Incluir captura de pantalla y resumen de lo que se envía: pantalla, fechas, filtros y rol',
+            },
+          },
+          {
+            text: '**¿Este dato no cuadra?**: pasa el ratón por cualquier indicador y pulsa la bandera, o usa «¿Algún dato no cuadra?» encima de las tablas. La solicitud se abre ya preparada con la cifra que estabas mirando.',
+            image: {
+              src: '/novedades/soporte-dato.png',
+              alt: 'Indicador Cumpl. presupuesto con una bandera y el aviso ¿Este dato no cuadra?',
+            },
+          },
+          {
+            text: '**Mis solicitudes a un clic**: en Ayuda y soporte encuentras Nueva solicitud y Mis solicitudes. Cuando te respondemos, el menú te lo marca con un número, y además te avisamos por correo.',
+            image: {
+              src: '/novedades/soporte-menu.png',
+              alt: 'Menú de Ayuda y soporte con Nueva solicitud y Mis solicitudes, que indica 1 respuesta del equipo',
+            },
+          },
+          {
+            text: '**Sabes en qué punto está**: cada solicitud muestra si está enviada, en revisión o resuelta y qué esperar, y la conversación se lee como un chat. Al resolverla nos dices con un clic si se solucionó o si sigue pasando, también desde el correo.',
+            image: {
+              src: '/novedades/soporte-seguimiento.png',
+              alt: 'Pasos Enviada, En revisión, Resuelta y Cerrada, con la pregunta ¿Se solucionó? y los botones Sí, cerrar y Sigue pasando',
+            },
+          },
+          {
+            text: '**Para Admin y superadmin: Solicitudes**: debajo de Ayuda y soporte, la bandeja con las solicitudes de todos, ordenadas por las que esperan respuesta, y una pestaña con las tuyas. Desde cada una abres la pantalla del usuario tal como la tenía, la ves con su rol, respondes con respuestas rápidas y la resuelves en un paso.',
+            image: {
+              src: '/novedades/soporte-bandeja.png',
+              alt: 'Bandeja Solicitudes con las pestañas Todas y Mis solicitudes, y por solicitud el número, asunto, solicitante, a quién le toca y prioridad con puntos de color',
+            },
+          },
         ],
       },
     ],

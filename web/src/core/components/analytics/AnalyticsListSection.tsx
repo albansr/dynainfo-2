@@ -18,8 +18,9 @@ import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
 import { ExportToExcelButton } from './ExportToExcelButton';
+import { ReportDataButton } from '@/features/support/components/ReportDataButton';
 import { DEFAULT_CUSTOMER_PRESET, type CustomerPreset } from '@/core/config/customerPresets';
-import { listingShowsBudget, listingShowsCartera } from '@/core/config/breakdownDimensions';
+import { DIM_LABEL, listingShowsBudget, listingShowsCartera } from '@/core/config/breakdownDimensions';
 
 /** Leading ABC-position column (#) for the seller peso (80%) list. */
 const RANK_COLUMN: ColumnDefinition = {
@@ -311,6 +312,7 @@ export function AnalyticsListSection({
           {enableFilters && (
             <FacetedFilterAddButton value={applied} onChange={setApplied} contextFilters={filterContext} />
           )}
+          <ReportDataButton variant="link" metric={`Tabla por ${DIM_LABEL[groupBy] ?? dimensionLabel ?? groupBy}`} />
           <ExportToExcelButton
             groupBy={groupBy}
             startDate={startDate}

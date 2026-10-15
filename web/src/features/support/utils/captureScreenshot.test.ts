@@ -38,7 +38,7 @@ describe('captureScreenshot', () => {
 
     const filter = domToJpeg.mock.calls[0]?.[1].filter as (n: Node) => boolean;
     const drawer = document.createElement('div');
-    drawer.setAttribute('data-support-ignore', '');
+    drawer.className = 'support-ignore';
     const inside = document.createElement('span');
     drawer.appendChild(inside);
     expect(filter(inside)).toBe(false);

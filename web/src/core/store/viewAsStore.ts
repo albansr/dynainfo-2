@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { useAuthStore } from '@/core/store/authStore';
+import { useAuthStore, selectIsSupportAgent } from '@/core/store/authStore';
 import { isDemoRoleEnabled } from '@/core/config/constants';
 import { applyRoleOverrides, type RoleOverride } from '@/core/utils/roleOverrides';
 
@@ -11,7 +11,7 @@ export interface ViewAs extends RoleOverride {
 
 interface ViewAsStore {
   viewAs: ViewAs | null;
-  /** Start viewing as a role (real ADMIN only; ignored otherwise). */
+  /** Start viewing as a role (support agents only; ignored otherwise). */
   start: (viewAs: ViewAs) => void;
   /** Stop and go back to the real (or demo) role. */
   stop: () => void;
@@ -27,6 +27,7 @@ export function reapplyRoleOverrides(viewAs: ViewAs | null): void {
   const realUser = { ...auth.user, dynaRole: auth.realDynaRole, scope: auth.realScope };
   const user = applyRoleOverrides(realUser, {
     viewAs,
+    canViewAs: selectIsSupportAgent(auth),
     demo: { dynaRole: auth.demoRole, scope: auth.demoScope },
     demoEnabled: isDemoRoleEnabled(),
   });
@@ -42,7 +43,7 @@ export const useViewAsStore = create<ViewAsStore>()(
     (set) => ({
       viewAs: null,
       start: (viewAs) => {
-        if (useAuthStore.getState().realDynaRole !== 'ADMIN') return;
+        if (!selectIsSupportAgent(useAuthStore.getState())) return;
         set({ viewAs });
         reapplyRoleOverrides(viewAs);
       },

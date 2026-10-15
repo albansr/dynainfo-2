@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, lt, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../../core/db/postgres/client.js';
 import {
   supportMessages,
@@ -15,6 +15,7 @@ import {
   SCREENSHOT_MAX_BYTES,
   type CreateMessageBody,
   type CreateTicketBody,
+  type FeedbackBody,
   type ListTicketsQuery,
   type TicketPriority,
   type TicketStatus,
@@ -28,13 +29,17 @@ export const AUTO_CLOSE_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Context fields a requester gets back on their own ticket ("Abrir la pantalla"). */
-const REQUESTER_CONTEXT_KEYS = ['path', 'search', 'dateRange'] as const;
+/** Related requests shown to agents, and how long a closed one still counts. */
+const RELATED_LIMIT = 5;
+const RELATED_RECENT_DAYS = 30;
 
-/** Thrown when replying to a closed request (409). */
-export class TicketClosedError extends AppError {
-  constructor() {
-    super(ErrorCode.INVALID_INPUT, 'La solicitud está cerrada', 409);
+/** Context fields a requester gets back on their own ticket ("Lo que enviaste"). */
+const REQUESTER_CONTEXT_KEYS = ['path', 'search', 'dateRange', 'summary'] as const;
+
+/** Thrown when replying to a closed request, or answering feedback on one that isn't resolved (409). */
+export class TicketStateError extends AppError {
+  constructor(message: string) {
+    super(ErrorCode.INVALID_INPUT, message, 409);
   }
 }
 
@@ -49,6 +54,7 @@ export interface TicketSummary {
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  awaitingTeam: boolean;
   lastActivityAt: Date;
   createdAt: Date;
   requester?: Person;
@@ -63,6 +69,14 @@ export interface TicketMessageView {
   createdAt: Date;
 }
 
+export interface RelatedTicket {
+  number: number;
+  subject: string;
+  status: TicketStatus;
+  sameRequester: boolean;
+  lastActivityAt: Date;
+}
+
 export interface TicketDetail {
   number: number;
   type: TicketType;
@@ -71,6 +85,8 @@ export interface TicketDetail {
   status: TicketStatus;
   priority: TicketPriority;
   changelogEntryId: string | null;
+  awaitingTeam: boolean;
+  satisfied: boolean | null;
   lastActivityAt: Date;
   resolvedAt: Date | null;
   createdAt: Date;
@@ -78,6 +94,7 @@ export interface TicketDetail {
   requester: Person;
   context: Record<string, unknown>;
   messages: TicketMessageView[];
+  related?: RelatedTicket[];
 }
 
 /** Decode and check a base64 JPEG screenshot; throws a 400 when it is not one or too large. */
@@ -94,12 +111,20 @@ function requesterContext(context: Record<string, unknown>): Record<string, unkn
   return Object.fromEntries(REQUESTER_CONTEXT_KEYS.filter((k) => k in context).map((k) => [k, context[k]]));
 }
 
+/** When a resolved request closes by itself. */
+export function autoCloseDate(resolvedAt: Date): Date {
+  return new Date(resolvedAt.getTime() + AUTO_CLOSE_DAYS * DAY_MS);
+}
+
 /**
  * Support requests: create, list, thread and triage.
  *
  * Visibility is enforced here, not in the UI: a requester only reaches their own
  * tickets (others are a 404, so numbers can't be probed), never sees internal
  * notes, and only gets back the navigational part of the context.
+ *
+ * `awaitingTeam` tracks whose turn it is: a new request and every requester reply
+ * put it on the team; a public agent reply puts it on the requester.
  */
 export class SupportService {
   constructor(private readonly notifier: SupportNotifier = new SupportNotifier()) {}
@@ -132,7 +157,7 @@ export class SupportService {
       return created;
     });
 
-    await this.notifier.newTicket(this.mail(ticket, user));
+    await this.notifier.newTicket(this.mail(ticket, user, Boolean(screenshot)));
     return { number: ticket.number };
   }
 
@@ -154,6 +179,17 @@ export class SupportService {
     if (query.priority) conditions.push(eq(supportTickets.priority, query.priority));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // Agents triage: requests waiting for the team first, the longest waiting on top;
+    // requesters see their latest activity first
+    const order =
+      scope === 'all'
+        ? [
+            desc(supportTickets.awaitingTeam),
+            sql`case when ${supportTickets.awaitingTeam} then ${supportTickets.lastActivityAt} end asc`,
+            desc(supportTickets.lastActivityAt),
+          ]
+        : [desc(supportTickets.lastActivityAt)];
+
     const [rows, [totals]] = await Promise.all([
       db
         .select({
@@ -162,6 +198,7 @@ export class SupportService {
           subject: supportTickets.subject,
           status: supportTickets.status,
           priority: supportTickets.priority,
+          awaitingTeam: supportTickets.awaitingTeam,
           lastActivityAt: supportTickets.lastActivityAt,
           createdAt: supportTickets.createdAt,
           requesterName: users.name,
@@ -170,7 +207,7 @@ export class SupportService {
         .from(supportTickets)
         .innerJoin(users, eq(users.id, supportTickets.userId))
         .where(where)
-        .orderBy(desc(supportTickets.lastActivityAt))
+        .orderBy(...order)
         .limit(limit)
         .offset((page - 1) * limit),
       db.select({ value: count() }).from(supportTickets).where(where),
@@ -187,7 +224,7 @@ export class SupportService {
     const agent = isSupportAgent(user);
     const { ticket, requester } = await this.findVisible(user, number);
 
-    const [messages, [screenshot]] = await Promise.all([
+    const [messages, [screenshot], related] = await Promise.all([
       db
         .select({
           id: supportMessages.id,
@@ -210,6 +247,7 @@ export class SupportService {
         .from(supportScreenshots)
         .where(eq(supportScreenshots.ticketId, ticket.id))
         .limit(1),
+      agent ? this.related(ticket) : Promise.resolve(undefined),
     ]);
 
     return {
@@ -220,6 +258,8 @@ export class SupportService {
       status: ticket.status,
       priority: ticket.priority,
       changelogEntryId: ticket.changelogEntryId,
+      awaitingTeam: ticket.awaitingTeam,
+      satisfied: ticket.satisfied,
       lastActivityAt: ticket.lastActivityAt,
       resolvedAt: ticket.resolvedAt,
       createdAt: ticket.createdAt,
@@ -228,6 +268,7 @@ export class SupportService {
       context: agent ? ticket.context : requesterContext(ticket.context),
       // Requesters see agents as the team, never by name
       messages: messages.map((m) => (agent || !m.authorIsAgent ? m : { ...m, authorName: null })),
+      ...(related ? { related } : {}),
     };
   }
 
@@ -245,10 +286,12 @@ export class SupportService {
   async addMessage(user: SessionUser, number: number, input: CreateMessageBody): Promise<TicketMessageView> {
     const agent = isSupportAgent(user);
     const internal = input.internal ?? false;
+    const resolve = input.resolve ?? false;
     if (internal && !agent) throw new ForbiddenError('Solo el equipo de soporte puede escribir notas internas');
+    if (resolve && (!agent || internal)) throw new ForbiddenError('Solo el equipo de soporte puede resolver con una respuesta');
 
     const { ticket, requester } = await this.findVisible(user, number);
-    if (ticket.status === 'closed') throw new TicketClosedError();
+    if (ticket.status === 'closed') throw new TicketStateError('La solicitud está cerrada');
 
     const isOwner = ticket.userId === user.id;
     // A requester's reply to a resolved request reopens it
@@ -266,7 +309,10 @@ export class SupportService {
         .set({
           lastActivityAt: now,
           updatedAt: now,
-          ...(reopens ? { status: 'open' as const, resolvedAt: null } : {}),
+          // Internal notes don't change whose turn it is
+          ...(internal ? {} : { awaitingTeam: !agent }),
+          ...(reopens ? { status: 'open' as const, resolvedAt: null, satisfied: null } : {}),
+          ...(resolve ? { status: 'resolved' as const, resolvedAt: ticket.resolvedAt ?? now, closedAt: null } : {}),
         })
         .where(eq(supportTickets.id, ticket.id));
       return created;
@@ -274,8 +320,13 @@ export class SupportService {
 
     if (!internal) {
       const mail = this.mail(ticket, requester);
-      if (agent) await this.notifier.agentReply(mail, message.body);
-      else await this.notifier.requesterReply(mail, message.body);
+      if (resolve) {
+        await this.notifier.resolved(mail, message.body, this.linkedEntry(ticket.changelogEntryId), autoCloseDate(now));
+      } else if (agent) {
+        await this.notifier.agentReply(mail, message.body, await this.lastRequesterWords(ticket));
+      } else {
+        await this.notifier.requesterReply(mail, message.body, { reopened: reopens });
+      }
     }
 
     return {
@@ -286,6 +337,46 @@ export class SupportService {
       authorName: user.name,
       createdAt: message.createdAt,
     };
+  }
+
+  /**
+   * The requester answers "¿Se solucionó?" on a resolved request: solved closes it,
+   * not solved reopens it for the team (with an optional comment).
+   */
+  async giveFeedback(user: SessionUser, number: number, input: FeedbackBody): Promise<TicketDetail> {
+    const { ticket, requester } = await this.findVisible(user, number);
+    if (ticket.userId !== user.id) throw new ForbiddenError('Solo quien envió la solicitud puede valorarla');
+    if (ticket.status !== 'resolved') throw new TicketStateError('La solicitud no está resuelta');
+    const now = new Date();
+    const body = input.body?.trim();
+
+    await db.transaction(async (tx) => {
+      if (body && !input.solved) {
+        await tx
+          .insert(supportMessages)
+          .values({ ticketId: ticket.id, authorId: user.id, authorIsAgent: false, internal: false, body });
+      }
+      await tx
+        .update(supportTickets)
+        .set(
+          input.solved
+            ? { status: 'closed', closedAt: now, satisfied: true, updatedAt: now, lastActivityAt: now }
+            : {
+                status: 'open',
+                resolvedAt: null,
+                satisfied: false,
+                awaitingTeam: true,
+                updatedAt: now,
+                lastActivityAt: now,
+              },
+        )
+        .where(eq(supportTickets.id, ticket.id));
+    });
+
+    if (!input.solved) {
+      await this.notifier.requesterReply(this.mail(ticket, requester), body ?? null, { reopened: true });
+    }
+    return this.getTicket(user, number);
   }
 
   /** Agents only (checked by the route guard). */
@@ -330,11 +421,11 @@ export class SupportService {
         )
         .orderBy(desc(supportMessages.createdAt))
         .limit(1);
-      const linked = entry ?? publishedEntries().find((e) => e.id === ticket.changelogEntryId);
       await this.notifier.resolved(
         this.mail(ticket, requester),
         lastReply?.body ?? null,
-        linked ? { id: linked.id, title: linked.title } : null,
+        this.linkedEntry(entryId ?? ticket.changelogEntryId),
+        autoCloseDate(now),
       );
     }
 
@@ -352,10 +443,28 @@ export class SupportService {
     return closed.length;
   }
 
-  /** Open requests, for the agents' badge. */
-  async openCount(): Promise<number> {
-    const [row] = await db.select({ value: count() }).from(supportTickets).where(eq(supportTickets.status, 'open'));
-    return row?.value ?? 0;
+  /** Active requests, and how many of them wait for the team (the agents' badge). */
+  async summary(): Promise<{ open: number; awaitingTeam: number }> {
+    const [row] = await db
+      .select({
+        open: count(),
+        awaitingTeam: sql<number>`count(*) filter (where ${supportTickets.awaitingTeam})`.mapWith(Number),
+      })
+      .from(supportTickets)
+      .where(inArray(supportTickets.status, ['open', 'in_progress']));
+    return { open: row?.open ?? 0, awaitingTeam: row?.awaitingTeam ?? 0 };
+  }
+
+  /** The user's own active requests, and how many wait for their answer (the team replied). */
+  async mySummary(user: SessionUser): Promise<{ active: number; awaitingMe: number }> {
+    const [row] = await db
+      .select({
+        active: count(),
+        awaitingMe: sql<number>`count(*) filter (where not ${supportTickets.awaitingTeam})`.mapWith(Number),
+      })
+      .from(supportTickets)
+      .where(and(eq(supportTickets.userId, user.id), inArray(supportTickets.status, ['open', 'in_progress', 'resolved'])));
+    return { active: row?.active ?? 0, awaitingMe: row?.awaitingMe ?? 0 };
   }
 
   /** The ticket and its requester, when `user` may see it; otherwise a 404. */
@@ -372,13 +481,71 @@ export class SupportService {
     return { ticket: row.ticket, requester: { name: row.name, email: row.email } };
   }
 
-  private mail(ticket: SupportTicket, requester: Person): TicketMail {
+  /**
+   * The requester's other requests and requests sent from the same screen (same
+   * page and filters), for agents. Closed ones only while recent, so old noise
+   * doesn't bury what matters.
+   */
+  private async related(ticket: SupportTicket): Promise<RelatedTicket[]> {
+    const path = typeof ticket.context['path'] === 'string' ? ticket.context['path'] : null;
+    const search = typeof ticket.context['search'] === 'string' ? ticket.context['search'] : '';
+    const sameScreen = path
+      ? sql`${supportTickets.context}->>'path' = ${path} and coalesce(${supportTickets.context}->>'search', '') = ${search}`
+      : undefined;
+    const recentCutoff = new Date(Date.now() - RELATED_RECENT_DAYS * DAY_MS);
+    const rows = await db
+      .select({
+        number: supportTickets.number,
+        subject: supportTickets.subject,
+        status: supportTickets.status,
+        userId: supportTickets.userId,
+        lastActivityAt: supportTickets.lastActivityAt,
+      })
+      .from(supportTickets)
+      .where(
+        and(
+          ne(supportTickets.id, ticket.id),
+          or(eq(supportTickets.userId, ticket.userId), sameScreen),
+          or(ne(supportTickets.status, 'closed'), gt(supportTickets.lastActivityAt, recentCutoff)),
+        ),
+      )
+      .orderBy(desc(supportTickets.lastActivityAt))
+      .limit(RELATED_LIMIT);
+    return rows.map(({ userId, ...row }) => ({ ...row, sameRequester: userId === ticket.userId }));
+  }
+
+  /** What the requester last said (their latest public message, or the description). */
+  private async lastRequesterWords(ticket: SupportTicket): Promise<string> {
+    const [last] = await db
+      .select({ body: supportMessages.body })
+      .from(supportMessages)
+      .where(
+        and(
+          eq(supportMessages.ticketId, ticket.id),
+          eq(supportMessages.authorIsAgent, false),
+          eq(supportMessages.internal, false),
+        ),
+      )
+      .orderBy(desc(supportMessages.createdAt))
+      .limit(1);
+    return last?.body ?? ticket.description;
+  }
+
+  private linkedEntry(entryId: string | null): { id: string; title: string } | null {
+    const entry = entryId ? publishedEntries().find((e) => e.id === entryId) : undefined;
+    return entry ? { id: entry.id, title: entry.title } : null;
+  }
+
+  private mail(ticket: SupportTicket, requester: Person, hasScreenshot = false): TicketMail {
+    const summary = ticket.context['summary'] as TicketMail['summary'] | undefined;
     return {
       number: ticket.number,
       type: ticket.type,
       subject: ticket.subject,
       description: ticket.description,
       path: typeof ticket.context['path'] === 'string' ? ticket.context['path'] : '',
+      summary: summary ?? null,
+      hasScreenshot,
       webOrigin: ticket.webOrigin,
       requester,
     };

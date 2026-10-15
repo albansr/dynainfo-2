@@ -43,6 +43,13 @@
       "when": 1792049115290,
       "tag": "0005_add_support_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792053286535,
+      "tag": "0006_support_awaiting_and_feedback",
+      "breakpoints": true
     }
   ]
 }

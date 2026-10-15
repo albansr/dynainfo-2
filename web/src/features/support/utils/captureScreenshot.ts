@@ -5,10 +5,10 @@ export const SCREENSHOT_MAX_BYTES = 1_000_000;
 /** Widest capture in pixels (keeps the JPEG well under the limit). */
 const MAX_WIDTH = 1600;
 
-/** Elements marked with this attribute are left out of the screenshot. */
-export const SUPPORT_IGNORE_ATTR = 'data-support-ignore';
-/** Left out too: the toasts ("Enviando solicitud…" is on screen while capturing). */
-const IGNORED_SELECTOR = `[${SUPPORT_IGNORE_ATTR}], [data-sonner-toaster]`;
+/** Elements with this class are left out of the screenshot (the support drawer and its backdrop). */
+export const SUPPORT_IGNORE_CLASS = 'support-ignore';
+/** Left out too: the toasts. */
+const IGNORED_SELECTOR = `.${SUPPORT_IGNORE_CLASS}, [data-sonner-toaster]`;
 
 /** The base64 payload of a data URL and its decoded size in bytes. */
 export function dataUrlPayload(dataUrl: string): { base64: string; bytes: number } {
