@@ -57,7 +57,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     title: 'Mejoras comerciales en clientes, vendedores y Estado',
     summary:
       'Más contexto para leer a cada cliente y a cada vendedor: cuánto compra al mes, de cuánto es su pedido medio y quién empieza a enfriarse antes.',
-    published: false,
+    published: true,
     changes: [
       {
         category: 'nuevo',
