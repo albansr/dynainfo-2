@@ -4,11 +4,13 @@
  * Every tick (and once at startup) it checks whether it is past DIGEST_HOUR in
  * the project timezone and, if so, sends the previous day's published entries to
  * every active subscriber — one email each, with its own one-click unsubscribe
- * link. A day is claimed in Postgres before sending, so restarts never send it
+ * link. Dev and prod share this API, so the digest always goes out as
+ * production: links and images point to the production site whatever site the
+ * subscriber signed up from, and no environment-tagged email is ever sent. A day is claimed in Postgres before sending, so restarts never send it
  * twice. Days without entries send nothing.
  */
 import { resend, EMAIL_FROM } from '../../core/email/resend.client.js';
-import { environmentTag, resolveWebOrigin } from '../../core/config/web-origin.js';
+import { primaryWebOrigin } from '../../core/config/web-origin.js';
 import { logger } from '../../core/logger/logger.js';
 import { ChangelogService, type DigestRecipient } from './changelog.service.js';
 import type { ChangelogEntry } from './changelog.entries.js';
@@ -41,17 +43,14 @@ async function sendToRecipient(
   date: string,
   entries: readonly ChangelogEntry[],
 ): Promise<boolean> {
-  // Links, images and the environment label follow the site they subscribed from
-  const webOrigin = resolveWebOrigin(recipient.webOrigin);
   const links = {
-    webOrigin,
+    webOrigin: primaryWebOrigin(),
     unsubscribeUrl: unsubscribeUrl(recipient.token),
-    environmentTag: environmentTag(webOrigin),
   };
   const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: recipient.email,
-    subject: renderDigestSubject(entries, links.environmentTag),
+    subject: renderDigestSubject(entries),
     html: renderDigestHtml(entries, links),
     text: renderDigestText(entries, links),
     headers: {

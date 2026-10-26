@@ -17,7 +17,7 @@ Implements the PRD in `prd.md` from the `changelog-email-digest` playbook, adapt
 |---|---|---|
 | Where entries live | Typed list in the API (`changelog.entries.ts`), served to the web | In the web bundle (playbook default): the API could not render the digest without a second copy |
 | Where the digest runs | In-process scheduler in the API, enabled by `CHANGELOG_DIGEST_ENABLED` | GitHub Actions cron (playbook default): there is no CI here, and it needs the production API reachable from the internet plus a shared token |
-| Dev vs prod links | Store each subscriber's `web_origin` (validated against `ORIGIN_URL`) and build their links from it | One env var per environment: impossible here, dev and prod share one API and one `.env` |
+| Dev vs prod links | The digest always uses the production origin (first `ORIGIN_URL`) for every subscriber; `web_origin` is kept only for the unsubscribe redirect | Links per subscriber site with a `[DEV]` tag: dev testers got environment-tagged copies of production news. One env var per environment: impossible, dev and prod share one API and one `.env` |
 | Duplicate protection | Claim the day in `changelog_digest_run` before sending | None: a restart after 08:00 would resend the whole day |
 | Audience | Public list | Signed-in users only: simpler, but excludes people outside the app |
 
@@ -55,7 +55,7 @@ Because the job runs next to the data, the playbook's token-protected `GET /reci
 - **Subscribe form:** field "Tu correo", button "Suscribirme". Invalid email: "Introduce un correo válido." Success (inline, replaces the form): "Listo. Te avisaremos por correo de cada novedad. Puedes darte de baja cuando quieras." Rate limited: "Demasiados intentos. Espera un minuto y vuelve a intentarlo." Other errors: "No hemos podido completar la suscripción. Revisa el correo y vuelve a intentarlo."
 - **States:** loading skeletons; empty "Todavía no hay novedades publicadas."; error "No hemos podido cargar las novedades. Vuelve a intentarlo más tarde."
 - **Baja:** "Te has dado de baja", explanation, and a "Ver novedades" link back.
-- **Email:** subject "Novedades DynaInfo · {title}" (or "· N novedades"), button "Ver todas las novedades", footer with "Darse de baja". Outside production the subject is prefixed with the environment (`[DEV] …`) and the header reads "Novedades de DynaInfo · Entorno DEV" on an amber label.
+- **Email:** subject "Novedades DynaInfo · {title}" (or "· N novedades"), button "Ver todas las novedades", footer with "Darse de baja". Always the production email: no environment tag, links and images on the production site, even for subscribers who signed up from dev.
 
 ## Authorization & security
 
