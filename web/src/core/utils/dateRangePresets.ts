@@ -7,6 +7,7 @@ import {
   endOfYear,
   getYear,
   isLastDayOfMonth,
+  differenceInCalendarMonths,
 } from 'date-fns';
 import { AVAILABLE_DATA_RANGE, type DateRangePreset } from '../config/dateRangeConfig';
 
@@ -110,3 +111,10 @@ export const getAvailableYears = (): number[] => {
  */
 export const shouldShowCarteraBlock = (endDate: Date, isLivePeriod: boolean): boolean =>
   !(isLivePeriod && isLastDayOfMonth(endDate));
+
+/**
+ * Calendar months a range touches, a partial month counting as one
+ * (Jan 15 – Mar 3 = 3). Divisor of the listings' monthly average.
+ */
+export const calendarMonthsInRange = (start: Date, end: Date): number =>
+  Math.max(1, differenceInCalendarMonths(end, start) + 1);

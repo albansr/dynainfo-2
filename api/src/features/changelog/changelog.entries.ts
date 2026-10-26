@@ -52,6 +52,30 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-26-mejoras-comerciales',
+    date: '2026-10-26',
+    title: 'Mejoras comerciales en clientes, vendedores y Estado',
+    summary:
+      'Más contexto para leer a cada cliente y a cada vendedor: cuánto compra al mes, de cuánto es su pedido medio y quién empieza a enfriarse antes.',
+    published: false,
+    changes: [
+      {
+        category: 'nuevo',
+        items: [
+          '**Promedio mensual en clientes**: al listar clientes, la columna Ret. Cartera se sustituye por lo que compra cada cliente al mes en la temporalidad elegida (ventas entre los meses del periodo; un mes empezado cuenta como uno), comparado con el año anterior. También en el Excel.',
+          '**Pedido promedio en vendedores**: el listado de vendedores suma una columna con el valor medio de sus pedidos en la temporalidad elegida (ventas entre número de pedidos), comparado con el año anterior. También en el Excel.',
+        ],
+      },
+      {
+        category: 'mejorado',
+        items: [
+          '**Clientes que se enfriaron, antes**: en Estado, un cliente se considera enfriado cuando lleva 2 meses sin comprarte (antes eran 3), para que puedas reactivarlo a tiempo.',
+          '**Nombre de la sucursal en clientes**: los clientes se muestran siempre con el nombre de su sucursal en lugar de la razón social, que es como los conoces en la calle.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-15-ayuda-y-soporte',
     date: '2026-10-15',
     title: 'Ayuda y soporte desde cualquier pantalla',

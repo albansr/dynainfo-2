@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { RegionalTable } from '../RegionalTable';
 import type { RegionalData, TableConfig } from '../types';
-import { getColumnsWithDynamicLabel, getColumnsWithoutBudget, toProductListingColumns } from './columns';
+import {
+  getColumnsWithDynamicLabel,
+  getColumnsWithoutBudget,
+  toProductListingColumns,
+  toCustomerListingColumns,
+  toSellerListingColumns,
+} from './columns';
 
 const ids = (cols: { id: string }[]): string[] => cols.map((c) => c.id);
 
@@ -21,6 +27,24 @@ describe('toProductListingColumns', () => {
 
     expect(ids(cols)).not.toContain('retained');
     expect(ids(cols).slice(-3)).toEqual(['units', 'avgUnitPrice', 'avgUnitCost']);
+  });
+});
+
+describe('toCustomerListingColumns', () => {
+  it('swaps RET. CARTERA for PROMEDIO MENSUAL at the end', () => {
+    const cols = toCustomerListingColumns(getColumnsWithDynamicLabel('customer_id'));
+
+    expect(ids(cols)).toEqual(['regional', 'sales', 'budget', 'margin', 'marginBudget', 'monthlyAvg']);
+    expect(cols.at(-1)!.header.label).toBe('PROMEDIO MENSUAL');
+  });
+});
+
+describe('toSellerListingColumns', () => {
+  it('keeps every column and closes with PEDIDO PROMEDIO', () => {
+    const cols = toSellerListingColumns(getColumnsWithDynamicLabel('seller_id'));
+
+    expect(ids(cols)).toEqual(['regional', 'sales', 'budget', 'margin', 'marginBudget', 'retained', 'avgOrder']);
+    expect(cols.at(-1)!.header.label).toBe('PEDIDO PROMEDIO');
   });
 });
 

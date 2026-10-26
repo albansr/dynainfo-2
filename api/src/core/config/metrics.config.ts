@@ -113,6 +113,26 @@ export const PRODUCT_UNIT_METRICS = [
   },
 ] as const satisfies readonly MetricConfig[];
 
+/**
+ * Distinct order counts, only queried where an average order value is shown
+ * (seller listings, Festival). Invoiced and retained order ids don't overlap,
+ * so their sum counts each order once.
+ */
+export const ORDER_COUNT_METRICS = [
+  {
+    table: 'transactions',
+    field: 'Pedido',
+    aggregation: 'uniqExact',
+    alias: 'invoiced_orders',
+  },
+  {
+    table: 'pedidos_retenidos',
+    field: 'pedidoId',
+    aggregation: 'uniqExact',
+    alias: 'retained_orders',
+  },
+] as const satisfies readonly MetricConfig[];
+
 // ============ CALCULATED METRICS CONFIGURATION ============
 
 /**
@@ -295,6 +315,32 @@ export const CALCULATED_METRICS = [
     description: 'Average cost per unit last year (facturado + comprometido)',
     dependencies: ['cost_last_year', 'orders_cost_last_year', 'units_last_year', 'orders_units_last_year'],
     formula: 'if(({units_last_year} + {orders_units_last_year}) != 0, ({cost_last_year} + {orders_cost_last_year}) / ({units_last_year} + {orders_units_last_year}), 0)',
+  },
+  {
+    // Needs ORDER_COUNT_METRICS. Average invoiced order (pairs with `sales`).
+    name: 'avg_order',
+    description: 'Average order value, facturado only',
+    dependencies: ['sales', 'invoiced_orders'],
+    formula: 'if({invoiced_orders} != 0, {sales} / {invoiced_orders}, 0)',
+  },
+  {
+    // Average order over facturado + comprometido (pairs with `sales_total`).
+    name: 'avg_order_total',
+    description: 'Average order value (facturado + comprometido)',
+    dependencies: ['sales', 'orders', 'invoiced_orders', 'retained_orders'],
+    formula: 'if(({invoiced_orders} + {retained_orders}) != 0, ({sales} + {orders}) / ({invoiced_orders} + {retained_orders}), 0)',
+  },
+  {
+    name: 'avg_order_last_year',
+    description: 'Average order value last year, facturado only',
+    dependencies: ['sales_last_year', 'invoiced_orders_last_year'],
+    formula: 'if({invoiced_orders_last_year} != 0, {sales_last_year} / {invoiced_orders_last_year}, 0)',
+  },
+  {
+    name: 'avg_order_total_last_year',
+    description: 'Average order value last year (facturado + comprometido)',
+    dependencies: ['sales_last_year', 'orders_last_year', 'invoiced_orders_last_year', 'retained_orders_last_year'],
+    formula: 'if(({invoiced_orders_last_year} + {retained_orders_last_year}) != 0, ({sales_last_year} + {orders_last_year}) / ({invoiced_orders_last_year} + {retained_orders_last_year}), 0)',
   },
   // Add more calculated metrics here as needed
   // Example:

@@ -26,6 +26,16 @@ export interface RegionalData {
     /** Optional extra numeric slot (used by the festival listing). */
     variation?: number;
   };
+  /** Sales per calendar month of the period, current and last year (customer listings only). */
+  monthlyAvg?: {
+    current: number;
+    previous: number;
+  };
+  /** Average order value, current and last year (seller listings only). */
+  avgOrder?: {
+    current: number;
+    previous: number;
+  };
   /** Units sold and average cost per unit (product listings only). */
   units?: {
     current: number;
@@ -53,5 +63,5 @@ export interface HeatmapThresholds {
   margin: { excellent: number; good: number; neutral: number };
 }
 
-export type SortKey = 'name' | 'code' | 'reference' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder' | 'ppto' | 'pptoCumpl' | 'numerica' | 'items' | 'sinCompra' | 'units' | 'avgUnitPrice' | 'avgUnitCost';
+export type SortKey = 'name' | 'code' | 'reference' | 'sales' | 'budget' | 'margin' | 'marginBudget' | 'retained' | 'comprometido' | 'avgOrder' | 'ppto' | 'pptoCumpl' | 'numerica' | 'items' | 'sinCompra' | 'units' | 'avgUnitPrice' | 'avgUnitCost' | 'monthlyAvg';
 export type SortDirection = 'asc' | 'desc';

@@ -49,7 +49,7 @@ function buildCards(s: SellerStatus): InsightCard[] {
       icon: ClockIcon,
       value: s.sinCompra,
       headline: 'clientes se enfriaron',
-      detail: 'Te compraron antes pero no en los últimos 3 meses. Un contacto a tiempo los reactiva.',
+      detail: 'Te compraron antes pero no en los últimos 2 meses. Un contacto a tiempo los reactiva.',
     },
     {
       key: 'riesgo',

@@ -16,6 +16,8 @@ export interface ExportRow {
   retained: { amount: number; compliance: number };
   /** Units, average price and average cost per unit (product listings; zero otherwise). */
   units: { current: number; avgCost: number; avgPrice: number };
+  /** Average order value, current and last year (seller listings; zero otherwise). */
+  avgOrder: { current: number; previous: number };
 }
 
 /**
@@ -24,6 +26,17 @@ export interface ExportRow {
  */
 export function usesFacturadoOnly(preset: string | undefined): boolean {
   return preset === 'previous-month' || preset === 'accumulated';
+}
+
+/**
+ * Port of `calendarMonthsInRange` (web/src/core/utils/dateRangePresets.ts):
+ * calendar months a YYYY-MM-DD range touches, a partial month counting as one.
+ */
+export function calendarMonthsInRange(startDate: string, endDate: string): number {
+  const [startYear, startMonth] = startDate.split('-').map(Number);
+  const [endYear, endMonth] = endDate.split('-').map(Number);
+  const months = (endYear! - startYear!) * 12 + (endMonth! - startMonth!) + 1;
+  return Number.isFinite(months) ? Math.max(1, months) : 1;
 }
 
 /** Safe numeric read from a loosely-typed ListItemResponse field. */
@@ -55,6 +68,8 @@ export function mapListItemToExportRow(
   const units = facturadoOnly ? num(item, 'units') : num(item, 'units_total');
   const avgCost = facturadoOnly ? num(item, 'avg_unit_cost') : num(item, 'avg_unit_cost_total');
   const avgPrice = facturadoOnly ? num(item, 'avg_unit_price') : num(item, 'avg_unit_price_total');
+  const avgOrder = facturadoOnly ? num(item, 'avg_order') : num(item, 'avg_order_total');
+  const avgOrderPrevious = facturadoOnly ? num(item, 'avg_order_last_year') : num(item, 'avg_order_total_last_year');
 
   const rawName = str(item, 'name');
   const name = nameOverrides && rawName in nameOverrides ? nameOverrides[rawName]! : rawName;
@@ -84,6 +99,7 @@ export function mapListItemToExportRow(
       compliance: num(item, 'cartera_compliance_pct'),
     },
     units: { current: units, avgCost, avgPrice },
+    avgOrder: { current: avgOrder, previous: avgOrderPrevious },
   };
 }
 
@@ -102,8 +118,14 @@ export function calculateExportTotals(rows: ExportRow[], totalsLabel: string): E
       retainedAmount: acc.retainedAmount + item.retained.amount,
       units: acc.units + item.units.current,
       cost: acc.cost + item.units.avgCost * item.units.current,
+      // Each row's order count, recovered from its sales / average order.
+      orders: acc.orders + (item.avgOrder.current !== 0 ? item.sales.current / item.avgOrder.current : 0),
+      ordersPrevious: acc.ordersPrevious + (item.avgOrder.previous !== 0 ? item.sales.previous / item.avgOrder.previous : 0),
     }),
-    { salesCurrent: 0, salesPrevious: 0, budgetAmount: 0, budgetMargin: 0, retainedAmount: 0, units: 0, cost: 0 }
+    {
+      salesCurrent: 0, salesPrevious: 0, budgetAmount: 0, budgetMargin: 0, retainedAmount: 0, units: 0, cost: 0,
+      orders: 0, ordersPrevious: 0,
+    }
   );
 
   const salesVariation =
@@ -146,6 +168,11 @@ export function calculateExportTotals(rows: ExportRow[], totalsLabel: string): E
       current: totals.units,
       avgCost: totals.units !== 0 ? totals.cost / totals.units : 0,
       avgPrice: totals.units !== 0 ? totals.salesCurrent / totals.units : 0,
+    },
+    // Order-weighted: total sales / total orders.
+    avgOrder: {
+      current: totals.orders !== 0 ? totals.salesCurrent / totals.orders : 0,
+      previous: totals.ordersPrevious !== 0 ? totals.salesPrevious / totals.ordersPrevious : 0,
     },
   };
 }

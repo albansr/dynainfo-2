@@ -6,12 +6,20 @@ import { useMergedFilters } from './useMergedFilters';
 import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
 import type { BalanceSheetResponse, BalanceQueryParams } from '../types';
 
+/** Opt-in aggregates on top of the base balance (listings' totals row). */
+export interface BalanceExtras {
+  /** Units and cost (product listings). */
+  includeUnits?: boolean;
+  /** Order counts and average order (seller listings). */
+  includeOrders?: boolean;
+}
+
 /** Balance query string: period, closed-period flag and filters (shared by /balance and /balance/reach). */
 export function buildBalanceParams(
   params: BalanceQueryParams,
   facturadoOnly: boolean,
   filters?: FilterMap,
-  includeUnits = false
+  { includeUnits = false, includeOrders = false }: BalanceExtras = {}
 ): URLSearchParams {
   const q = new URLSearchParams();
   if (params.startDate) q.append('startDate', params.startDate);
@@ -20,6 +28,7 @@ export function buildBalanceParams(
   if (facturadoOnly) q.append('facturadoOnly', 'true');
   // Opt-in units/cost aggregate (product listings' totals row)
   if (includeUnits) q.append('includeUnits', 'true');
+  if (includeOrders) q.append('includeOrders', 'true');
   appendFilterParams(q, filters);
   return q;
 }
@@ -28,9 +37,9 @@ async function fetchBalance(
   params: BalanceQueryParams,
   facturadoOnly: boolean,
   filters: FilterMap | undefined,
-  includeUnits: boolean
+  extras: BalanceExtras
 ): Promise<BalanceSheetResponse> {
-  const qs = buildBalanceParams(params, facturadoOnly, filters, includeUnits).toString();
+  const qs = buildBalanceParams(params, facturadoOnly, filters, extras).toString();
   return apiClient<BalanceSheetResponse>(`/api/balance${qs ? `?${qs}` : ''}`);
 }
 
@@ -39,7 +48,7 @@ export function useBalance(
   endDate: Date,
   preset: SalesMetricPreset,
   filters?: FilterMap,
-  { includeUnits = false }: { includeUnits?: boolean } = {}
+  { includeUnits = false, includeOrders = false }: BalanceExtras = {}
 ) {
   const params: BalanceQueryParams = {
     startDate: format(startDate, 'yyyy-MM-dd'),
@@ -51,7 +60,7 @@ export function useBalance(
   const mergedFilters = useMergedFilters(filters);
 
   return useQuery({
-    queryKey: ['balance', params.startDate, params.endDate, facturadoOnly, includeUnits, mergedFilters],
-    queryFn: () => fetchBalance(params, facturadoOnly, mergedFilters, includeUnits),
+    queryKey: ['balance', params.startDate, params.endDate, facturadoOnly, includeUnits, includeOrders, mergedFilters],
+    queryFn: () => fetchBalance(params, facturadoOnly, mergedFilters, { includeUnits, includeOrders }),
   });
 }

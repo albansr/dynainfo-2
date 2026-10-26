@@ -33,6 +33,11 @@ export interface BalanceSheetData {
   units_total?: number;
   avg_unit_cost?: number;
   avg_unit_cost_total?: number;
+  /** Only with `includeOrders` (seller listings' totals row). */
+  avg_order?: number;
+  avg_order_total?: number;
+  avg_order_last_year?: number;
+  avg_order_total_last_year?: number;
 }
 
 export interface BalanceSheetResponse {

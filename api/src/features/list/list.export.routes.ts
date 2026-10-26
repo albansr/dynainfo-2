@@ -6,7 +6,7 @@ import type { DatabaseClient } from '../../core/db/clickhouse/client.js';
 import type { GroupByDimension } from './list.schemas.js';
 import { ListExportQueryStringSchema } from './list.export.schemas.js';
 import { parseListFilters } from './list.filters.js';
-import { mapListItemToExportRow, calculateExportTotals, usesFacturadoOnly } from './list.export.transform.js';
+import { mapListItemToExportRow, calculateExportTotals, usesFacturadoOnly, calendarMonthsInRange } from './list.export.transform.js';
 import { buildListExportWorkbook } from './list.export.workbook.js';
 import { sendXlsx } from '../../core/utils/export-filename.js';
 
@@ -73,6 +73,11 @@ export function listExportRoutes(fastify: FastifyInstance, dbClient: DatabaseCli
           showProductCode: parsed.groupBy === 'product_id',
           // Units are only queried for product listings; the column pair is opt-in.
           showUnitColumns: query.showUnitColumns === true && parsed.groupBy === 'product_id',
+          showAvgOrder: parsed.groupBy === 'seller_id',
+          // Customer listings swap cartera for the monthly average over the period.
+          ...(parsed.groupBy === 'customer_id' && query.startDate && query.endDate && {
+            monthlyAvgMonths: calendarMonthsInRange(query.startDate, query.endDate),
+          }),
           dimensionLabel: query.dimensionLabel || parsed.groupBy,
           billingLabel: query.billingLabel || 'Ventas VS Presupuesto',
           totalsLabel,

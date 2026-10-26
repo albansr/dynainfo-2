@@ -50,6 +50,11 @@ export interface ListItemResponse {
   /** Product listings only: average cost per unit (facturado / facturado + comprometido). */
   avg_unit_cost?: number;
   avg_unit_cost_total?: number;
+  /** Seller listings only: average order value (facturado / facturado + comprometido), current and last year. */
+  avg_order?: number;
+  avg_order_total?: number;
+  avg_order_last_year?: number;
+  avg_order_total_last_year?: number;
 }
 
 export interface ListResponse {

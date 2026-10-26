@@ -3,6 +3,7 @@ import type { FilterMap } from '@/core/api/downloadExcel';
 import { Pagination, Input } from '@heroui/react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useDateRange } from '@/core/hooks/useDateRange';
+import { calendarMonthsInRange } from '@/core/utils/dateRangePresets';
 import { useAnalyticsData } from './hooks/useAnalyticsData';
 import { RegionalTable, type RegionalData } from '@/core/components/RegionalTable';
 import {
@@ -11,9 +12,11 @@ import {
   getColumnGroupsWithoutBudget,
   getColumnGroups,
   toProductListingColumns,
+  toCustomerListingColumns,
+  toSellerListingColumns,
 } from '@/core/components/RegionalTable/config/columns';
 import type { ColumnDefinition, ColumnGroup } from '@/core/components/RegionalTable/config/types';
-import { getSalesMetric, getUnitMetric, type SalesMetricPreset, type UnitMetricValues } from '@/core/utils/salesMetric';
+import { getSalesMetric, getUnitMetric, getAvgOrderMetric, type SalesMetricPreset, type UnitMetricValues } from '@/core/utils/salesMetric';
 import type { BalanceSheetData } from '@/core/api/types';
 import type { GroupByDimension, ListItemResponse } from '@/core/api/hooks/useList';
 import { FacetedFilterChips, FacetedFilterAddButton, type AppliedFilters } from '@/core/components/analytics/FacetedFilterBar';
@@ -66,6 +69,11 @@ function calculateTotals(data: RegionalData[], totalsLabel: string): RegionalDat
   };
 }
 
+/** Adds the row's sales per calendar month of the period (customer listings). */
+function withMonthlyAvg(row: RegionalData, months: number): RegionalData {
+  return { ...row, monthlyAvg: { current: row.sales.current / months, previous: row.sales.previous / months } };
+}
+
 /** Table units slot from the resolved unit metrics (current + last year). */
 function toTableUnits(u: UnitMetricValues): NonNullable<RegionalData['units']> {
   return {
@@ -83,7 +91,8 @@ function buildTotalsFromBalance(
   balance: BalanceSheetData,
   preset: SalesMetricPreset,
   totalsLabel: string,
-  withUnits: boolean
+  withUnits: boolean,
+  withAvgOrder: boolean
 ): RegionalData {
   const sales = getSalesMetric(balance, preset);
   const units = withUnits ? getUnitMetric(balance, preset) : undefined;
@@ -100,6 +109,7 @@ function buildTotalsFromBalance(
     },
     retained: { amount: balance.cartera, compliance: balance.cartera_compliance_pct },
     ...(units ? { units: toTableUnits(units) } : {}),
+    ...(withAvgOrder ? { avgOrder: getAvgOrderMetric(balance, preset) } : {}),
   };
 }
 
@@ -162,10 +172,13 @@ export function AnalyticsListSection({
   // by contribution. Other preset lists show no sequential count.
   const showRank = customerPreset === 'peso';
   const isProductListing = groupBy === 'product_id';
+  const isCustomerListing = groupBy === 'customer_id';
+  const isSellerListing = groupBy === 'seller_id';
   const globalRange = useDateRange();
   const startDate = dateOverride?.startDate ?? globalRange.startDate;
   const endDate = dateOverride?.endDate ?? globalRange.endDate;
   const preset = dateOverride?.preset ?? globalRange.preset;
+  const months = calendarMonthsInRange(startDate, endDate);
 
   // Faceted filters (dimension → selected values); merged into the base filters
   const [applied, setApplied] = useState<AppliedFilters>({});
@@ -224,9 +237,10 @@ export function AnalyticsListSection({
         },
         retained: { amount: item.cartera, compliance: item.cartera_compliance_pct },
         ...(units ? { units: toTableUnits(units) } : {}),
+        ...(isSellerListing ? { avgOrder: getAvgOrderMetric(item, preset) } : {}),
       };
     },
-    [preset, isProductListing]
+    [preset, isProductListing, isSellerListing]
   );
 
   const mappedData = useMemo(
@@ -238,17 +252,18 @@ export function AnalyticsListSection({
       // id-in-name prefix would be redundant there.
       if (showIdInName && !isProductListing && data.id && data.id !== name) name = `${data.id} - ${name}`;
       // The peso list carries each client's ABC position (server-provided).
-      return { ...data, name, ...(item.abcRank != null ? { rank: item.abcRank } : {}) };
+      const row = { ...data, name, ...(item.abcRank != null ? { rank: item.abcRank } : {}) };
+      return isCustomerListing ? withMonthlyAvg(row, months) : row;
     }),
-    [listData, nameOverrides, showIdInName, isProductListing, mapApiToRegionalData]
+    [listData, nameOverrides, showIdInName, isProductListing, isCustomerListing, months, mapApiToRegionalData]
   );
 
-  const totals = useMemo(
-    () => balanceData
-      ? buildTotalsFromBalance(balanceData, preset, totalsLabel, isProductListing)
-      : calculateTotals(mappedData, totalsLabel),
-    [balanceData, preset, mappedData, totalsLabel, isProductListing]
-  );
+  const totals = useMemo(() => {
+    const row = balanceData
+      ? buildTotalsFromBalance(balanceData, preset, totalsLabel, isProductListing, isSellerListing)
+      : calculateTotals(mappedData, totalsLabel);
+    return isCustomerListing ? withMonthlyAvg(row, months) : row;
+  }, [balanceData, preset, mappedData, totalsLabel, isProductListing, isSellerListing, isCustomerListing, months]);
 
   const columns = useMemo(() => {
     if (tableColumns) return tableColumns;
@@ -263,10 +278,14 @@ export function AnalyticsListSection({
     }
     // Product listings: CÓDIGO ITEM + REFERENCIA first, UNIDADES + COSTO PROMEDIO instead of CARTERA.
     if (isProductListing) cols = toProductListingColumns(cols);
+    // Customer listings: PROMEDIO MENSUAL instead of CARTERA.
+    if (isCustomerListing) cols = toCustomerListingColumns(cols);
+    // Seller listings close with PEDIDO PROMEDIO.
+    if (isSellerListing) cols = toSellerListingColumns(cols);
     // Preset listings lead with a billing-rank column (#).
     if (showRank) cols = [RANK_COLUMN, ...cols];
     return cols;
-  }, [tableColumns, hideBudget, hideRetained, groupBy, dimensionLabel, showRank, isProductListing]);
+  }, [tableColumns, hideBudget, hideRetained, groupBy, dimensionLabel, showRank, isProductListing, isCustomerListing, isSellerListing]);
 
   const columnGroups = useMemo(() => {
     if (tableColumnGroups) return tableColumnGroups;
