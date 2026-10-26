@@ -68,17 +68,10 @@ describe('changelog digest helpers', () => {
     });
   });
 
-  describe('environment tag', () => {
-    it('prefixes the subject and labels the body header outside production', () => {
-      expect(renderDigestSubject([entry()], 'DEV')).toBe('[DEV] Novedades DynaInfo · Página Estado');
-      const html = renderDigestHtml([entry()], { ...links, environmentTag: 'DEV' });
-      expect(html).toContain('Novedades de DynaInfo · Entorno DEV');
-      expect(renderDigestText([entry()], { ...links, environmentTag: 'DEV' })).toMatch(/^Novedades de DynaInfo · Entorno DEV/);
-    });
-
-    it('stays untagged in production', () => {
-      expect(renderDigestSubject([entry()], null)).toBe('Novedades DynaInfo · Página Estado');
+  describe('header', () => {
+    it('never carries an environment label', () => {
       expect(renderDigestHtml([entry()], links)).not.toContain('Entorno');
+      expect(renderDigestText([entry()], links)).toMatch(/^Novedades de DynaInfo\n/);
     });
   });
 

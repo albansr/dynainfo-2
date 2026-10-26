@@ -106,15 +106,15 @@ describe('changelog digest job', () => {
       expect(service.recordDigestRecipients).toHaveBeenCalledWith('2026-10-06', 2);
     });
 
-    it('points links at the subscriber site and tags non-production emails', async () => {
+    it('sends the production email to subscribers who signed up from dev', async () => {
       await sendDigestForDate('2026-10-06', fakeService());
 
       const [prod, dev] = mockSend.mock.calls.map((call) => call[0]);
-      expect(prod.subject).toBe('Novedades DynaInfo · 2 novedades');
-      expect(dev.subject).toBe('[DEV] Novedades DynaInfo · 2 novedades');
-      expect(dev.html).toContain('href="https://dev.dynainfo.com.co/novedades"');
-      expect(dev.html).toContain('Entorno DEV');
-      expect(dev.html).not.toContain('href="https://dynainfo.com.co/novedades"');
+      expect(dev.subject).toBe(prod.subject);
+      expect(dev.subject).toBe('Novedades DynaInfo · 2 novedades');
+      expect(dev.html).toContain('href="https://dynainfo.com.co/novedades"');
+      expect(dev.html).not.toContain('dev.dynainfo.com.co');
+      expect(dev.html).not.toContain('Entorno');
     });
 
     it('keeps going when one recipient fails and records only the delivered ones', async () => {

@@ -17,8 +17,6 @@ export interface DigestLinks {
   webOrigin: string;
   /** Per-recipient one-click unsubscribe link. */
   unsubscribeUrl: string;
-  /** Environment label for non-production sites ("DEV"); absent in production. */
-  environmentTag?: string | null;
 }
 
 /** Published entries that went live on a given day (YYYY-MM-DD). */
@@ -68,22 +66,15 @@ function imageHtml(image: ChangelogImage, webOrigin: string, style: string): str
   return `<img src="${escapeHtml(webOrigin + image.src)}" alt="${escapeHtml(image.alt)}" style="display:block;width:100%;height:auto;border:1px solid #e5e7eb;border-radius:8px;${style}">`;
 }
 
-/** Email subject for a day's digest, prefixed with the environment outside production. */
-export function renderDigestSubject(
-  entries: readonly ChangelogEntry[],
-  environmentTag?: string | null,
-): string {
+/** Email subject for a day's digest. */
+export function renderDigestSubject(entries: readonly ChangelogEntry[]): string {
   const [first] = entries;
-  const subject =
-    entries.length === 1 && first
-      ? `Novedades DynaInfo · ${first.title}`
-      : `Novedades DynaInfo · ${entries.length} novedades`;
-  return environmentTag ? `[${environmentTag}] ${subject}` : subject;
+  return entries.length === 1 && first
+    ? `Novedades DynaInfo · ${first.title}`
+    : `Novedades DynaInfo · ${entries.length} novedades`;
 }
 
-function headerLabel(environmentTag?: string | null): string {
-  return environmentTag ? `Novedades de DynaInfo · Entorno ${environmentTag}` : 'Novedades de DynaInfo';
-}
+const HEADER_LABEL = 'Novedades de DynaInfo';
 
 /** Inline-styled HTML body (email clients ignore external CSS). */
 export function renderDigestHtml(
@@ -118,11 +109,7 @@ export function renderDigestHtml(
     .join('');
 
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:8px;">
-  ${
-    links.environmentTag
-      ? `<p style="display:inline-block;font-size:12px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:6px;padding:4px 10px;margin:0 0 16px;">${escapeHtml(headerLabel(links.environmentTag))}</p>`
-      : `<p style="font-size:12px;color:#9ca3af;margin:0 0 16px;">${headerLabel()}</p>`
-  }
+  <p style="font-size:12px;color:#9ca3af;margin:0 0 16px;">${HEADER_LABEL}</p>
   ${blocks}
   <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:8px;">
     <a href="${escapeHtml(`${links.webOrigin}/novedades`)}" style="display:inline-block;background:#333333;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;">Ver todas las novedades</a>
@@ -149,7 +136,7 @@ export function renderDigestText(
   });
 
   return [
-    headerLabel(links.environmentTag),
+    HEADER_LABEL,
     ...blocks,
     `Ver todas las novedades: ${links.webOrigin}/novedades`,
     `Recibes este correo porque te suscribiste a las novedades de DynaInfo. Darse de baja: ${links.unsubscribeUrl}`,
