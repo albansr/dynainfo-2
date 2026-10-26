@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { usesFacturadoOnly, getSalesMetric, getSalesOrderByField, getUnitMetric, type SalesMetricSource } from './salesMetric';
+import { usesFacturadoOnly, getSalesMetric, getSalesOrderByField, getUnitMetric, getAvgOrderMetric, type SalesMetricSource } from './salesMetric';
 
 const source: SalesMetricSource = {
   sales: 100,
@@ -69,5 +69,21 @@ describe('getUnitMetric', () => {
 
   it('falls back to zero when the listing carries no unit fields', () => {
     expect(getUnitMetric({}, 'current-month')).toEqual({ units: 0, unitsLastYear: 0, avgCost: 0, avgCostLastYear: 0, avgPrice: 0, avgPriceLastYear: 0 });
+  });
+});
+
+describe('getAvgOrderMetric', () => {
+  const orders = { avg_order: 100, avg_order_total: 120, avg_order_last_year: 90, avg_order_total_last_year: 110 };
+
+  it('uses the facturado average order on closed periods, like VENTAS', () => {
+    expect(getAvgOrderMetric(orders, 'accumulated')).toEqual({ current: 100, previous: 90 });
+  });
+
+  it('uses the facturado + comprometido average order on open periods, like VENTAS', () => {
+    expect(getAvgOrderMetric(orders, 'current-month')).toEqual({ current: 120, previous: 110 });
+  });
+
+  it('falls back to zero when the listing carries no order fields', () => {
+    expect(getAvgOrderMetric({}, 'current-month')).toEqual({ current: 0, previous: 0 });
   });
 });

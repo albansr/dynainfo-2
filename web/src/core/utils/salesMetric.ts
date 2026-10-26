@@ -95,6 +95,25 @@ export function getUnitMetric(source: UnitMetricSource, preset: SalesMetricPrese
   };
 }
 
+export interface AvgOrderSource {
+  avg_order?: number;
+  avg_order_total?: number;
+  avg_order_last_year?: number;
+  avg_order_total_last_year?: number;
+}
+
+/**
+ * Average order value (current + last year) with the same facturado vs
+ * facturado + comprometido rule as the sales metric.
+ */
+export function getAvgOrderMetric(source: AvgOrderSource, preset: SalesMetricPreset): { current: number; previous: number } {
+  const facturadoOnly = usesFacturadoOnly(preset);
+  return {
+    current: (facturadoOnly ? source.avg_order : source.avg_order_total) ?? 0,
+    previous: (facturadoOnly ? source.avg_order_last_year : source.avg_order_total_last_year) ?? 0,
+  };
+}
+
 /**
  * Returns the field name to use for backend ordering (useList.orderBy).
  */

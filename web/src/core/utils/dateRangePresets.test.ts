@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePresetRange, getAvailableYears, getYesterday, shouldShowCarteraBlock } from './dateRangePresets';
+import { calculatePresetRange, calendarMonthsInRange, getAvailableYears, getYesterday, shouldShowCarteraBlock } from './dateRangePresets';
 
 describe('calculatePresetRange (numeric year)', () => {
   it('spans the whole calendar year', () => {
@@ -55,5 +55,25 @@ describe('shouldShowCarteraBlock', () => {
   it('keeps the block for closed periods that end on a month end (past months, years)', () => {
     expect(shouldShowCarteraBlock(new Date(2025, 11, 31), false)).toBe(true);
     expect(shouldShowCarteraBlock(new Date(2026, 8, 30), false)).toBe(true);
+  });
+});
+
+describe('calendarMonthsInRange', () => {
+  it('counts a whole year as 12 months', () => {
+    expect(calendarMonthsInRange(new Date(2025, 0, 1), new Date(2025, 11, 31))).toBe(12);
+  });
+
+  it('counts a partial month as one (current month, today)', () => {
+    expect(calendarMonthsInRange(new Date(2026, 9, 1), new Date(2026, 9, 10))).toBe(1);
+    expect(calendarMonthsInRange(new Date(2026, 9, 26), new Date(2026, 9, 26))).toBe(1);
+  });
+
+  it('counts every calendar month a rolling window touches', () => {
+    // Last 6 months from Oct 26: Apr 26 – Oct 26 touches Apr..Oct
+    expect(calendarMonthsInRange(new Date(2026, 3, 26), new Date(2026, 9, 26))).toBe(7);
+  });
+
+  it('spans year boundaries', () => {
+    expect(calendarMonthsInRange(new Date(2025, 10, 15), new Date(2026, 1, 3))).toBe(4);
   });
 });

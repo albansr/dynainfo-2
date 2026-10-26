@@ -184,6 +184,12 @@ export const unitAmountCellRenderer: CellRenderer = (data, config, value) => {
   return evolutionCell(config, value, true);
 };
 
+// Currency amount + evolution (monthly average, average order); dash when the row carries none
+export const currencyEvolutionCellRenderer: CellRenderer = (_data, config, value) => {
+  if (value == null) return emptyCell;
+  return evolutionCell(config, value, true);
+};
+
 // Simple text cell
 export const textCellRenderer: CellRenderer = (_data, _config, value) => {
   return (

@@ -132,7 +132,7 @@ export interface ListQueryParams extends BalanceQueryParams {
 export const SellerStatusSchema = Type.Object({
   numerica: Type.Number({ description: 'Active clients with a purchase (invoiced or pending) in the current month' }),
   activos: Type.Number({ description: 'Active clients of the customer master assigned to the scope' }),
-  sinCompra: Type.Number({ description: 'Still-active prior buyers with no purchase in the last 3 months' }),
+  sinCompra: Type.Number({ description: 'Still-active prior buyers with no purchase in the last 2 months' }),
   riesgo: Type.Number({ description: 'Riesgo clients (last 12m) with negative evolution' }),
   riesgoSales: Type.Number({ description: 'Sales of the Riesgo clients in the window' }),
   riesgoMarginPct: Type.Number({ description: 'Gross margin % of the Riesgo clients' }),

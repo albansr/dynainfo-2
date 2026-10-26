@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { DateStringSchema } from '../../core/schemas/common.schemas.js';
 import type { MetricConfig } from '../../core/db/clickhouse/query/types.js';
+import { ORDER_COUNT_METRICS } from '../../core/config/metrics.config.js';
 import type { FilterCondition } from '../../core/db/clickhouse/query/filter-builder.js';
 
 /**
@@ -45,10 +46,8 @@ export const FESTIVAL_METRICS = [
   { table: 'transactions', field: 'gross_margin', aggregation: 'sum', alias: 'gross_margin' },
   { table: 'transactions', field: 'rappel', aggregation: 'sum', alias: 'rappel' },
   { table: 'pedidos_retenidos', field: 'sales_price', aggregation: 'sum', alias: 'orders' },
-  // Distinct order counts (no double counting: invoiced and retained order ids
-  // don't overlap). Feed `pedidos_count` and `pedido_promedio`.
-  { table: 'transactions', field: 'Pedido', aggregation: 'uniqExact', alias: 'invoiced_orders' },
-  { table: 'pedidos_retenidos', field: 'pedidoId', aggregation: 'uniqExact', alias: 'retained_orders' },
+  // Distinct order counts: feed `pedidos_count` and `pedido_promedio`.
+  ...ORDER_COUNT_METRICS,
   // Event budget (dyna_ppto_festival): one row per regional × seller ×
   // commercial provider per edition, selected via `periodo`. Any filter or
   // grouping outside those dimensions zeroes it, and the frontend hides the

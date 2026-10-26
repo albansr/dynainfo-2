@@ -17,8 +17,13 @@ describe('buildBalanceParams', () => {
   });
 
   it('asks for the units aggregate only when requested', () => {
-    expect(buildBalanceParams({}, false, undefined, true).get('includeUnits')).toBe('true');
+    expect(buildBalanceParams({}, false, undefined, { includeUnits: true }).get('includeUnits')).toBe('true');
     expect(buildBalanceParams({}, false).has('includeUnits')).toBe(false);
+  });
+
+  it('asks for the order counts only when requested', () => {
+    expect(buildBalanceParams({}, false, undefined, { includeOrders: true }).get('includeOrders')).toBe('true');
+    expect(buildBalanceParams({}, false).has('includeOrders')).toBe(false);
   });
 
   it('omits the flag for open periods and missing dates', () => {

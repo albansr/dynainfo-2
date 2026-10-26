@@ -112,7 +112,8 @@ export function balanceRoutes(
       // Get balance with combined filters
       // Opt-in: product listings ask for units/cost for their totals row
       const includeUnits = parseBooleanParam(query, 'includeUnits');
-      const balance = await service.getBalanceSheet({ filters: allFilters, facturadoOnly, includeUnits });
+      const includeOrders = parseBooleanParam(query, 'includeOrders');
+      const balance = await service.getBalanceSheet({ filters: allFilters, facturadoOnly, includeUnits, includeOrders });
 
       return reply.code(200).send({
         data: balance,

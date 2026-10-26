@@ -7,7 +7,7 @@ import type {
 import { CUSTOMER_MASTER_TABLE } from '../../core/config/customer-master.config.js';
 import { listActiveNonBuyers, type ActiveNonBuyer } from '../../core/utils/customer-master.js';
 import { parseQueryParamsToFilters } from './balance.schemas.js';
-import { BALANCE_METRICS, PRODUCT_UNIT_METRICS } from '../../core/config/metrics.config.js';
+import { BALANCE_METRICS, PRODUCT_UNIT_METRICS, ORDER_COUNT_METRICS } from '../../core/config/metrics.config.js';
 import { buildDynamicResponse } from '../../core/utils/response-builder.js';
 
 /** Sales sources for the reach counts: invoiced + pending orders, or invoiced only for closed periods. */
@@ -61,6 +61,8 @@ export class BalanceService {
       facturadoOnly?: boolean;
       /** Also aggregate units and cost (product listings' totals row). */
       includeUnits?: boolean;
+      /** Also count orders (seller listings' totals row: average order). */
+      includeOrders?: boolean;
     }
   ): Promise<BalanceSheetResponse> {
     // Support both filter formats: direct filters or params to parse
@@ -68,7 +70,10 @@ export class BalanceService {
       ? params.filters
       : parseQueryParamsToFilters(params);
 
-    const extraMetrics = params.includeUnits ? PRODUCT_UNIT_METRICS : [];
+    const extraMetrics = [
+      ...(params.includeUnits ? PRODUCT_UNIT_METRICS : []),
+      ...(params.includeOrders ? ORDER_COUNT_METRICS : []),
+    ];
 
     // Execute single query with all metrics and YoY comparison
     const result = await this.analyticsBuilder.buildMultiTableYoYQuery({

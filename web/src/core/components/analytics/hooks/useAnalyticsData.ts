@@ -40,7 +40,10 @@ export function useAnalyticsData(
     data: balanceData,
     isLoading: isLoadingBalance,
     error: balanceError,
-  } = useBalance(startDate, endDate, preset, filters, { includeUnits: groupBy === 'product_id' });
+  } = useBalance(startDate, endDate, preset, filters, {
+    includeUnits: groupBy === 'product_id',
+    includeOrders: groupBy === 'seller_id',
+  });
 
   const {
     data: listData,

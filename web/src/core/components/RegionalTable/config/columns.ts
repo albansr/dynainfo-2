@@ -8,7 +8,8 @@ import {
   marginBudgetCellRenderer,
   textCellRenderer,
   unitsCellRenderer,
-  unitAmountCellRenderer
+  unitAmountCellRenderer,
+  currencyEvolutionCellRenderer
 } from '../renderers/cellRenderers';
 import {
   budgetBackgroundColor,
@@ -240,6 +241,41 @@ export function toProductListingColumns(columns: ColumnDefinition[]): ColumnDefi
     ...getProductCodeColumns(),
     ...columns.filter((col) => col.id !== 'retained'),
     ...getProductUnitColumns(),
+  ];
+}
+
+/**
+ * Customer listing layout: PROMEDIO MENSUAL (sales per calendar month of the
+ * period) in place of RET. CARTERA.
+ */
+export function toCustomerListingColumns(columns: ColumnDefinition[]): ColumnDefinition[] {
+  return [
+    ...columns.filter((col) => col.id !== 'retained'),
+    {
+      id: 'monthlyAvg',
+      header: { label: 'PROMEDIO MENSUAL', sortable: true, align: 'right', rowSpan: 2 },
+      accessor: (data) => data.monthlyAvg,
+      cellRenderer: currencyEvolutionCellRenderer,
+      align: 'right',
+      sortable: true,
+      sortKey: 'monthlyAvg',
+    },
+  ];
+}
+
+/** Seller listing layout: closes with PEDIDO PROMEDIO (sales / orders over the period). */
+export function toSellerListingColumns(columns: ColumnDefinition[]): ColumnDefinition[] {
+  return [
+    ...columns,
+    {
+      id: 'avgOrder',
+      header: { label: 'PEDIDO PROMEDIO', sortable: true, align: 'right', rowSpan: 2 },
+      accessor: (data) => data.avgOrder,
+      cellRenderer: currencyEvolutionCellRenderer,
+      align: 'right',
+      sortable: true,
+      sortKey: 'avgOrder',
+    },
   ];
 }
 

@@ -7,7 +7,7 @@ import type {
   SellerStatusBySeller,
 } from './list.schemas.js';
 import { parseQueryParamsToFilters } from '../balance/balance.schemas.js';
-import { BALANCE_METRICS, PRODUCT_UNIT_METRICS } from '../../core/config/metrics.config.js';
+import { BALANCE_METRICS, PRODUCT_UNIT_METRICS, ORDER_COUNT_METRICS } from '../../core/config/metrics.config.js';
 import type { MetricConfig } from '../../core/db/clickhouse/query/types.js';
 import { buildDynamicResponse } from '../../core/utils/response-builder.js';
 import {
@@ -554,14 +554,14 @@ export class ListService {
   }
 
   /** The fixed Estado windows (the page ignores the global temporality). */
-  private static estadoWindows(): { currentMonth: FilterCondition[]; last3m: FilterCondition[]; last12m: FilterCondition[] } {
+  private static estadoWindows(): { currentMonth: FilterCondition[]; last2m: FilterCondition[]; last12m: FilterCondition[] } {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const windowFrom = (start: Date): FilterCondition[] => [
       { field: 'date', operator: 'gte', value: ListService.localDate(start) },
       { field: 'date', operator: 'lte', value: ListService.localDate(now) },
     ];
-    return { currentMonth: windowFrom(monthStart), last3m: ListService.rollingWindow(3), last12m: ListService.rollingWindow(12) };
+    return { currentMonth: windowFrom(monthStart), last2m: ListService.rollingWindow(2), last12m: ListService.rollingWindow(12) };
   }
 
   /**
@@ -570,7 +570,7 @@ export class ListService {
    * - activos: active customers of the master assigned to the scope (as Festival);
    *   numerica = those who bought this month, so activos − numerica = sin compra
    *   este mes.
-   * - sin compra: still-active historical buyers with no purchase in the last 3 months.
+   * - sin compra: still-active historical buyers with no purchase in the last 2 months.
    * - riesgo: Riesgo-classified clients (last 12m) with negative evolution.
    * - promesa: Promesa-classified clients (last 12m) with positive evolution.
    * - peso: the 80%-of-sales clients (last 12m), how many are declining.
@@ -582,7 +582,7 @@ export class ListService {
     const requestFilters = params.filters ?? parseQueryParamsToFilters(params);
     // Seller scope (and any non-date filter); the Estado windows are fixed here.
     const baseFilters = requestFilters.filter((f) => f.field !== 'date');
-    const { currentMonth, last3m, last12m } = ListService.estadoWindows();
+    const { currentMonth, last2m, last12m } = ListService.estadoWindows();
 
     const masterFilters = masterUniverseFilters(baseFilters);
     const [activos, sinCompraMes, sinCompra, riesgoRows, promesaRows, pesoRows] = await Promise.all([
@@ -595,10 +595,10 @@ export class ListService {
         universe: { table: CUSTOMER_MASTER_TABLE, field: 'customer_id', filters: masterFilters },
         exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...currentMonth] },
       }),
-      // Still-active historical buyers minus those who bought in the last 3 months.
+      // Still-active historical buyers minus those who bought in the last 2 months.
       this.analyticsBuilder.buildDistinctCountExcludingQuery({
         universe: { table: 'transactions', field: 'customer_id', filters: baseFilters, within: ACTIVE_CUSTOMERS },
-        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last3m] },
+        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last2m] },
       }),
       this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], false),
       this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('promesa')], false),
@@ -611,10 +611,13 @@ export class ListService {
   /**
    * Base metrics queried (and returned) on top of BALANCE_METRICS: product
    * listings add units and cost, from which units_total and
-   * avg_unit_cost(_total) are calculated. Purely additive to the response.
+   * avg_unit_cost(_total) are calculated; seller listings add order counts,
+   * from which avg_order(_total) is. Purely additive to the response.
    */
   private static extraMetrics(groupBy: string): readonly MetricConfig[] {
-    return groupBy === 'product_id' ? PRODUCT_UNIT_METRICS : [];
+    if (groupBy === 'product_id') return PRODUCT_UNIT_METRICS;
+    if (groupBy === 'seller_id') return ORDER_COUNT_METRICS;
+    return [];
   }
 
   /**
@@ -681,7 +684,7 @@ export class ListService {
     const cached = ListService.bySellerCache.get(cacheKey);
     if (cached && cached.expires > Date.now()) return cached.rows;
 
-    const { currentMonth, last3m, last12m } = ListService.estadoWindows();
+    const { currentMonth, last2m, last12m } = ListService.estadoWindows();
     const masterFilters = masterUniverseFilters(baseFilters);
     const bySeller = 'seller_id';
     const [sellers, names, activos, sinCompraMes, sinCompra, riesgoRows, promesaRows, pesoRows] = await Promise.all([
@@ -708,7 +711,7 @@ export class ListService {
       }),
       this.analyticsBuilder.buildGroupedDistinctCountExcludingQuery({
         universe: { table: 'transactions', field: 'customer_id', filters: baseFilters, within: ACTIVE_CUSTOMERS },
-        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last3m] },
+        exclude: { sources: PURCHASE_SOURCES, filters: [...baseFilters, ...last2m] },
         groupBy: bySeller,
       }),
       this.customerRows([...baseFilters, ...last12m, ...customerPresetFilters('riesgo')], false, bySeller),

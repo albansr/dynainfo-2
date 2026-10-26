@@ -56,9 +56,9 @@ const PRESET_VIEWS: Record<string, PresetView> = {
     simple: true,
   },
   sin_compra: {
-    title: 'Clientes que se enfriaron (sin compra en 3 meses)',
+    title: 'Clientes que se enfriaron (sin compra en 2 meses)',
     customerPreset: 'sin_compra',
-    start: (now) => subMonths(now, 3),
+    start: (now) => subMonths(now, 2),
     simple: true,
   },
   riesgo: {

@@ -21,6 +21,13 @@ export interface BuildWorkbookInput {
    * Costo Promedio columns. Absent → the workbook is unchanged.
    */
   showUnitColumns?: boolean;
+  /**
+   * Customer listings: calendar months of the period. Adds the Promedio Mensual
+   * columns (sales / months) in place of the cartera ones.
+   */
+  monthlyAvgMonths?: number;
+  /** Seller listings: add the Pedido Promedio columns (current + last year). */
+  showAvgOrder?: boolean;
   dimensionLabel: string;
   billingLabel: string;
   totalsLabel: string;
@@ -73,7 +80,8 @@ const GROUP_MARGIN_LABEL = 'MARGEN VS PRESUPUESTO';
  */
 function buildColumns(input: BuildWorkbookInput): ExcelColumn[] {
   const {
-    hideBudgetColumns, hideRetainedColumn, showProductCode, showUnitColumns, dimensionLabel, currentYear, previousYear,
+    hideBudgetColumns, hideRetainedColumn, showProductCode, showUnitColumns, monthlyAvgMonths, showAvgOrder,
+    dimensionLabel, currentYear, previousYear,
   } = input;
   const finite = (v: number): number | null => (Number.isFinite(v) ? v : null);
 
@@ -162,15 +170,36 @@ function buildColumns(input: BuildWorkbookInput): ExcelColumn[] {
       value: (r) => (r.retained.amount === 0 ? null : r.retained.compliance),
       color: (r) => complianceColor(r.retained.compliance),
     },
+    {
+      id: 'monthlyAvgCurrent', header: `Promedio Mensual ${currentYear}`, group: null, format: 'currency', width: 18,
+      value: (r) => r.sales.current / (monthlyAvgMonths ?? 1),
+    },
+    {
+      id: 'monthlyAvgPrevious', header: `Promedio Mensual ${previousYear}`, group: null, format: 'currency', width: 18,
+      value: (r) => r.sales.previous / (monthlyAvgMonths ?? 1),
+    },
+    {
+      id: 'avgOrderCurrent', header: `Pedido Promedio ${currentYear}`, group: null, format: 'currency', width: 18,
+      value: (r) => (r.avgOrder.current === 0 ? null : r.avgOrder.current),
+    },
+    {
+      id: 'avgOrderPrevious', header: `Pedido Promedio ${previousYear}`, group: null, format: 'currency', width: 18,
+      value: (r) => (r.avgOrder.previous === 0 ? null : r.avgOrder.previous),
+    },
   ];
 
   const budgetIds = new Set(['budgetAmount', 'budgetCompliance', 'marginBudget', 'marginDelta']);
   const retainedIds = new Set(['retainedAmount', 'retainedCompliance']);
   const unitIds = new Set(['units', 'avgUnitPrice', 'avgUnitCost']);
+  const monthlyAvgIds = new Set(['monthlyAvgCurrent', 'monthlyAvgPrevious']);
+  const showMonthlyAvg = monthlyAvgMonths != null;
+  const avgOrderIds = new Set(['avgOrderCurrent', 'avgOrderPrevious']);
 
   return cols.filter((c) => {
     if (hideBudgetColumns && budgetIds.has(c.id)) return false;
-    if (hideRetainedColumn && retainedIds.has(c.id)) return false;
+    if ((hideRetainedColumn || showMonthlyAvg) && retainedIds.has(c.id)) return false;
+    if (!showMonthlyAvg && monthlyAvgIds.has(c.id)) return false;
+    if (!showAvgOrder && avgOrderIds.has(c.id)) return false;
     if (!showUnitColumns && unitIds.has(c.id)) return false;
     return true;
   });
