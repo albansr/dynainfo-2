@@ -1,11 +1,11 @@
 /**
  * Festival Virtual configuration.
  *
- * Provisional: two fixed editions selectable from the dashboard. Windows are
+ * Provisional: fixed editions selectable from the dashboard. Windows are
  * concrete dates (no presets); the festival filters by ORDER date (order_date).
  */
 export interface FestivalDef {
-  id: 'fv1' | 'fv2';
+  id: 'fv1' | 'fv2' | 'fv3';
   name: string;
   /** Event window. */
   startDate: Date;
@@ -16,6 +16,14 @@ export interface FestivalDef {
 }
 
 export const FESTIVALS: FestivalDef[] = [
+  {
+    id: 'fv3',
+    name: 'Festival Virtual 3',
+    startDate: new Date(2026, 10, 18), // 18 nov 2026
+    endDate: new Date(2026, 10, 22), // 22 nov 2026
+    compareStartDate: new Date(2026, 7, 12), // comparativa: festival anterior (agosto)
+    compareEndDate: new Date(2026, 7, 16),
+  },
   {
     id: 'fv2',
     name: 'Festival Virtual 2',
@@ -33,7 +41,7 @@ export const FESTIVALS: FestivalDef[] = [
   },
 ];
 
-export const DEFAULT_FESTIVAL_ID: FestivalDef['id'] = 'fv2';
+export const DEFAULT_FESTIVAL_ID: FestivalDef['id'] = 'fv3';
 
 /** Resolve a festival by id, falling back to the default edition. */
 export function getFestival(id: string | null | undefined): FestivalDef {

@@ -52,6 +52,23 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-11-18-festival-virtual-3',
+    date: '2026-11-18',
+    title: 'Festival Virtual 3 ya está en DynaInfo',
+    summary:
+      'Sigue el festival de noviembre (del 18 al 22) desde el primer día, con su presupuesto y comparado con el festival de agosto.',
+    published: false,
+    changes: [
+      {
+        category: 'nuevo',
+        items: [
+          '**Festival Virtual 3**: al entrar en Festival Virtual se abre la edición de noviembre, del 18 al 22. Las ediciones de marzo y agosto siguen disponibles en el selector.',
+          '**Comparado con agosto**: cada indicador se compara con el Festival Virtual 2 (12 al 16 de agosto), día a día mientras el festival está en curso.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-26-mejoras-comerciales',
     date: '2026-10-26',
     title: 'Mejoras comerciales en clientes, vendedores y Estado',
