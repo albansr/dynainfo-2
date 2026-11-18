@@ -57,7 +57,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     title: 'Festival Virtual 3 ya está en DynaInfo',
     summary:
       'Sigue el festival de noviembre (del 18 al 22) desde el primer día, con su presupuesto y comparado con el festival de agosto.',
-    published: false,
+    published: true,
     changes: [
       {
         category: 'nuevo',
