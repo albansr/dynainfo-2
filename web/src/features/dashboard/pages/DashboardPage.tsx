@@ -106,7 +106,7 @@ export function DashboardPage() {
           hideBudgetColumns={config.hideBudgetColumns ?? false}
           hideRetainedColumn={config.hideRetainedColumn}
           nameOverrides={config.nameOverrides}
-          onDrill={(dim, value, name) => navigate(buildDetailUrl(dim, value, name, config.filters ?? {}))}
+          onDrill={(dim, value, name) => navigate(buildDetailUrl(active.id, config.filters ?? {}, dim, value, name))}
           reportTitle={config.title}
         />
       }

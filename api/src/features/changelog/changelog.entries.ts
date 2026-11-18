@@ -52,6 +52,22 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-11-18-ruta-del-detalle',
+    date: '2026-11-18',
+    title: 'Volver atrás desde el detalle te deja donde estabas',
+    published: true,
+    changes: [
+      {
+        category: 'corregido',
+        items: [
+          '**La ruta del detalle vuelve a tu vista**: al bajar desde Distribución, Cadenas, Exportaciones, Retail o Marcas, el primer paso de la ruta lleva el nombre de esa vista y te devuelve a ella, no a Compañía General.',
+          '**Cada paso de la ruta conserva sus filtros**: volver a un paso intermedio ya no añade el canal Distribución en vistas que no lo tienen, como Retail o Marcas.',
+          '**Nuevos Canales y Marcas Aliadas, completos en el detalle**: al bajar desde Exportaciones + Cadenas el detalle suma los dos canales, y desde Marcas Aliadas excluye tanto Vera como Forte. Antes solo se aplicaba uno de los dos.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-11-18-festival-virtual-3',
     date: '2026-11-18',
     title: 'Festival Virtual 3 ya está en DynaInfo',

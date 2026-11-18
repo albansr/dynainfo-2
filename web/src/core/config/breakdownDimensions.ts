@@ -1,6 +1,6 @@
 import type { GroupByDimension } from '@/core/api/hooks/useList';
 import { appendFilterParams, type FilterMap } from '@/core/api/downloadExcel';
-import { DRILL_TARGET } from '@/core/config/drillTarget';
+import { DRILL_TARGET, DRILL_TARGET_FALLBACK } from '@/core/config/drillTarget';
 
 export { DRILL_TARGET };
 
@@ -99,38 +99,103 @@ export const NON_FACETABLE_DIMS = new Set<GroupByDimension>(['brand_group']);
 
 export const DETAIL_PATH = '/distribucion/detalle';
 
+/** Detail params that carry page state, not data filters. */
+const DETAIL_PAGE_KEYS = new Set(['v', 'g', 'trail']);
+
+/** A URL filter entry: [dimension, value]. Repeated keys are multi-value filters. */
+export type FilterEntry = [string, string];
+
 /**
- * URL for drilling into `dim = value` (from a list or a breakdown row).
- * Seeds the base context (channel or other page filters) + the clicked filter +
- * the next breakdown dim. When no seed is given, defaults to the distribution
- * channel (backward-compatible with the distribution pages).
+ * A drill path on the detail page. `seed` are the filters of the analysis view
+ * the drill started from; `steps` hold one entry per drilled row, aligned with
+ * the breadcrumb labels in `trail`.
  */
-export function buildDetailUrl(
-  dim: string,
-  value: string,
-  name: string,
-  seed?: FilterMap,
-): string {
+export interface DetailPath {
+  /** Analysis view the drill started from; null on links made before it was recorded. */
+  viewId: string | null;
+  seed: FilterEntry[];
+  steps: FilterEntry[];
+  trail: string[];
+}
+
+export interface DetailContext extends DetailPath {
+  /** Every data filter; repeated params stay arrays (e.g. Exportaciones + Cadenas). */
+  filters: FilterMap;
+  groupBy: GroupByDimension;
+}
+
+/** Group URL entries into a filter map, keeping repeated keys as arrays. */
+function toFilterMap(entries: FilterEntry[]): FilterMap {
+  const map: Record<string, string | string[]> = {};
+  for (const [key, value] of entries) {
+    const prev = map[key];
+    map[key] = prev === undefined ? value : [...(Array.isArray(prev) ? prev : [prev]), value];
+  }
+  return map;
+}
+
+/**
+ * Grouping shown after drilling into `dim`: its drill target, unless that is
+ * already a filter (e.g. Cliente → Proveedor after drilling a provider), where
+ * grouping by it again would show one row and clicking it would desync the
+ * breadcrumbs. Then the first dimension still available.
+ */
+export function nextGroupBy(dim: string, filters: FilterMap): GroupByDimension {
+  const target = DRILL_TARGET[dim] ?? DRILL_TARGET_FALLBACK;
+  if (!(target in filters)) return target as GroupByDimension;
+  return getBreakdownCategories(filters)[0]?.dims[0]?.key ?? DRILL_TARGET_FALLBACK;
+}
+
+/**
+ * URL of the detail page for a drill path. Each step replaces any filter on its
+ * dimension and goes last, so the steps are always the trailing entries.
+ */
+export function detailUrl({ viewId, seed, steps, trail }: DetailPath): string {
   const p = new URLSearchParams();
-  appendFilterParams(p, seed ?? { channel: 'DISTRIBUCION' });
-  p.set(dim, value);
-  p.set('g', DRILL_TARGET[dim] ?? 'customer_id');
-  p.set('trail', name);
+  if (viewId) p.set('v', viewId);
+  seed.forEach(([k, v]) => p.append(k, v));
+  steps.forEach(([k, v]) => {
+    p.delete(k);
+    p.append(k, v);
+  });
+  const lastDim = steps[steps.length - 1]?.[0];
+  const filters = toFilterMap([...p.entries()].filter(([k]) => !DETAIL_PAGE_KEYS.has(k)));
+  p.set('g', lastDim ? nextGroupBy(lastDim, filters) : DRILL_TARGET_FALLBACK);
+  p.set('trail', trail.join('|'));
   return `${DETAIL_PATH}?${p.toString()}`;
 }
 
-/** Breakdown default given the current accumulated filters (target of the last drilled dim). */
-export function getBreakdownDefault(filters: Record<string, string>): GroupByDimension {
-  const drilledDims = Object.keys(filters).filter((k) => k !== 'channel' && k in DRILL_TARGET);
-  const last = drilledDims[drilledDims.length - 1];
-  return ((last && DRILL_TARGET[last]) || 'customer_id') as GroupByDimension;
+/** URL for drilling into `dim = value` from an analysis view's table. */
+export function buildDetailUrl(viewId: string, seed: FilterMap, dim: string, value: string, name: string): string {
+  const p = new URLSearchParams();
+  appendFilterParams(p, seed);
+  return detailUrl({ viewId, seed: [...p.entries()], steps: [[dim, value]], trail: [name] });
+}
+
+/** Read the detail page state from its query string (the single source of truth). */
+export function parseDetailParams(search: string): DetailContext {
+  const p = new URLSearchParams(search);
+  const trail = (p.get('trail') ?? '').split('|').filter(Boolean);
+  const entries = [...p.entries()].filter(([k]) => !DETAIL_PAGE_KEYS.has(k));
+  const split = Math.max(0, entries.length - trail.length);
+  const steps = entries.slice(split);
+  const filters = toFilterMap(entries);
+  const lastDim = steps[steps.length - 1]?.[0];
+  return {
+    viewId: p.get('v'),
+    seed: entries.slice(0, split),
+    steps,
+    trail,
+    filters,
+    groupBy: (p.get('g') as GroupByDimension | null) ?? (lastDim ? nextGroupBy(lastDim, filters) : DRILL_TARGET_FALLBACK),
+  };
 }
 
 /**
  * Entity keys for the qube6 segment chart, matching the visible breakdown
  * categories (so the chart hides the "own" entity like the breakdown does).
  */
-export function getSegmentEntityOptions(filters: Record<string, string>): string[] {
+export function getSegmentEntityOptions(filters: FilterMap): string[] {
   return getBreakdownCategories(filters)
     .map((c) => CATEGORY_ENTITY[c.id])
     .filter((entity): entity is GroupByDimension => Boolean(entity));
