@@ -52,6 +52,20 @@ export const CATEGORY_LABEL: Record<ChangelogCategory, string> = {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: '2026-11-18-presupuesto-festival-directores',
+    date: '2026-11-18',
+    title: 'Los directores ya ven el presupuesto del Festival Virtual',
+    published: true,
+    changes: [
+      {
+        category: 'corregido',
+        items: [
+          '**Presupuesto por vendedor para directores**: en Festival Virtual, los directores regionales ven el presupuesto del festival y su cumplimiento al agrupar por vendedor, regional o proveedor, y en los indicadores de cabecera. También en el Excel.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-11-18-ruta-del-detalle',
     date: '2026-11-18',
     title: 'Volver atrás desde el detalle te deja donde estabas',

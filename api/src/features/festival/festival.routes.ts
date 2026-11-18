@@ -50,6 +50,13 @@ const FESTIVAL_FIXED_FILTERS: FilterCondition[] = [
  * (it does split by provider, where the scoped copy applies normally).
  */
 const SCOPED_DRILL_FIELDS: Record<string, Record<string, string>> = {
+  // Role data filter (Director: channel=DISTRIBUCION). Sales tables only, like
+  // FESTIVAL_FIXED_FILTERS — unscoped it would hit the channel-less budget
+  // table and zero the festival budget for the whole role.
+  channel: {
+    transactions: 'channel',
+    pedidos_retenidos: 'channel',
+  },
   ProveedorComercial: {
     transactions: 'ProveedorComercial',
     pedidos_retenidos: 'proveedorComercial',
